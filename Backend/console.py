@@ -5,14 +5,23 @@ import db_operator as op
 c.setup_database()
 
 def test_functions():
-    while True:
+    cont = "y"
+    while cont != "n":
        print("\n==== DB OPERATIONS MENU ====")
+       print("\n==== USER OPERATIONS ====")
        print("0. Exit")
        print("1. Register New User")
        print("2. Authenticate User")
        print("3. Update User Profile")
        print("4. Get User by ID")
-       print("5. Get User by ID")
+       print("5. Delete User by ID")
+
+       print("\n==== ORGANIZATION OPERATIONS ====")
+       print("6. Register New Organization")
+       print("7. Authenticate Organization")
+       print("8. Update Organization Profile")
+       print("9. Get Organization by ID")
+       print("10. Delete Organization by ID")
         
         
        choice = input("\nSelect option: ")
@@ -24,14 +33,14 @@ def test_functions():
        elif choice == "1":
               print("\n-- REGISTER USER --")
               student_code = input("Student code: ")
+              password = input("Password: ")
               username = input("Username: ")
               email = input("Email: ")
-              password = input("Password: ")
               career = input("Career (optional): ") or None
               interests = input("Interests (optional): ") or None
        
               result = op.register_user(
-              student_code, username, email, password, career, interests
+              student_code, password, username, email, career, interests
               )
               print(f"Result: {result}")
        
@@ -73,14 +82,59 @@ def test_functions():
               result = op.delete_user_by_id(user_id)
               print(f"Result: {result}")
        
+# Organization operations
+       elif choice == "6":
+              print("\n-- REGISTER ORGANIZATION --")
+              creator_student_code = input("Creator student code: ")
+              password = input("Password: ")
+              name = input("Organization name: ")
+              email = input("Email: ")
+              description = input("Description (optional): ") or None
+              interests = input("Interests (optional): ") or None
+              result = op.register_org(
+                     creator_student_code, password, name, email, description, interests
+              )
+              print(f"Result: {result}")
+ 
+       elif choice == "7":
+              print("\n-- AUTHENTICATE ORGANIZATION --")
+              name = input("Organization name: ")
+              password = input("Password: ")
+              result = op.authenticate_org(name, password)
+              print(f"Result: {result}")
+ 
+       elif choice == "8":
+              print("\n-- UPDATE ORGANIZATION PROFILE --")
+              org_id = int(input("Organization ID: "))
+              creator_student_code = input("New creator student code (optional): ") or None
+              name = input("New organization name (optional): ") or None
+              email = input("New email (optional): ") or None
+              password = input("New password (optional): ") or None
+              description = input("New description (optional): ") or None
+              interests = input("New interests (optional): ") or None
+              result = op.update_org_profile(
+                     org_id, creator_student_code, password, name, email, description, interests
+              )
+              print(f"Result: {result}")
+
+       elif choice == "9":
+              print("\n-- GET ORGANIZATION BY ID --")
+              org_id = int(input("Organization ID: "))
+              result = op.get_org_by_id(org_id)
+              print(f"Result: {result}")
+
+       elif choice == "10":
+              print("\n-- DELETE ORGANIZATION BY ID --")
+              org_id = int(input("Organization ID: "))
+              result = op.delete_org_by_id(org_id)
+              print(f"Result: {result}")
+
        else:
               print("Invalid option. Try again.")
        
-       # Ask to continue
        cont = input("\nContinue? (y/n): ")
-       if cont.lower() != 'y':
-              print("Exiting...")
-              break
+       print("Exiting...")
+       
 
 if __name__ == "__main__":
     test_functions()

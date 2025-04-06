@@ -9,6 +9,7 @@ def create_connection():
     except sqlite3.Error as e:
         print(f"Error connecting to database: {e}")
     return conn
+
 def setup_database():
     """
     Creates all necessary tables in the database if they don't exist.
@@ -23,9 +24,9 @@ def setup_database():
             CREATE TABLE IF NOT EXISTS users (
                 user_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 student_code TEXT UNIQUE NOT NULL,
-                username TEXT NOT NULL,
-                email TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
+                name TEXT NOT NULL,
+                email TEXT UNIQUE NOT NULL,
                 career TEXT,
                 interests TEXT,
                 points INTEGER DEFAULT 0,
@@ -37,12 +38,14 @@ def setup_database():
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS organizations (
                 org_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                creator_student_code INTEGER,
+                password TEXT NOT NULL,
                 name TEXT UNIQUE NOT NULL,
+                email TEXT UNIQUE NOT NULL,
                 description TEXT,
                 interests TEXT,
-                creator_id INTEGER,
+                points INTEGER DEFAULT 0,
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP
-                FOREIGN KEY (creator_id) REFERENCES users(user_id)
             )
             ''')
             
