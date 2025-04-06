@@ -1,15 +1,14 @@
-'''Initializing db and creating connection'''
+'''Initializing db, creating tables and connection'''
 
 import sqlite3
 
 def create_connection():
+    conn = None
     try:
         conn = sqlite3.connect('comunidad_verde.db')
-        return conn
     except sqlite3.Error as e:
         print(f"Error connecting to database: {e}")
-        return None
-
+    return conn
 def setup_database():
     """
     Creates all necessary tables in the database if they don't exist.
@@ -41,7 +40,9 @@ def setup_database():
                 name TEXT UNIQUE NOT NULL,
                 description TEXT,
                 interests TEXT,
+                creator_id INTEGER,
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP
+                FOREIGN KEY (creator_id) REFERENCES users(user_id)
             )
             ''')
             
@@ -77,7 +78,7 @@ def setup_database():
             
             # Exchange Items table
             cursor.execute('''
-            CREATE TABLE IF NOT EXISTS exchange_items (
+            CREATE TABLE IF NOT EXISTS items (
                 item_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER,
                 title TEXT NOT NULL,
@@ -86,19 +87,6 @@ def setup_database():
                 status TEXT DEFAULT 'available',
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(user_id)
-            )
-            ''')
-            
-            # Groups table
-            cursor.execute('''
-            CREATE TABLE IF NOT EXISTS groups (
-                group_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                description TEXT,
-                topic TEXT NOT NULL,
-                creator_id INTEGER,
-                creation_date TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (creator_id) REFERENCES users(user_id)
             )
             ''')
             
