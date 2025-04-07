@@ -55,34 +55,34 @@ def setup_database():
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS events (
                 event_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT NOT NULL,
-                description TEXT,
-                event_type TEXT NOT NULL,
-                location TEXT NOT NULL,
-                event_date TEXT NOT NULL,
-                event_time TEXT NOT NULL,
                 organizer_id INTEGER,
                 organizer_type TEXT NOT NULL, 
-                creator_student_code TEXT,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                location TEXT NOT NULL,
+                event_datetime TEXT NOT NULL,
                 status TEXT DEFAULT 'active',
-                points INTEGER DEFAULT 5,
+                points_value INTEGER DEFAULT 0, --poits it gives to creators and participants
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (creator_student_code) REFERENCES users(student_code) ON DELETE SET NULL
             )
             ''')
             
-            # Event Participants table
+            # Event Participants table 
+            #If a referenced value is deleted, all rows in the current table containing that value will be deleted."
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS event_participants (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                participant_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 event_id INTEGER,
                 user_id INTEGER,
                 registered_date TEXT DEFAULT CURRENT_TIMESTAMP,
                 attended BOOLEAN DEFAULT 0,
-                FOREIGN KEY (event_id) REFERENCES events(event_id),
-                FOREIGN KEY (user_id) REFERENCES users(user_id)
+                FOREIGN KEY (event_id) REFERENCES events(event_id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+                UNIQUE (event_id, user_id), -- only 1 row allowed with same params.
             )
             ''')
+            
             
             # Exchange Items table
             cursor.execute('''
