@@ -23,6 +23,7 @@ def setup_database():
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_type TEXT NOT NULL,
                 student_code TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
                 name TEXT NOT NULL,
@@ -37,7 +38,8 @@ def setup_database():
             # Organizations table
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS organizations (
-                org_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_type TEXT NOT NULL,
                 creator_student_code INTEGER,
                 password TEXT NOT NULL,
                 name TEXT UNIQUE NOT NULL,
@@ -60,9 +62,12 @@ def setup_database():
                 event_date TEXT NOT NULL,
                 event_time TEXT NOT NULL,
                 organizer_id INTEGER,
-                organizer_type TEXT NOT NULL,
+                organizer_type TEXT NOT NULL, 
+                creator_student_code TEXT,
+                status TEXT DEFAULT 'active',
+                points INTEGER DEFAULT 5,
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (organizer_id) REFERENCES users(user_id) ON DELETE CASCADE
+                FOREIGN KEY (creator_student_code) REFERENCES users(student_code) ON DELETE SET NULL
             )
             ''')
             

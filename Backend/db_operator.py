@@ -3,12 +3,16 @@ import bcrypt # bcrypt is a hashing algorithm
 import sqlite3
 import db_conn
 
-#USER OPERATIONS
+#USER REGISTRATION
 def register_user(student_code, password, name, email, career=None, interests=None):
     """
     Registers a new user in the system.
     Returns the user_id if successful, None otherwise.
     """
+    if student_code == "admin":
+        user_type = "admin"
+    else:
+        user_type = "user"
     user_id = None
     conn = db_conn.create_connection()
     if conn is not None:
@@ -18,9 +22,9 @@ def register_user(student_code, password, name, email, career=None, interests=No
             hashed_password = bcrypt.hashpw(password_bytes, salt) #hash the password
             cursor = conn.cursor()
             cursor.execute('''
-            INSERT INTO users (student_code, password, name, email, career, interests)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ''', (student_code, hashed_password, name, email, career, interests)) 
+            INSERT INTO users (user_type, student_code, password, name, email, career, interests)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (user_type, student_code, hashed_password, name, email, career, interests)) 
             conn.commit()
             user_id = cursor.lastrowid #returns the id of the last manipulated row
         except sqlite3.Error as e:
@@ -40,25 +44,26 @@ def authenticate_user(student_code, password):
         try:
             cursor = conn.cursor() #The order of fields in the SELECT statement determines the order in the tuple
             cursor.execute('''
-            SELECT user_id, student_code, name, email, password, career, interests, points, creation_date
+            SELECT user_id, user_type, student_code, name, email, password, career, interests, points, creation_date
             FROM users
             WHERE student_code = ?
             ''', (student_code,)) #the comma is crusial so it is consider a tuple
+            
             user = cursor.fetchone()
             if user:
                 password_bytes = password.encode('utf-8')
-                stored_password = user[4]
-
+                stored_password = user[5]
                 if bcrypt.checkpw(password_bytes, stored_password): #Extracts the salt from the hashed password, embed it into the login password, and compare them.
                     user_data = {
                         'user_id': user[0],
-                        'student_code': user[1],
-                        'name': user[2],
-                        'email': user[3],
-                        'career': user[5],
-                        'interests': user[6],
-                        'points': user[7],
-                        'creation_date': user[8]
+                        'user_type': user[1],
+                        'student_code': user[2],
+                        'name': user[3],
+                        'email': user[4],
+                        'career': user[6],
+                        'interests': user[7],
+                        'points': user[8],
+                        'creation_date': user[9]
                     }
         except sqlite3.Error as e:
             print(f"Error authenticating user: {e}")
@@ -128,7 +133,7 @@ def get_user_by_id(user_id):
         try:
             cursor = conn.cursor()
             cursor.execute('''
-            SELECT user_id, student_code, name, email, password, career, interests, points
+            SELECT user_id, user_type, student_code, name, email, password, career, interests, points
             FROM users
             WHERE user_id = ?
             ''', (user_id,))
@@ -136,13 +141,14 @@ def get_user_by_id(user_id):
             if user:
                 user_data = {
                     'user_id': user[0],
-                    'student_code': user[1],
-                    'name': user[2],
-                    'email': user[3],
-                    "password": user[4], #TRY, QUIT
-                    'career': user[4],
-                    'interests': user[5],
-                    'points': user[6]
+                    'user_type': user[1],
+                    'student_code': user[2],
+                    'name': user[3],
+                    'email': user[4],
+                    "password": user[5], #TRY, QUIT
+                    'career': user[6],
+                    'interests': user[7],
+                    'points': user[8]
                 }
         except sqlite3.Error as e:
             print(f"Error retrieving user: {e}")
@@ -170,10 +176,10 @@ def delete_user_by_id(user_id):
             conn.close()
     return success
 
-
-#ORG OPERATIONS
+#ORG REGISTRATION
 def register_org(creator_student_code, password, name, email, description=None, interests=None):
-    org_id = None
+    user_type = "org"
+    user_id = None
     conn = db_conn.create_connection()
     if conn is not None:
         try:
@@ -183,25 +189,29 @@ def register_org(creator_student_code, password, name, email, description=None, 
 
             cursor = conn.cursor()
             cursor.execute('''
-            INSERT INTO organizations (creator_student_code, password, name, email, description, interests)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ''', (creator_student_code, hashed_password, name, email, description, interests)) 
+            INSERT INTO organizations (user_type, creator_student_code, password, name, email, description, interests)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (user_type, creator_student_code, hashed_password, name, email, description, interests)) 
             conn.commit()
-            org_id = cursor.lastrowid
+            user_id = cursor.lastrowid
         except sqlite3.Error as e:
             print(f"Error registering organization: {e}")
         finally:
             conn.close()
-    return org_id
+    return user_id
 
 def authenticate_org(name, password):
-    org_data = None
+    """
+    Authenticates an organization based on name and password.
+    Returns a dict with organization data if successful, None otherwise.
+    """
+    user_data = None
     conn = db_conn.create_connection()
     if conn is not None:
         try:
             cursor = conn.cursor()
             cursor.execute('''
-            SELECT org_id, creator_student_code, name, email, password, description, interests, points, creation_date
+            SELECT user_id, user_type, creator_student_code, name, email, password, description, interests, points, creation_date
             FROM organizations
             WHERE name = ?
             ''', (name,))
@@ -209,25 +219,26 @@ def authenticate_org(name, password):
             org = cursor.fetchone()
             if org:
                 password_bytes = password.encode('utf-8')
-                stored_password = org[4]
+                stored_password = org[5]
                 if bcrypt.checkpw(password_bytes, stored_password):
-                    org_data = {
-                        'org_id': org[0],
-                        'creator_student_code': org[1],
-                        'name': org[2],
-                        'email': org[3],
-                        'description': org[5],
-                        'interests': org[6],
-                        'points': org[7],
-                        'creation_date': org[8]
+                    user_data = {
+                        'user_id': org[0],
+                        'user_type': org[1],
+                        'creator_student_code': org[2],
+                        'name': org[3],
+                        'email': org[4],
+                        'description': org[6],
+                        'interests': org[7],
+                        'points': org[8],
+                        'creation_date': org[9]
                     }
         except sqlite3.Error as e:
             print(f"Error authenticating organization: {e}")
         finally:
             conn.close()
-    return org_data
+    return user_data
 
-def update_org_profile(org_id, creator_student_code=None, password=None, name=None, email=None, description=None, interests=None):
+def update_org_profile(user_id, creator_student_code=None, password=None, name=None, email=None, description=None, interests=None):
     success = False
     conn = db_conn.create_connection()
     if conn is not None:
@@ -258,9 +269,9 @@ def update_org_profile(org_id, creator_student_code=None, password=None, name=No
                 updates.append("interests = ?")
                 params.append(interests)
             
-            params.append(org_id)
+            params.append(user_id)
             
-            query = f"UPDATE organizations SET {', '.join(updates)} WHERE org_id = ?"
+            query = f"UPDATE organizations SET {', '.join(updates)} WHERE user_id = ?"
             cursor.execute(query, params)
             conn.commit()
             
@@ -271,25 +282,26 @@ def update_org_profile(org_id, creator_student_code=None, password=None, name=No
             conn.close()
     return success
 
-def get_org_by_id(org_id):
-    org_data = None
+def get_org_by_id(user_id):
+    user_data = None
     conn = db_conn.create_connection()
     if conn is not None:
         try:
             cursor = conn.cursor()
             cursor.execute('''
-            SELECT org_id, creator_student_code, name, email, password, description, interests, points, creation_date
+            SELECT user_id, user_type, creator_student_code, name, email, description, interests, points, creation_date
             FROM organizations
-            WHERE org_id = ?
-            ''', (org_id,))
+            WHERE user_id = ?
+            ''', (user_id,))
             
             org = cursor.fetchone()
             if org:
-                org_data = {
-                    'org_id': org[0],
-                    'creator_student_code': org[1],
-                    'name': org[2],
-                    'email': org[3],
+                user_data = {
+                    'user_id': org[0],
+                    'user_type': org[1],
+                    'creator_student_code': org[2],
+                    'name': org[3],
+                    'email': org[4],
                     'description': org[5],
                     'interests': org[6],
                     'points': org[7],
@@ -299,9 +311,9 @@ def get_org_by_id(org_id):
             print(f"Error retrieving organization: {e}")
         finally:
             conn.close()
-    return org_data
+    return user_data
 
-def delete_org_by_id(org_id):
+def delete_org_by_id(user_id):
     success = False
     conn = db_conn.create_connection()
     if conn is not None:
@@ -309,8 +321,8 @@ def delete_org_by_id(org_id):
             cursor = conn.cursor()
             cursor.execute('''
             DELETE FROM organizations
-            WHERE org_id = ?
-            ''', (org_id,))
+            WHERE user_id = ?
+            ''', (user_id,))
             
             conn.commit()
             if cursor.rowcount > 0:
@@ -320,3 +332,4 @@ def delete_org_by_id(org_id):
         finally:
             conn.close()
     return success
+

@@ -222,14 +222,15 @@ def register_user(student_code, username, email, password, career=None, interest
     Registers a new user in the system.
     Returns the user_id if successful, None otherwise.
     """
+    user_type = "user"
     conn = create_connection()
     if conn is not None:
         try:
             cursor = conn.cursor()
             cursor.execute('''
-            INSERT INTO users (student_code, username, email, password, career, interests)
+            INSERT INTO users (user_type, student_code, username, email, password, career, interests)
             VALUES (?, ?, ?, ?, ?, ?)
-            ''', (student_code, username, email, password, career, interests))
+            ''', (user_type, student_code, username, email, password, career, interests))
             conn.commit()
             return cursor.lastrowid
         except sqlite3.Error as e:

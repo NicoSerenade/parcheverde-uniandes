@@ -125,8 +125,8 @@ def test_functions():
 
        elif choice == "10":
               print("\n-- DELETE ORGANIZATION BY ID --")
-              org_id = int(input("Organization ID: "))
-              result = op.delete_org_by_id(org_id)
+              user_id = int(input("Organization ID: "))
+              result = op.delete_org_by_id(user_id)
               print(f"Result: {result}")
 
        else:
