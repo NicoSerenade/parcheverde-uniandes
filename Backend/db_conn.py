@@ -38,7 +38,7 @@ def setup_database():
             # Organizations table
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS organizations (
-                user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_type TEXT NOT NULL,
                 creator_student_code INTEGER,
                 password TEXT NOT NULL,
@@ -50,14 +50,28 @@ def setup_database():
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP
             )
             ''')
-            
+
+            # Org Members table
+            cursor.execute('''
+            CREATE TABLE IF NOT EXISTS organization_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER, 
+                user_id INTEGER,
+                registered_date TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (org_id) REFERENCES organizations(org_id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+                UNIQUE (org_id, user_id),
+
+            )
+            ''')
+
             # Events table
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS events (
                 event_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 organizer_id INTEGER,
                 organizer_type TEXT NOT NULL, 
-                title TEXT NOT NULL,
+                name TEXT NOT NULL,
                 description TEXT NOT NULL,
                 event_type TEXT NOT NULL,
                 location TEXT NOT NULL,
@@ -68,81 +82,82 @@ def setup_database():
             )
             ''')
             
-            # Event Participants table 
-            #If a referenced value is deleted, all rows in the current table containing that value will be deleted."
+            # Users event Participants table 
+            #If a referenced value is deleted, all rows in the current table containing that linked value will be deleted."
             cursor.execute('''
-            CREATE TABLE IF NOT EXISTS event_participants (
-                participant_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            CREATE TABLE IF NOT EXISTS user_event_participants (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 event_id INTEGER,
                 user_id INTEGER,
                 registered_date TEXT DEFAULT CURRENT_TIMESTAMP,
                 attended BOOLEAN DEFAULT 0,
                 FOREIGN KEY (event_id) REFERENCES events(event_id) ON DELETE CASCADE,
                 FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-                UNIQUE (event_id, user_id), -- only 1 row allowed with same params.
+                UNIQUE (event_id, user_id),
             )
             ''')
-            
-            
-            # Exchange Items table
+
+            # Orgs event Participants table 
+            cursor.execute('''
+            CREATE TABLE IF NOT EXISTS org_event_participants (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_id INTEGER,
+                org_id INTEGER,
+                registered_date TEXT DEFAULT CURRENT_TIMESTAMP,
+                attended BOOLEAN DEFAULT 0,
+                FOREIGN KEY (event_id) REFERENCES events(event_id) ON DELETE CASCADE,
+                FOREIGN KEY (org_id) REFERENCES organizations(org_id) ON DELETE CASCADE,
+                UNIQUE (event_id, org_id),
+            )
+            ''')
+        
+            # Items table
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS items (
                 item_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER,
-                title TEXT NOT NULL,
-                description TEXT,
-                item_type TEXT NOT NULL,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL,
+                item_type TEXT NOT NULL, --ropa, tecnologia etc..
+                item_terms TEXT NOT NULL, --REGALAR, INTERCAMBIAR no se pueden vender
                 status TEXT DEFAULT 'available',
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(user_id)
+                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+                UNIQUE (user_id, title, item_type),
+            )
+            ''')
+
+            # Map Points table
+            cursor.execute('''
+            CREATE TABLE IF NOT EXISTS map_points (
+                point_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL,
+                point_type TEXT NOT NULL, --tienda, reciclaje
+                latitude REAL NOT NULL,
+                longitude REAL NOT NULL,
+                address TEXT,
+                creation_date TEXT DEFAULT CURRENT_TIMESTAMP
             )
             ''')
             
-            # Group Members table
+            #  achievements for users table
             cursor.execute('''
-            CREATE TABLE IF NOT EXISTS group_members (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                group_id INTEGER,
-                user_id INTEGER,
-                join_date TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (group_id) REFERENCES groups(group_id),
-                FOREIGN KEY (user_id) REFERENCES users(user_id)
-            )
-            ''')
-            
-            # Messages table
-            cursor.execute('''
-            CREATE TABLE IF NOT EXISTS messages (
-                message_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                sender_id INTEGER,
-                recipient_id INTEGER,
-                content TEXT NOT NULL,
-                sent_date TEXT DEFAULT CURRENT_TIMESTAMP,
-                is_read BOOLEAN DEFAULT 0,
-                FOREIGN KEY (sender_id) REFERENCES users(user_id),
-                FOREIGN KEY (recipient_id) REFERENCES users(user_id)
-            )
-            ''')
-            
-            # Group Messages table
-            cursor.execute('''
-            CREATE TABLE IF NOT EXISTS group_messages (
-                message_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                group_id INTEGER,
-                sender_id INTEGER,
-                content TEXT NOT NULL,
-                sent_date TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (group_id) REFERENCES groups(group_id),
-                FOREIGN KEY (sender_id) REFERENCES users(user_id)
-            )
-            ''')
-            
-            # Achievements table
-            cursor.execute('''
-            CREATE TABLE IF NOT EXISTS achievements (
+            CREATE TABLE IF NOT EXISTS achievements_for_users (
                 achievement_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT UNIQUE NOT NULL,
-                description TEXT,
+                description TEXT NOT NULL,
+                points_required INTEGER,
+                badge_icon TEXT
+            )
+            ''')
+
+            # achievements for orgs table
+            cursor.execute('''
+            CREATE TABLE IF NOT EXISTS achievements_for_orgs (
+                achievement_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                description TEXT NOT NULL,
                 points_required INTEGER,
                 badge_icon TEXT
             )
@@ -156,55 +171,85 @@ def setup_database():
                 achievement_id INTEGER,
                 date_earned TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(user_id),
-                FOREIGN KEY (achievement_id) REFERENCES achievements(achievement_id)
+                FOREIGN KEY (achievement_id) REFERENCES achievements_for_users(achievement_id)
             )
             ''')
-            
-            # Challenges table
+
+            # orgs Achievements table
             cursor.execute('''
-            CREATE TABLE IF NOT EXISTS challenges (
-                challenge_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT NOT NULL,
-                description TEXT,
-                goal_count INTEGER,
-                goal_type TEXT,
-                points_reward INTEGER,
-                start_date TEXT,
-                end_date TEXT
+            CREATE TABLE IF NOT EXISTS org_achievements (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER,
+                achievement_id INTEGER,
+                date_earned TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (org_id) REFERENCES organizations(org_id),
+                FOREIGN KEY (achievement_id) REFERENCES achievements_for_orgs(achievement_id)
             )
             ''')
             
-            # User Challenges table
+
+            # Challenges for users
+            cursor.execute('''
+            CREATE TABLE IF NOT EXISTS challenges_for_users (
+                challenge_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,  
+                description TEXT NOT NULL,          
+                goal_type TEXT NOT NULL,       
+                goal_target INTEGER NOT NULL,       -- The numeric target for the goal_type (e.g., 5, 100)
+                points_reward INTEGER DEFAULT 0,    -- Points awarded upon successful completion
+                time_allowed INTEGER DEFAULT NULL, -- Time allowed in seconds (NULL = no limit)
+            )
+            ''')
+
+            # Challenges for orgs
+            cursor.execute('''
+            CREATE TABLE IF NOT EXISTS challenges_for_orgs (
+                challenge_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                description TEXT NOT NULL,
+                goal_type TEXT NOT NULL,
+                goal_target INTEGER NOT NULL,
+                points_reward INTEGER DEFAULT 0,
+                time_allowed INTEGER DEFAULT NULL,
+            )
+            ''')
+
+            # Individual users progress in challenges
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS user_challenges (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER,
-                challenge_id INTEGER,
-                current_count INTEGER DEFAULT 0,
-                completed BOOLEAN DEFAULT 0,
-                date_joined TEXT DEFAULT CURRENT_TIMESTAMP,
-                date_completed TEXT,
-                FOREIGN KEY (user_id) REFERENCES users(user_id),
-                FOREIGN KEY (challenge_id) REFERENCES challenges(challenge_id)
+                user_id INTEGER NOT NULL,           
+                challenge_id INTEGER NOT NULL,     
+                goal_progress INTEGER DEFAULT 0, 
+                status TEXT NOT NULL DEFAULT 'active'
+                start_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                deadline TEXT DEFAULT NULL,
+                date_completed TEXT DEFAULT NULL,
+
+                FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
+                FOREIGN KEY (challenge_id) REFERENCES challenges_for_users(challenge_id) ON DELETE CASCADE,
+                UNIQUE (user_id, challenge_id)
             )
             ''')
-            
-            # Map Points table
+
+            # Individual organization progress in challenges
             cursor.execute('''
-            CREATE TABLE IF NOT EXISTS map_points (
-                point_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                description TEXT,
-                point_type TEXT NOT NULL,
-                latitude REAL NOT NULL,
-                longitude REAL NOT NULL,
-                address TEXT,
-                creation_date TEXT DEFAULT CURRENT_TIMESTAMP
+            CREATE TABLE IF NOT EXISTS org_challenges (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                org_id INTEGER NOT NULL,  
+                challenge_id INTEGER NOT NULL,    
+                goal_progress INTEGER DEFAULT 0,
+                status TEXT NOT NULL DEFAULT 'in_progress'
+                start_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                deadline TEXT DEFAULT NULL,
+                date_completed TEXT DEFAULT NULL,
+
+                FOREIGN KEY (org_id) REFERENCES organizations(org_id) ON DELETE CASCADE,
+                FOREIGN KEY (challenge_id) REFERENCES challenges_for_orgs(challenge_id) ON DELETE CASCADE,
+                UNIQUE (org_id, challenge_id)
             )
             ''')
             
-            conn.commit()
-            print("Database setup complete.")
         except sqlite3.Error as e:
             print(f"Error setting up database: {e}")
         finally:

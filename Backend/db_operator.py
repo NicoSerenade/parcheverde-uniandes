@@ -182,7 +182,7 @@ def delete_my_user(student_code, password):
 #ORG REGISTRATION
 def register_org(creator_student_code, password, name, email, description=None, interests=None):
     user_type = "org"
-    user_id = None
+    org_id = None
 
     if not isinstance(email, str) or not email.endswith("@uniandes.edu.co"):
         print(f"Error: Email must end with {"@uniandes.edu.co"}")
@@ -201,25 +201,25 @@ def register_org(creator_student_code, password, name, email, description=None, 
             VALUES (?, ?, ?, ?, ?, ?, ?)
             ''', (user_type, creator_student_code, hashed_password, name, email, description, interests)) 
             conn.commit()
-            user_id = cursor.lastrowid
+            org_id = cursor.lastrowid
         except sqlite3.Error as e:
             print(f"Error registering organization: {e}")
         finally:
             conn.close()
-    return user_id
+    return org_id
 
 def authenticate_org(name, password):
     """
     Authenticates an organization based on name and password.
     Returns a dict with organization data if successful, None otherwise.
     """
-    user_data = None
+    org_data = None
     conn = db_conn.create_connection()
     if conn is not None:
         try:
             cursor = conn.cursor()
             cursor.execute('''
-            SELECT user_id, user_type, creator_student_code, name, email, password, description, interests, points, creation_date
+            SELECT org_id, user_type, creator_student_code, name, email, password, description, interests, points, creation_date
             FROM organizations
             WHERE name = ?
             ''', (name,))
@@ -229,8 +229,8 @@ def authenticate_org(name, password):
                 password_bytes = password.encode('utf-8')
                 stored_password = org[5]
                 if bcrypt.checkpw(password_bytes, stored_password):
-                    user_data = {
-                        'user_id': org[0],
+                    org_data = {
+                        'org_id': org[0],
                         'user_type': org[1],
                         'creator_student_code': org[2],
                         'name': org[3],
@@ -244,9 +244,9 @@ def authenticate_org(name, password):
             print(f"Error authenticating organization: {e}")
         finally:
             conn.close()
-    return user_data
+    return org_data
 
-def update_org_profile(user_id, creator_student_code=None, password=None, name=None, email=None, description=None, interests=None):
+def update_org_profile(org_id, creator_student_code=None, password=None, name=None, email=None, description=None, interests=None):
     success = False
 
     if not isinstance(email, str) or not email.endswith("@uniandes.edu.co"):
@@ -282,9 +282,9 @@ def update_org_profile(user_id, creator_student_code=None, password=None, name=N
                 updates.append("interests = ?")
                 params.append(interests)
             
-            params.append(user_id)
+            params.append(org_id)
             
-            query = f"UPDATE organizations SET {', '.join(updates)} WHERE user_id = ?"
+            query = f"UPDATE organizations SET {', '.join(updates)} WHERE org_id = ?"
             cursor.execute(query, params)
             conn.commit()
             
@@ -383,22 +383,22 @@ def delete_user_by_id(user_id):
             conn.close()
     return success
 
-def get_org_by_id(user_id):
-    user_data = None
+def get_org_by_id(org_id):
+    org_data = None
     conn = db_conn.create_connection()
     if conn is not None:
         try:
             cursor = conn.cursor()
             cursor.execute('''
-            SELECT user_id, user_type, creator_student_code, name, email, description, interests, points, creation_date
+            SELECT org_id, user_type, creator_student_code, name, email, description, interests, points, creation_date
             FROM organizations
-            WHERE user_id = ?
-            ''', (user_id,))
+            WHERE org_id = ?
+            ''', (org_id,))
             
             org = cursor.fetchone()
             if org:
-                user_data = {
-                    'user_id': org[0],
+                org_data = {
+                    'org_id': org[0],
                     'user_type': org[1],
                     'creator_student_code': org[2],
                     'name': org[3],
@@ -412,9 +412,9 @@ def get_org_by_id(user_id):
             print(f"Error retrieving organization: {e}")
         finally:
             conn.close()
-    return user_data
+    return org_data
 
-def delete_org_by_id(user_id):
+def delete_org_by_id(org_id):
     success = False
     conn = db_conn.create_connection()
     if conn is not None:
@@ -422,8 +422,8 @@ def delete_org_by_id(user_id):
             cursor = conn.cursor()
             cursor.execute('''
             DELETE FROM organizations
-            WHERE user_id = ?
-            ''', (user_id,))
+            WHERE org_id = ?
+            ''', (org_id,))
             
             conn.commit()
             if cursor.rowcount > 0:
@@ -434,9 +434,8 @@ def delete_org_by_id(user_id):
             conn.close()
     return success
 
-
 #USER/ORG FUNCTIONS
-def create_event(organizer_id, organizer_type, title, description, event_type, location, event_datetime):
+def create_event(organizer_id, organizer_type, name, description, event_type, location, event_datetime):
     """
     Creates a new event in the system.
     Returns the event_id if successful, None otherwise.
@@ -446,9 +445,9 @@ def create_event(organizer_id, organizer_type, title, description, event_type, l
     try:
         cursor = conn.cursor()
         cursor.execute('''
-        INSERT INTO events (organizer_id, organizer_type, title, description, event_type, location, event_datetime)
+        INSERT INTO events (organizer_id, organizer_type, name, description, event_type, location, event_datetime)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (organizer_id, organizer_type, title, description, event_type, location, event_datetime))
+        ''', (organizer_id, organizer_type, name, description, event_type, location, event_datetime))
         conn.commit()
         event_id = cursor.lastrowid
 
@@ -458,14 +457,47 @@ def create_event(organizer_id, organizer_type, title, description, event_type, l
         conn.close()
     return event_id
 
-def register_for_event(event_id, user_id, user_type):
+def register_for_event(event_id, entity_id, user_type):
     """
-    Registers a user for an event.
-    Returns True if successful, False otherwise.
+    Registers a user or organization for an event.
+    Returns:
+        bool: True if successful, False otherwise
     """
+    success = False
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            
+            if user_type == "user":
+                # Register a user for the event
+                cursor.execute('''
+                INSERT INTO user_event_participants (event_id, user_id)
+                VALUES (?, ?)
+                ''', (event_id, entity_id))
+            elif user_type == "org":
+                # Register an organization for the event
+                cursor.execute('''
+                INSERT INTO org_event_participants (event_id, org_id)
+                VALUES (?, ?)
+                ''', (event_id, entity_id))
+            else:
+                print(f"Error: Invalid user_type")
+                return success
+            conn.commit()
+            success = cursor.rowcount > 0
+            
+        except sqlite3.Error as e:
+            print(f"Error registering for event: {e}")
+        finally:
+            conn.close()
+            
+    return success
+
 
 #GENERAL LOGIC
-def update_points(user_id, user_type, points_to_add):
+def update_points(entity_id, user_type, points_to_add):
     """
     Awards points to a user or organization and checks for achievement unlocks.
     Returns:
@@ -478,13 +510,15 @@ def update_points(user_id, user_type, points_to_add):
     # Determine table and id column based on user_type
     if user_type == "user":
         table_name = "users"
+        table_id = "user_id"
     elif user_type == "org":
         table_name = "organizations"
+        table_id = "org_id"
 
     try:
         conn = db_conn.create_connection()
         cursor = conn.cursor()
-        cursor.execute(f"SELECT points FROM {table_name} WHERE user_id = ?", (user_id,))
+        cursor.execute(f"SELECT points FROM {table_name} WHERE {table_id} = ?", (entity_id,))
         result = cursor.fetchone()
         
         old_points = result[0]
@@ -494,8 +528,8 @@ def update_points(user_id, user_type, points_to_add):
         cursor.execute(f'''
             UPDATE {table_name}
             SET points = points + ?
-            WHERE user_id = ?
-        ''', (points_to_add, user_id))
+            WHERE {table_id} = ?
+        ''', (points_to_add, entity_id))
 
         conn.commit()
 
@@ -509,7 +543,7 @@ def update_points(user_id, user_type, points_to_add):
 
     return achievement_unlocked
 
-def get_achievements(old_points, new_points):
+def get_achievements(old_points, new_total_points):
     achievements_config = {
         10000: "Ultimate Champion",
         5000: "Platinum Contributor",
@@ -521,7 +555,7 @@ def get_achievements(old_points, new_points):
     newly_achieved_name = None
 
     for threshold, name in achievements_config.items():
-        if old_points < threshold <= new_points:
+        if old_points < threshold <= new_total_points:
             newly_achieved_name = name
             break
     return newly_achieved_name
