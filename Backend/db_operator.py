@@ -606,7 +606,6 @@ def delete_challenge(challenge_id, user_type):
             
     return success
 
-
 #USER/ORG FUNCTIONS
 def search_orgs(query=None, interests=None, sort_by=None):
     """
@@ -1807,21 +1806,17 @@ def search_users(query=None, career=None, interests=None):
     return users
 
 #MAP FUNCTIONS
-def add_map_point(name, description, point_type, latitude, longitude, address=None):
+def add_map_point(user_id, user_type, name, description, point_type, latitude, longitude, address=None):
     """
-    Adds a new point (e.g., recycling center, sustainable store) to the map_points table.
-
-    Args:
-        name (str): The name of the map point.
-        description (str): A description of the map point.
-        point_type (str): The type of point (e.g., 'tienda', 'reciclaje', 'punto_de_encuentro').
-        latitude (float): The latitude coordinate.
-        longitude (float): The longitude coordinate.
-        address (str, optional): The street address of the point. Defaults to None.
-
+    Adds a new map point if the user has the required permissions ('admin' or 'store'):
     Returns:
         int: The point_id of the newly created map point if successful, None otherwise.
     """
+    # Only 'admin' or 'store' users can add map points
+    if user_type not in ["admin", "store"]:
+        print(f"Permission Denied: User type '{user_type}' cannot add map points.")
+        return None
+
     point_id = None
     conn = db_conn.create_connection()
 
@@ -1832,13 +1827,13 @@ def add_map_point(name, description, point_type, latitude, longitude, address=No
     try:
         cursor = conn.cursor()
         cursor.execute('''
-            INSERT INTO map_points (name, description, point_type, latitude, longitude, address)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (name, description, point_type, latitude, longitude, address))
+            INSERT INTO map_points (creator_id, name, description, point_type, latitude, longitude, address)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (user_id, name, description, point_type, latitude, longitude, address))
 
         conn.commit()
         point_id = cursor.lastrowid
-        print(f"Successfully added map point '{name}' with ID: {point_id}")
+        print(f"Successfully added map point '{name}' with ID: {point_id} by user ID: {user_id}")
 
     except sqlite3.Error as e:
         print(f"Error adding map point: {e}")
@@ -1850,37 +1845,100 @@ def add_map_point(name, description, point_type, latitude, longitude, address=No
 
     return point_id
 
+def delete_map_point(user_id, user_type, point_id):
+    """
+    Deletes a map point based on user permissions.
+    - Admins can delete any point.
+    - Other users can only delete points they created.
+
+    Args:
+        user_id (int): The ID of the user attempting the deletion.
+        user_type (str): The type of the user ('admin', 'store', 'user', etc.).
+        point_id (int): The ID of the map point to delete.
+
+    Returns:
+        bool: True if the point was successfully deleted, False otherwise.
+    """
+    deleted = False
+    conn = db_conn.create_connection()
+
+    if conn is None:
+        print("Error: Could not establish database connection.")
+        return False
+
+    try:
+        cursor = conn.cursor()
+
+        if user_type == "admin":
+            # Admin can delete any point by its ID
+            cursor.execute("DELETE FROM map_points WHERE point_id = ?", (point_id,))
+            print(f"Admin user ID {user_id} attempting to delete point ID {point_id}.")
+        else:
+            # Non-admin users can only delete points they created
+            cursor.execute("DELETE FROM map_points WHERE point_id = ? AND creator_id = ?", (point_id, user_id))
+            print(f"User ID {user_id} (type: {user_type}) attempting to delete own point ID {point_id}.")
+
+        conn.commit()
+
+        if cursor.rowcount > 0:
+            print(f"Successfully deleted map point with ID: {point_id}")
+            deleted = True
+        else:
+            # Could be that the point_id doesn't exist, or the non-admin user doesn't own it
+             # We can add a check to see if the point exists first for a more specific message
+            cursor.execute("SELECT 1 FROM map_points WHERE point_id = ?", (point_id,))
+            exists = cursor.fetchone()
+            if not exists:
+                 print(f"Deletion failed: Map point with ID {point_id} not found.")
+            elif user_type != "admin":
+                 print(f"Deletion failed: User ID {user_id} does not have permission to delete point ID {point_id} or it doesn't exist.")
+            else: # Admin case, point not found
+                 print(f"Deletion failed: Map point with ID {point_id} not found (Admin attempt).")
+
+
+    except sqlite3.Error as e:
+        print(f"Error deleting map point: {e}")
+        if conn:
+            conn.rollback() # Rollback on error
+    finally:
+        if conn:
+            conn.close()
+
+    return deleted
+
 def get_map_points(point_type=None):
     """
     Retrieves map points from the database, optionally filtered by type.
 
     Args:
         point_type (str, optional): The type of point to filter by
-                                     (e.g., 'tienda', 'reciclaje').
-                                     If None, retrieves all points. Defaults to None.
+                                    (e.g., 'tienda', 'reciclaje').
+                                    If None, retrieves all points. Defaults to None.
 
     Returns:
         list: A list of dictionaries, where each dictionary represents a map point
-              matching the criteria. Returns an empty list if no points are found
-              or an error occurs.
+              matching the criteria. Includes 'creator_id'. Returns an empty list
+              if no points are found or an error occurs.
     """
     map_points_list = []
     conn = db_conn.create_connection()
 
     if conn is None:
         print("Error: Could not establish database connection.")
-        return map_points_list
+        return map_points_list # Return empty list on connection error
 
     try:
         cursor = conn.cursor()
 
+        # Select all relevant columns including creator_id
         sql_query = '''
-            SELECT point_id, name, description, point_type, latitude, longitude, address, creation_date
+            SELECT point_id, creator_id, name, description, point_type, latitude, longitude, address, creation_date
             FROM map_points
         '''
         params = []
 
         if point_type:
+            # Add WHERE clause if filtering by type
             sql_query += " WHERE point_type = ?"
             params.append(point_type)
 
@@ -1889,24 +1947,32 @@ def get_map_points(point_type=None):
         cursor.execute(sql_query, params)
         rows = cursor.fetchall()
 
+        # Fetch column names to create dictionaries more robustly (optional but good practice)
+        # columns = [description[0] for description in cursor.description]
+
         for row in rows:
+            # Create dictionary for each point using index access (consistent with user functions)
             point_data = {
                 'point_id': row[0],
-                'name': row[1],
-                'description': row[2],
-                'point_type': row[3],
-                'latitude': row[4],
-                'longitude': row[5],
-                'address': row[6],
-                'creation_date': row[7]
+                'creator_id': row[1], # Added creator_id
+                'name': row[2],
+                'description': row[3],
+                'point_type': row[4],
+                'latitude': row[5],
+                'longitude': row[6],
+                'address': row[7],
+                'creation_date': row[8]
             }
             map_points_list.append(point_data)
 
+        # print(f"Retrieved {len(map_points_list)} map points.") # Optional: print count
+
     except sqlite3.Error as e:
         print(f"Error retrieving map points: {e}")
+        # Return empty list on SQL error as well
+        map_points_list = []
     finally:
         if conn:
             conn.close()
 
     return map_points_list
-

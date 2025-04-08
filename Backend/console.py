@@ -106,7 +106,8 @@ def test_functions():
         # --- MAP OPERATIONS ---
         print("\n---- MAP OPERATIONS ----")
         print("38. Add Map Point")
-        print("39. Get Map Points")
+        print("39. Delete Map Point")
+        print("40. Get Map Points")
         print("------------------------------")
 
         choice = input("Select option: ").strip()
@@ -504,16 +505,28 @@ def test_functions():
             # --- MAP OPERATIONS ---
             elif choice == "38":
                  print("\n-- ADD MAP POINT --")
+                 user_id = int(input("User id: "))
+                 user_type = input("User type (must be admin or store): ")
                  name = input("Point Name: ")
                  description = input("Description: ")
                  point_type = input("Point Type (e.g., tienda, reciclaje): ")
                  latitude = get_float_input("Latitude: ")
                  longitude = get_float_input("Longitude: ")
                  address = optional_input("Address (optional): ")
-                 result = op.add_map_point(name, description, point_type, latitude, longitude, address)
+                 result = op.add_map_point(user_id, user_type, name, description, point_type, latitude, longitude, address)
                  print(f"\nMap point created with ID: {result}" if result else "\nCreation failed.")
 
             elif choice == "39":
+                 print("\n-- DELETE MAP POINTS --")
+                 user_id = get_int_input("User ID: ")
+                 user_type = input("User type (must be admin or store): ")
+                 point_id = int(input("Point ID: "))
+                 result = op.delete_map_point(user_id, user_type, point_id)
+                 print("\nMap Points:")
+                 pprint.pprint(result)
+
+
+            elif choice == "40":
                  print("\n-- GET MAP POINTS --")
                  point_type = optional_input("Filter by Point Type (optional): ")
                  result = op.get_map_points(point_type)

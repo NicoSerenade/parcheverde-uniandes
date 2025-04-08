@@ -250,6 +250,7 @@ def setup_database():
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS map_points (
                 point_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                creator_id INTEGER NOT NULL,
                 name TEXT NOT NULL,
                 description TEXT NOT NULL,
                 point_type TEXT NOT NULL, --tienda, reciclaje, punto_de_encuentro,
@@ -266,3 +267,43 @@ def setup_database():
             conn.close()
     else:
         print("Error: Could not establish database connection.")
+
+#FUNCTIONS FOR MANIPULATING DB 
+def drop_table():
+    database_file = "comunidad_verde.db"
+    table_to_drop = input("table to drop: " )
+
+
+    # Confirmation step (highly recommended)
+    confirm = input(f"Are you absolutely sure you want to permanently delete the table '{table_to_drop}' and all its data? Type 'YES' to confirm: ")
+
+    if confirm == "YES":
+        conn = None 
+        try:
+            conn = sqlite3.connect(database_file)
+            cursor = conn.cursor()
+            cursor.execute(f"DROP TABLE IF EXISTS {table_to_drop}")
+            conn.commit()
+            print(f"Table '{table_to_drop}' dropped successfully.")
+        except sqlite3.Error as e:
+            print(f"An error occurred: {e}")
+            # No rollback needed for DROP TABLE usually, but doesn't hurt
+            if conn:
+                conn.rollback()
+        finally:
+            if conn:
+                conn.close()
+    else:
+        print("Operation cancelled. Table was not dropped.")
+
+
+
+
+
+
+
+
+
+
+
+
