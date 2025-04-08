@@ -1,4 +1,14 @@
 '''Initializing db, creating tables and connection'''
+''' ABSTRACT COLUMNS FORMAT-separated by ", "
+BOOLEANS: False = 0, True = 1
+interests: --siembra, reciclaje, caridad, enseñanza,
+goal_type: --siembra, reciclaje, caridad, enseñanza,
+status: active, completed
+item_type: --ropa, 
+item_terms: --regalo, prestamo, intercambio (NO SE PUEDEN VENDER)
+item_status: --available, borrowed, unavailable
+
+'''
 
 import sqlite3
 
@@ -29,7 +39,7 @@ def setup_database():
                 name TEXT NOT NULL,
                 email TEXT UNIQUE NOT NULL,
                 career TEXT,
-                interests TEXT,
+                interests TEXT, --siembra, reciclaje, caridad, enseñanza,
                 points INTEGER DEFAULT 0,
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP
             )
@@ -45,7 +55,7 @@ def setup_database():
                 name TEXT UNIQUE NOT NULL,
                 email TEXT UNIQUE NOT NULL,
                 description TEXT,
-                interests TEXT,
+                interests TEXT, --siembra, reciclaje, caridad, enseñanza,
                 points INTEGER DEFAULT 0,
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP
             )
@@ -76,7 +86,7 @@ def setup_database():
                 event_type TEXT NOT NULL,
                 location TEXT NOT NULL,
                 event_datetime TEXT NOT NULL,
-                status TEXT DEFAULT 'active',
+                status TEXT DEFAULT 'active', active, completed
                 points_value INTEGER DEFAULT 0, --poits it gives to creators and participants
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP
             )
@@ -118,26 +128,12 @@ def setup_database():
                 user_id INTEGER,
                 name TEXT NOT NULL,
                 description TEXT NOT NULL,
-                item_type TEXT NOT NULL, --ropa, tecnologia etc..
-                item_terms TEXT NOT NULL, --REGALAR, INTERCAMBIAR no se pueden vender
-                status TEXT DEFAULT 'available',
+                item_type TEXT NOT NULL, --ropa,
+                item_terms TEXT NOT NULL, --regalo, prestamo, intercambio (NO SE PUEDEN VENDER)
+                item_status TEXT DEFAULT 'available', --available, borrowed, unavailable
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
                 UNIQUE (user_id, name, item_type)
-            )
-            ''')
-
-            # Map Points table
-            cursor.execute('''
-            CREATE TABLE IF NOT EXISTS map_points (
-                point_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                description TEXT NOT NULL,
-                point_type TEXT NOT NULL, --tienda, reciclaje
-                latitude REAL NOT NULL,
-                longitude REAL NOT NULL,
-                address TEXT,
-                creation_date TEXT DEFAULT CURRENT_TIMESTAMP
             )
             ''')
             
@@ -194,7 +190,7 @@ def setup_database():
                 challenge_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,  
                 description TEXT NOT NULL,          
-                goal_type TEXT NOT NULL,       
+                goal_type TEXT NOT NULL, --siembra, reciclaje, caridad, enseñanza,
                 goal_target INTEGER NOT NULL,       -- The numeric target for the goal_type (e.g., 5, 100)
                 points_reward INTEGER DEFAULT 0,    -- Points awarded upon successful completion
                 time_allowed INTEGER DEFAULT NULL -- Time allowed in seconds (NULL = no limit)
@@ -207,7 +203,7 @@ def setup_database():
                 challenge_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,
                 description TEXT NOT NULL,
-                goal_type TEXT NOT NULL,
+                goal_type TEXT NOT NULL, --siembra, reciclaje, caridad, enseñanza,
                 goal_target INTEGER NOT NULL,
                 points_reward INTEGER DEFAULT 0,
                 time_allowed INTEGER DEFAULT NULL
@@ -221,7 +217,7 @@ def setup_database():
                 user_id INTEGER NOT NULL,           
                 challenge_id INTEGER NOT NULL,     
                 goal_progress INTEGER DEFAULT 0, 
-                status TEXT NOT NULL DEFAULT 'active',
+                status TEXT NOT NULL DEFAULT 'active', --active, completed
                 start_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 deadline TEXT DEFAULT NULL,
                 date_completed TEXT DEFAULT NULL,
@@ -239,7 +235,7 @@ def setup_database():
                 org_id INTEGER NOT NULL,  
                 challenge_id INTEGER NOT NULL,    
                 goal_progress INTEGER DEFAULT 0,
-                status TEXT NOT NULL DEFAULT 'in_progress',
+                status TEXT NOT NULL DEFAULT 'active', --active, completed
                 start_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 deadline TEXT DEFAULT NULL,
                 date_completed TEXT DEFAULT NULL,
@@ -247,6 +243,20 @@ def setup_database():
                 FOREIGN KEY (org_id) REFERENCES organizations(org_id) ON DELETE CASCADE,
                 FOREIGN KEY (challenge_id) REFERENCES challenges_for_orgs(challenge_id) ON DELETE CASCADE,
                 UNIQUE (org_id, challenge_id)
+            )
+            ''')
+
+            # Map Points table
+            cursor.execute('''
+            CREATE TABLE IF NOT EXISTS map_points (
+                point_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT NOT NULL,
+                point_type TEXT NOT NULL, --tienda, reciclaje, punto_de_encuentro,
+                latitude REAL NOT NULL,
+                longitude REAL NOT NULL,
+                address TEXT,
+                creation_date TEXT DEFAULT CURRENT_TIMESTAMP
             )
             ''')
             

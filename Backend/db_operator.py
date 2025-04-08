@@ -1,7 +1,7 @@
 '''Data base modifications'''
 import bcrypt # bcrypt is a hashing algorithm
 import sqlite3
-
+import datetime
 #CUSTOM MODULES
 import db_conn
 
@@ -434,7 +434,485 @@ def delete_org_by_id(org_id):
             conn.close()
     return success
 
+def create_achievement(name, description, points_required, badge_icon, user_type):
+    """
+    Creates a new achievement for users or organizations.
+    
+    Args:
+        name (str): Name of the achievement
+        description (str): Description of the achievement
+        points_required (int): Points required to unlock the achievement
+        badge_icon (str): Path or identifier for the badge icon
+        user_type (str): Either 'user' or 'org' to determine which table to use
+    
+    Returns:
+        int: ID of the created achievement if successful, None otherwise
+    """
+    achievement_id = None
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            
+            if user_type == "user":
+                table = "achievements_for_users"
+            elif user_type == "org":
+                table = "achievements_for_orgs"
+            else:
+                print(f"Error: Invalid user_type: {user_type}")
+                return None
+                
+            cursor.execute(f'''
+            INSERT INTO {table} (name, description, points_required, badge_icon)
+            VALUES (?, ?, ?, ?)
+            ''', (name, description, points_required, badge_icon))
+            
+            conn.commit()
+            achievement_id = cursor.lastrowid
+            
+        except sqlite3.Error as e:
+            print(f"Error creating achievement: {e}")
+        finally:
+            conn.close()
+            
+    return achievement_id
+
+def delete_achievement(achievement_id, user_type):
+    """
+    Deletes an achievement.
+    
+    Args:
+        achievement_id (int): ID of the achievement
+        user_type (str): Either 'user' or 'org' to determine which table to use
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    success = False
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            
+            if user_type == "user":
+                table = "achievements_for_users"
+            elif user_type == "org":
+                table = "achievements_for_orgs"
+            else:
+                print(f"Error: Invalid user_type: {user_type}")
+                return False
+                
+            cursor.execute(f'''
+            DELETE FROM {table}
+            WHERE achievement_id = ?
+            ''', (achievement_id,))
+            
+            conn.commit()
+            success = cursor.rowcount > 0
+            
+        except sqlite3.Error as e:
+            print(f"Error deleting achievement: {e}")
+        finally:
+            conn.close()
+            
+    return success
+
+def create_challenge(name, description, goal_type, goal_target, points_reward, time_allowed, user_type):
+    """
+    Creates a new challenge for users or organizations.
+    
+    Args:
+        name (str): Name of the challenge
+        description (str): Description of the challenge
+        goal_type (str): Type of goal (e.g., 'events_attended', 'points_earned')
+        goal_target (int): Numeric target for the goal
+        points_reward (int): Points awarded upon completion
+        time_allowed (int): Time allowed in seconds (None for no limit)
+        user_type (str): Either 'user' or 'org' to determine which table to use
+    
+    Returns:
+        int: ID of the created challenge if successful, None otherwise
+    """
+    challenge_id = None
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            
+            if user_type == "user":
+                table = "challenges_for_users"
+            elif user_type == "org":
+                table = "challenges_for_orgs"
+            else:
+                print(f"Error: Invalid user_type: {user_type}")
+                return None
+                
+            cursor.execute(f'''
+            INSERT INTO {table} (name, description, goal_type, goal_target, points_reward, time_allowed)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ''', (name, description, goal_type, goal_target, points_reward, time_allowed))
+            
+            conn.commit()
+            challenge_id = cursor.lastrowid
+            
+        except sqlite3.Error as e:
+            print(f"Error creating challenge: {e}")
+        finally:
+            conn.close()
+            
+    return challenge_id
+
+def delete_challenge(challenge_id, user_type):
+    """
+    Deletes a challenge.
+    
+    Args:
+        challenge_id (int): ID of the challenge
+        user_type (str): Either 'user' or 'org' to determine which table to use
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    success = False
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            
+            if user_type == "user":
+                table = "challenges_for_users"
+            elif user_type == "org":
+                table = "challenges_for_orgs"
+            else:
+                print(f"Error: Invalid user_type: {user_type}")
+                return False
+                
+            cursor.execute(f'''
+            DELETE FROM {table}
+            WHERE challenge_id = ?
+            ''', (challenge_id,))
+            
+            conn.commit()
+            success = cursor.rowcount > 0
+            
+        except sqlite3.Error as e:
+            print(f"Error deleting challenge: {e}")
+        finally:
+            conn.close()
+            
+    return success
+
+
 #USER/ORG FUNCTIONS
+def search_orgs(query=None, interests=None, sort_by=None):
+    """
+    Searches for organizations based on various criteria.
+    
+    Args:
+        query (str, optional): Search in name or description fields
+        interests (str, optional): Filter by interests (partial match)
+        sort_by (str, optional): Sort by field ('name', 'points', 'creation_date')
+    
+    Returns:
+        list: List of dictionaries containing organization data
+    """
+    orgs = []
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            
+            sql_query = '''
+            SELECT org_id, user_type, creator_student_code, name, email, description, interests, points, creation_date
+            FROM organizations
+            WHERE 1=1
+            '''
+            
+            params = []
+            
+            if query:
+                sql_query += " AND (name LIKE ? OR description LIKE ?)"
+                params.extend([f"%{query}%", f"%{query}%"])
+                
+            if interests:
+                sql_query += " AND interests LIKE ?"
+                params.append(f"%{interests}%")
+                
+            # Apply sorting
+            if sort_by == 'name':
+                sql_query += " ORDER BY name"
+            elif sort_by == 'points':
+                sql_query += " ORDER BY points DESC"
+            elif sort_by == 'creation_date':
+                sql_query += " ORDER BY creation_date DESC"
+            else:
+                sql_query += " ORDER BY name"  # Default sorting
+                
+            cursor.execute(sql_query, params)
+            
+            for row in cursor.fetchall():
+                org = {
+                    'org_id': row[0],
+                    'user_type': row[1],
+                    'creator_student_code': row[2],
+                    'name': row[3],
+                    'email': row[4],
+                    'description': row[5],
+                    'interests': row[6],
+                    'points': row[7],
+                    'creation_date': row[8]
+                }
+                orgs.append(org)
+                
+        except sqlite3.Error as e:
+            print(f"Error searching organizations: {e}")
+        finally:
+            conn.close()
+            
+    return orgs
+
+def get_org_members(org_id):
+    """
+    Retrieves all members of a specific organization.
+    Returns:
+        list: List of dictionaries containing member data
+    """
+    members = []
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+            SELECT u.user_id, u.name, u.email, u.career, u.interests, m.registered_date
+            FROM organization_members m
+            JOIN users u ON m.user_id = u.user_id
+            WHERE m.org_id = ?
+            ORDER BY m.registered_date
+            ''', (org_id,))
+            
+            for row in cursor.fetchall():
+                member = {
+                    'user_id': row[0],
+                    'name': row[1],
+                    'email': row[2],
+                    'career': row[3],
+                    'interests': row[4],
+                    'registered_date': row[5]
+                }
+                members.append(member)
+                
+        except sqlite3.Error as e:
+            print(f"Error retrieving organization members: {e}")
+        finally:
+            conn.close()
+            
+    return members
+
+#Only for users
+def join_org(org_id, user_id):
+    """
+    Adds a user to an organization.
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    success = False
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+            INSERT INTO organization_members (org_id, user_id)
+            VALUES (?, ?)
+            ''', (org_id, user_id))
+            
+            conn.commit()
+            success = cursor.rowcount > 0
+            
+        except sqlite3.Error as e:
+            print(f"Error joining organization: {e}")
+        finally:
+            conn.close()
+            
+    return success
+
+def leave_org(org_id, user_id):
+    """
+    Removes a user from an organization.
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    success = False
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+            DELETE FROM organization_members
+            WHERE org_id = ? AND user_id = ?
+            ''', (org_id, user_id))
+            
+            conn.commit()
+            success = cursor.rowcount > 0
+            
+        except sqlite3.Error as e:
+            print(f"Error leaving organization: {e}")
+        finally:
+            conn.close()
+            
+    return success
+
+#EVENTS
+def search_events(query=None, event_type=None, status=None, organizer_type=None, start_date=None, end_date=None):
+    """
+    Searches for events based on various criteria.
+    
+    Args:
+        query (str, optional): Search in name or description fields
+        event_type (str, optional): Filter by event type
+        status (str, optional): Filter by event status ('active', 'completed', etc.)
+        organizer_type (str, optional): Filter by organizer type ('user' or 'org')
+        start_date (str, optional): Filter events on or after this date (ISO format)
+        end_date (str, optional): Filter events on or before this date (ISO format)
+    
+    Returns:
+        list: List of dictionaries containing event data
+    """
+    events = []
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            
+            sql_query = '''
+            SELECT event_id, organizer_id, organizer_type, name, description, 
+                   event_type, location, event_datetime, status, points_value, creation_date
+            FROM events
+            WHERE 1=1
+            '''
+            
+            params = []
+            
+            if query:
+                sql_query += " AND (name LIKE ? OR description LIKE ?)"
+                params.extend([f"%{query}%", f"%{query}%"])
+                
+            if event_type:
+                sql_query += " AND event_type = ?"
+                params.append(event_type)
+                
+            if status:
+                sql_query += " AND status = ?"
+                params.append(status)
+                
+            if organizer_type:
+                sql_query += " AND organizer_type = ?"
+                params.append(organizer_type)
+                
+            if start_date:
+                sql_query += " AND event_datetime >= ?"
+                params.append(start_date)
+                
+            if end_date:
+                sql_query += " AND event_datetime <= ?"
+                params.append(end_date)
+                
+            # Order by event datetime
+            sql_query += " ORDER BY event_datetime"
+            
+            cursor.execute(sql_query, params)
+            
+            for row in cursor.fetchall():
+                event = {
+                    'event_id': row[0],
+                    'organizer_id': row[1],
+                    'organizer_type': row[2],
+                    'name': row[3],
+                    'description': row[4],
+                    'event_type': row[5],
+                    'location': row[6],
+                    'event_datetime': row[7],
+                    'status': row[8],
+                    'points_value': row[9],
+                    'creation_date': row[10]
+                }
+                events.append(event)
+                
+        except sqlite3.Error as e:
+            print(f"Error searching events: {e}")
+        finally:
+            conn.close()
+            
+    return events
+
+def get_event_participants(event_id):
+    """
+    Retrieves all participants (users and organizations) for a specific event.
+    
+    Args:
+        event_id (int): ID of the event
+    
+    Returns:
+        dict: Dictionary with 'users' and 'orgs' lists containing participant data
+    """
+    participants = {'users': [], 'orgs': []}
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            
+            # Get user participants
+            cursor.execute('''
+            SELECT u.user_id, u.name, u.email, p.registered_date, p.attended
+            FROM user_event_participants p
+            JOIN users u ON p.user_id = u.user_id
+            WHERE p.event_id = ?
+            ''', (event_id,))
+            
+            for row in cursor.fetchall():
+                user = {
+                    'user_id': row[0],
+                    'name': row[1],
+                    'email': row[2],
+                    'registered_date': row[3],
+                    'attended': bool(row[4])
+                }
+                participants['users'].append(user)
+                
+            # Get organization participants
+            cursor.execute('''
+            SELECT o.org_id, o.name, o.email, p.registered_date, p.attended
+            FROM org_event_participants p
+            JOIN organizations o ON p.org_id = o.org_id
+            WHERE p.event_id = ?
+            ''', (event_id,))
+            
+            for row in cursor.fetchall():
+                org = {
+                    'org_id': row[0],
+                    'name': row[1],
+                    'email': row[2],
+                    'registered_date': row[3],
+                    'attended': bool(row[4])
+                }
+                participants['orgs'].append(org)
+                
+        except sqlite3.Error as e:
+            print(f"Error retrieving event participants: {e}")
+        finally:
+            conn.close()
+            
+    return participants
+
 def create_event(organizer_id, organizer_type, name, description, event_type, location, event_datetime):
     """
     Creates a new event in the system.
@@ -506,7 +984,7 @@ def delete_event(event_id, entity_id, user_type):
             
     return success
 
-def register_for_event(event_id, entity_id, user_type):
+def join_event(event_id, entity_id, user_type):
     """
     Registers a user or organization for an event.
     Returns:
@@ -544,10 +1022,636 @@ def register_for_event(event_id, entity_id, user_type):
             
     return success
 
+def leave_event(event_id, entity_id, user_type):
+    """
+    Removes a user or organization from an event.
+    
+    Args:
+        event_id (int): ID of the event
+        entity_id (int): ID of the user or organization
+        user_type (str): Either 'user' or 'org'
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    success = False
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            
+            if user_type == "user":
+                cursor.execute('''
+                DELETE FROM user_event_participants
+                WHERE event_id = ? AND user_id = ?
+                ''', (event_id, entity_id))
+            elif user_type == "org":
+                cursor.execute('''
+                DELETE FROM org_event_participants
+                WHERE event_id = ? AND org_id = ?
+                ''', (event_id, entity_id))
+            else:
+                print(f"Error: Invalid user_type: {user_type}")
+                return False
+                
+            conn.commit()
+            success = cursor.rowcount > 0
+            
+        except sqlite3.Error as e:
+            print(f"Error leaving event: {e}")
+        finally:
+            conn.close()
+            
+    return success
+
+def mark_event_attendance(event_id, entity_id, user_type):
+    """
+    Marks a participant as having attended an event.
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    success = False
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            
+            if user_type == "user":
+                cursor.execute('''
+                UPDATE user_event_participants
+                SET attended = 1
+                WHERE event_id = ? AND user_id = ?
+                ''', (event_id, entity_id))
+            elif user_type == "org":
+                cursor.execute('''
+                UPDATE org_event_participants
+                SET attended = 1
+                WHERE event_id = ? AND org_id = ?
+                ''', (event_id, entity_id))
+            else:
+                print(f"Error: Invalid user_type: {user_type}")
+                return False
+                
+            conn.commit()
+            success = cursor.rowcount > 0
+            
+            if success:
+                # Retrieve event points value
+                cursor.execute('''
+                SELECT points_value FROM events
+                WHERE event_id = ?
+                ''', (event_id,))
+                
+                event_data = cursor.fetchone()
+                if event_data and event_data[0] > 0:
+                    # Award points for attendance
+                    points_awarded = event_data[0]
+                    achievement = update_entity_points(entity_id, user_type, points_awarded)
+            
+        except sqlite3.Error as e:
+            print(f"Error marking event attendance: {e}")
+        finally:
+            conn.close()
+            
+    return success
+
+#ITEMS
+
+def get_available_items(item_type=None, item_terms=None, user_id=None):
+    """
+    Retrieves available items with optional filtering.
+    
+    Args:
+        item_type (str, optional): Filter by item type
+        item_terms (str, optional): Filter by item terms
+        user_id (int, optional): Filter by user ID
+    
+    Returns:
+        list: List of dictionaries containing item data
+    """
+    items = []
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            
+            query = '''
+            SELECT i.item_id, i.user_id, i.name, i.description, 
+                   i.item_type, i.item_terms, i.status, i.creation_date,
+                   u.name as user_name
+            FROM items i
+            JOIN users u ON i.user_id = u.user_id
+            WHERE i.status = 'available'
+            '''
+            
+            params = []
+            
+            if item_type:
+                query += " AND i.item_type = ?"
+                params.append(item_type)
+                
+            if item_terms:
+                query += " AND i.item_terms = ?"
+                params.append(item_terms)
+                
+            if user_id:
+                query += " AND i.user_id = ?"
+                params.append(user_id)
+                
+            # Order by creation date (newest first)
+            query += " ORDER BY i.creation_date DESC"
+            
+            cursor.execute(query, params)
+            
+            for row in cursor.fetchall():
+                item = {
+                    'item_id': row[0],
+                    'user_id': row[1],
+                    'name': row[2],
+                    'description': row[3],
+                    'item_type': row[4],
+                    'item_terms': row[5],
+                    'status': row[6],
+                    'creation_date': row[7],
+                    'user_name': row[8]
+                }
+                items.append(item)
+                
+        except sqlite3.Error as e:
+            print(f"Error retrieving available items: {e}")
+        finally:
+            conn.close()
+            
+    return items
+
+def create_item(user_id, name, description, item_type, item_terms):
+    """
+    Creates a new item for exchange.
+    
+    Args:
+        user_id (int): ID of the user creating the item
+        name (str): Name of the item
+        description (str): Description of the item
+        item_type (str): Type of item (e.g., 'clothing', 'technology')
+        item_terms (str): Terms for the item (e.g., 'gift', 'exchange')
+    
+    Returns:
+        int: ID of the created item if successful, None otherwise
+    """
+    item_id = None
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+            INSERT INTO items (user_id, name, description, item_type, item_terms)
+            VALUES (?, ?, ?, ?, ?)
+            ''', (user_id, name, description, item_type, item_terms))
+            
+            conn.commit()
+            item_id = cursor.lastrowid
+            
+        except sqlite3.Error as e:
+            print(f"Error creating item: {e}")
+        finally:
+            conn.close()
+            
+    return item_id
+
+def update_item_status(item_id, status):
+    """
+    Updates the status of an item.
+    
+    Args:
+        item_id (int): ID of the item
+        status (str): New status ('available', 'pending', 'exchanged', etc.)
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    success = False
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+            UPDATE items
+            SET status = ?
+            WHERE item_id = ?
+            ''', (status, item_id))
+            
+            conn.commit()
+            success = cursor.rowcount > 0
+            
+        except sqlite3.Error as e:
+            print(f"Error updating item status: {e}")
+        finally:
+            conn.close()
+            
+    return success
+
+#CHALLENGES
+def search_challenges(user_type):
+    """
+    Retrieves all challenges for "user" or "org" entities, depending on the user_type.
+
+    Args:
+        user_type (str): Either 'user' or 'org' to specify which challenges to retrieve.
+
+    Returns:
+        list: A list of dictionaries, each containing challenge data (id, name, description, goal, reward, time).
+              Returns an empty list if the user_type is invalid or an error occurs.
+    """
+    challenges = []
+    conn = db_conn.create_connection()
+
+    if conn is None:
+        print("Error: Could not establish database connection.")
+        return challenges
+
+    try:
+        cursor = conn.cursor()
+
+        if user_type == "user":
+            table_name = "challenges_for_users"
+        elif user_type == "org":
+            table_name = "challenges_for_orgs"
+        else:
+            print(f"Error: Invalid user_type specified: {user_type}")
+            return challenges
+
+        # Select all relevant columns from the appropriate challenges table
+        cursor.execute(f'''
+        SELECT challenge_id, name, description, goal_type, goal_target, points_reward, time_allowed
+        FROM {table_name}
+        ORDER BY name -- Optional: order by name or reward
+        ''')
+
+        rows = cursor.fetchall()
+        for row in rows:
+            challenge_data = {
+                'challenge_id': row[0],
+                'name': row[1],
+                'description': row[2],
+                'goal_type': row[3],
+                'goal_target': row[4],
+                'points_reward': row[5],
+                'time_allowed': row[6] # Will be None if no time limit
+            }
+            challenges.append(challenge_data)
+
+    except sqlite3.Error as e:
+        print(f"Error retrieving challenges for {user_type}: {e}")
+    finally:
+        if conn: # Ensure conn exists before closing
+            conn.close()
+
+    return challenges
+
+def get_active_challenges(entity_id, user_type):
+    """
+    Retrieves all currently active challenges for a specific user or organization.
+
+    Args:
+        entity_id (int): The ID of the user or organization.
+        user_type (str): Either 'user' or 'org'.
+
+    Returns:
+        list: A list of dictionaries, each containing details of an active challenge
+              including the entity's progress. Returns an empty list on error or
+              if no active challenges are found.
+    """
+    active_challenges = []
+    conn = db_conn.create_connection()
+
+    if conn is None:
+        print("Error: Could not establish database connection.")
+        return active_challenges
+
+    try:
+        cursor = conn.cursor()
+
+        if user_type == "user":
+            progress_table = "user_challenges"
+            challenge_table = "challenges_for_users"
+            id_column = "user_id"
+            active_status = "active" # Status used in user_challenges
+        elif user_type == "org":
+            progress_table = "org_challenges"
+            challenge_table = "challenges_for_orgs"
+            id_column = "org_id"
+            active_status = "in_progress" # Status used in org_challenges
+        else:
+            print(f"Error: Invalid user_type specified: {user_type}")
+            return active_challenges
+
+        # Join the progress table with the main challenge table
+        # Filter by entity_id and active status
+        sql_query = f'''
+        SELECT
+            p.challenge_id, c.name, c.description, c.goal_type, c.goal_target,
+            c.points_reward, c.time_allowed,
+            p.goal_progress, p.status, p.start_time, p.deadline
+        FROM {progress_table} p
+        JOIN {challenge_table} c ON p.challenge_id = c.challenge_id
+        WHERE p.{id_column} = ? AND p.status = ?
+        ORDER BY p.start_time DESC
+        '''
+
+        cursor.execute(sql_query, (entity_id, active_status))
+
+        rows = cursor.fetchall()
+        for row in rows:
+            challenge_data = {
+                'challenge_id': row[0],
+                'name': row[1],
+                'description': row[2],
+                'goal_type': row[3],
+                'goal_target': row[4],
+                'points_reward': row[5],
+                'time_allowed': row[6],
+                'goal_progress': row[7],
+                'status': row[8],
+                'start_time': row[9],
+                'deadline': row[10]
+            }
+            active_challenges.append(challenge_data)
+
+    except sqlite3.Error as e:
+        print(f"Error retrieving active challenges for {user_type} ID {entity_id}: {e}")
+    finally:
+        if conn:
+            conn.close()
+
+    return active_challenges
+
+def join_challenge(entity_id, user_type, challenge_id):
+    """
+    Registers a user or organization for a challenge, setting start time and deadline if applicable.
+
+    Args:
+        entity_id (int): The ID of the user or organization.
+        user_type (str): Either 'user' or 'org'.
+        challenge_id (int): The ID of the challenge to join.
+
+    Returns:
+        bool: True if successfully registered for the challenge, False otherwise.
+    """
+    success = False
+    conn = db_conn.create_connection()
+
+    if conn is None:
+        print("Error: Could not establish database connection.")
+        return False
+
+    try:
+        cursor = conn.cursor()
+
+        if user_type == "user":
+            progress_table = "user_challenges"
+            challenge_table = "challenges_for_users"
+            id_column = "user_id"
+            # Default status for user_challenges is 'active'
+        elif user_type == "org":
+            progress_table = "org_challenges"
+            challenge_table = "challenges_for_orgs"
+            id_column = "org_id"
+             # Default status for org_challenges is 'in_progress'
+        else:
+            print(f"Error: Invalid user_type specified: {user_type}")
+            return False
+
+        # 1. Get challenge details (especially time_allowed)
+        cursor.execute(f"SELECT time_allowed FROM {challenge_table} WHERE challenge_id = ?", (challenge_id,))
+        challenge_info = cursor.fetchone()
+
+        if not challenge_info:
+            print(f"Error: Challenge with ID {challenge_id} not found for {user_type}s.")
+            return False
+
+        time_allowed = challenge_info[0]
+        deadline = None
+        start_time = datetime.datetime.now() # Use current time as start time
+
+        # 2. Calculate deadline if time_allowed is set
+        if time_allowed is not None and time_allowed > 0:
+            deadline_dt = start_time + datetime.timedelta(seconds=time_allowed)
+            deadline = deadline_dt.strftime('%Y-%m-%d %H:%M:%S') # Format for SQLite TEXT
+
+        start_time_str = start_time.strftime('%Y-%m-%d %H:%M:%S')
+
+        # 3. Insert into the progress table
+        # The schema handles default values for progress (0) and status ('active'/'in_progress')
+        # We explicitly set start_time and deadline (if applicable)
+        sql_insert = f'''
+        INSERT INTO {progress_table} ({id_column}, challenge_id, start_time, deadline)
+        VALUES (?, ?, ?, ?)
+        '''
+
+        cursor.execute(sql_insert, (entity_id, challenge_id, start_time_str, deadline))
+        conn.commit()
+
+        success = cursor.rowcount > 0
+        if success:
+             print(f"{user_type.capitalize()} ID {entity_id} successfully joined challenge ID {challenge_id}.")
+
+    except sqlite3.IntegrityError:
+        # This likely means the unique constraint (entity_id, challenge_id) was violated
+        print(f"Error: {user_type.capitalize()} ID {entity_id} is already participating in challenge ID {challenge_id}.")
+    except sqlite3.Error as e:
+        print(f"Error joining challenge for {user_type} ID {entity_id}: {e}")
+        if conn:
+             conn.rollback() # Rollback in case of other errors during transaction
+    finally:
+        if conn:
+            conn.close()
+
+    return success
+
+def update_challenges_progress(entity_id, user_type, challenge_id, progress_increment):
+    """
+    Updates an entity's progress on an active challenge. If the goal is met,
+    marks the challenge as completed, awards points using update_entity_points,
+    and records the completion date.
+
+    Args:
+        entity_id (int): The ID of the user or organization.
+        user_type (str): Either 'user' or 'org'.
+        challenge_id (int): The ID of the challenge to update progress for.
+        progress_increment (int): The amount of progress made in this update.
+
+    Returns:
+        bool: True if the progress was successfully updated (and potentially completed),
+              False otherwise (e.g., challenge not active, DB error).
+    """
+    success = False
+    conn = db_conn.create_connection()
+
+    if conn is None:
+        print("Error: Could not establish database connection.")
+        return False
+
+    try:
+        cursor = conn.cursor()
+
+        if user_type == "user":
+            progress_table = "user_challenges"
+            challenge_table = "challenges_for_users"
+            id_column = "user_id"
+            active_status = "active"
+            completed_status = "completed"
+        elif user_type == "org":
+            progress_table = "org_challenges"
+            challenge_table = "challenges_for_orgs"
+            id_column = "org_id"
+            active_status = "in_progress"
+            completed_status = "completed" # Assuming 'completed' is the final status for both
+        else:
+            print(f"Error: Invalid user_type specified: {user_type}")
+            return False
+
+        # 1. Get current progress, status, challenge goal, and reward
+        sql_query = f'''
+        SELECT
+            p.goal_progress, p.status,
+            c.goal_target, c.points_reward
+        FROM {progress_table} p
+        JOIN {challenge_table} c ON p.challenge_id = c.challenge_id
+        WHERE p.{id_column} = ? AND p.challenge_id = ?
+        '''
+        cursor.execute(sql_query, (entity_id, challenge_id))
+        progress_info = cursor.fetchone()
+
+        if not progress_info:
+            print(f"Error: No active challenge found for {user_type} ID {entity_id} and challenge ID {challenge_id}.")
+            return False
+
+        current_progress, current_status, goal_target, points_reward = progress_info
+
+        # 2. Check if challenge is active/in_progress
+        if current_status != active_status:
+            print(f"Error: Challenge ID {challenge_id} is not currently active ({current_status}) for {user_type} ID {entity_id}.")
+            return False
+
+        # 3. Calculate new progress
+        new_progress = current_progress + progress_increment
+
+        # 4. Check for completion
+        if new_progress >= goal_target:
+            # Challenge Completed!
+            completion_time_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            final_progress = goal_target # Cap progress at the target
+
+            sql_update = f'''
+            UPDATE {progress_table}
+            SET goal_progress = ?,
+                status = ?,
+                date_completed = ?
+            WHERE {id_column} = ? AND challenge_id = ?
+            '''
+            cursor.execute(sql_update, (final_progress, completed_status, completion_time_str, entity_id, challenge_id))
+
+            if cursor.rowcount > 0:
+                print(f"Challenge ID {challenge_id} completed by {user_type} ID {entity_id}!")
+                # Award points and check for achievements
+                if points_reward > 0:
+                    print(f"Awarding {points_reward} points...")
+                    achievement_unlocked = update_entity_points(entity_id, user_type, points_reward)
+                    if achievement_unlocked:
+                         print(f"Congratulations! Unlocked achievement: {achievement_unlocked}")
+                success = True
+            else:
+                 print(f"Error updating challenge status to completed for {user_type} ID {entity_id}.")
 
 
-#GENERAL LOGIC
-def update_points(entity_id, user_type, points_to_add):
+        else:
+            # Challenge still in progress, just update progress
+            sql_update = f'''
+            UPDATE {progress_table}
+            SET goal_progress = ?
+            WHERE {id_column} = ? AND challenge_id = ?
+            '''
+            cursor.execute(sql_update, (new_progress, entity_id, challenge_id))
+            if cursor.rowcount > 0:
+                 print(f"Updated progress for challenge ID {challenge_id} for {user_type} ID {entity_id} to {new_progress}.")
+                 success = True
+            else:
+                 print(f"Error updating challenge progress for {user_type} ID {entity_id}.")
+
+
+        conn.commit()
+
+    except sqlite3.Error as e:
+        print(f"Error updating challenge progress for {user_type} ID {entity_id}: {e}")
+        if conn:
+             conn.rollback()
+    finally:
+        if conn:
+            conn.close()
+
+    return success
+
+#ACHIVEMENTS
+def search_achievements(user_type):
+    """
+    Retrieves all achievements for "user" or "org" entities, depending on the user_type.
+
+    Args:
+        user_type (str): Either 'user' or 'org' to specify which achievements to retrieve.
+
+    Returns:
+        list: A list of dictionaries, each containing achievement data (id, name, description, points, icon).
+              Returns an empty list if the user_type is invalid or an error occurs.
+    """
+    achievements = []
+    conn = db_conn.create_connection()
+
+    if conn is None:
+        print("Error: Could not establish database connection.")
+        return achievements
+
+    try:
+        cursor = conn.cursor()
+
+        if user_type == "user":
+            table_name = "achievements_for_users"
+        elif user_type == "org":
+            table_name = "achievements_for_orgs"
+        else:
+            print(f"Error: Invalid user_type specified: {user_type}")
+            return achievements
+
+        # Select all relevant columns from the appropriate achievements table
+        cursor.execute(f'''
+        SELECT achievement_id, name, description, points_required, badge_icon
+        FROM {table_name}
+        ORDER BY points_required  -- Optional: order by points or name
+        ''')
+
+        rows = cursor.fetchall()
+        for row in rows:
+            achievement_data = {
+                'achievement_id': row[0],
+                'name': row[1],
+                'description': row[2],
+                'points_required': row[3],
+                'badge_icon': row[4]
+            }
+            achievements.append(achievement_data)
+
+    except sqlite3.Error as e:
+        print(f"Error retrieving achievements for {user_type}: {e}")
+    finally:
+        conn.close()
+
+    return achievements
+
+def update_entity_points(entity_id, user_type, points_to_add):
     """
     Awards points to a user or organization and checks for achievement unlocks.
     Returns:
@@ -560,61 +1664,249 @@ def update_points(entity_id, user_type, points_to_add):
     # Determine table and id column based on user_type
     if user_type == "user":
         table_name = "users"
-        table_id = "user_id"
+        id_col = "user_id"
+        achievements_table = "achievements_for_users"
+        user_achievements_table = "user_achievements"
     elif user_type == "org":
         table_name = "organizations"
-        table_id = "org_id"
+        id_col = "org_id"
+        achievements_table = "achievements_for_orgs"
+        user_achievements_table = "org_achievements"
+    else:
+        print(f"Error: Invalid user_type: {user_type}")
+        return None
 
     try:
         conn = db_conn.create_connection()
         cursor = conn.cursor()
-        cursor.execute(f"SELECT points FROM {table_name} WHERE {table_id} = ?", (entity_id,))
+        cursor.execute(f"SELECT points FROM {table_name} WHERE {id_col} = ?", (entity_id,))
         result = cursor.fetchone()
         
+        if not result:
+            print(f"Error: {user_type} with ID {entity_id} not found")
+            return None
+            
         old_points = result[0]
-   
         new_total_points = old_points + points_to_add
 
+        # Update points
         cursor.execute(f'''
             UPDATE {table_name}
-            SET points = points + ?
-            WHERE {table_id} = ?
-        ''', (points_to_add, entity_id))
-
+            SET points = ?
+            WHERE {id_col} = ?
+        ''', (new_total_points, entity_id))
+        
+        # Check for new achievements based on points
+        cursor.execute(f'''
+            SELECT achievement_id, name, points_required 
+            FROM {achievements_table}
+            WHERE points_required <= ?
+            ORDER BY points_required DESC
+        ''', (new_total_points,))
+        
+        possible_achievements = cursor.fetchall()
+        
+        # Get user's existing achievements
+        cursor.execute(f'''
+            SELECT achievement_id 
+            FROM {user_achievements_table}
+            WHERE {id_col} = ?
+        ''', (entity_id,))
+        
+        existing_achievements = [row[0] for row in cursor.fetchall()]
+        
+        # Find the highest achievement not yet unlocked
+        for achievement in possible_achievements:
+            ach_id, ach_name, ach_points = achievement
+            
+            if ach_id not in existing_achievements and ach_points > old_points:
+                # Award the new achievement
+                cursor.execute(f'''
+                    INSERT INTO {user_achievements_table} ({id_col}, achievement_id)
+                    VALUES (?, ?)
+                ''', (entity_id, ach_id))
+                
+                achievement_unlocked = ach_name
+                break
+        
         conn.commit()
 
-        achievement_unlocked = get_achievements(old_points, new_total_points)
-
     except sqlite3.Error as e:
-        print(f"Database error: {e}")
+        print(f"Database error in update_entity_points: {e}")
+        if conn:
+            conn.rollback()
+    finally:
+        if conn:
+            conn.close()
     
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-
     return achievement_unlocked
 
-def get_achievements(old_points, new_total_points):
-    achievements_config = {
-        10000: "Ultimate Champion",
-        5000: "Platinum Contributor",
-        1000: "Gold Star",
-        500: "Silver Badge",
-        100: "Bronze Starter",
-    }
+#USER TO USER FUNCTIONS
+def search_users(query=None, career=None, interests=None):
+    """
+    Searches for users based on various criteria.
+    
+    Args:
+        query (str, optional): Search in name or email fields
+        career (str, optional): Filter by career
+        interests (str, optional): Filter by interests (partial match)
+    
+    Returns:
+        list: List of dictionaries containing user data
+    """
+    users = []
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            
+            sql_query = '''
+            SELECT user_id, student_code, name, email, career, interests, points, creation_date
+            FROM users
+            WHERE user_type != 'admin'
+            '''
+            
+            params = []
+            
+            if query:
+                sql_query += " AND (name LIKE ? OR email LIKE ?)"
+                params.extend([f"%{query}%", f"%{query}%"])
+                
+            if career:
+                sql_query += " AND career = ?"
+                params.append(career)
+                
+            if interests:
+                sql_query += " AND interests LIKE ?"
+                params.append(f"%{interests}%")
+                
+            # Order by name
+            sql_query += " ORDER BY name"
+            
+            cursor.execute(sql_query, params)
+            
+            for row in cursor.fetchall():
+                user = {
+                    'user_id': row[0],
+                    'student_code': row[1],
+                    'name': row[2],
+                    'email': row[3],
+                    'career': row[4],
+                    'interests': row[5],
+                    'points': row[6],
+                    'creation_date': row[7]
+                }
+                users.append(user)
+                
+        except sqlite3.Error as e:
+            print(f"Error searching users: {e}")
+        finally:
+            conn.close()
+            
+    return users
 
-    newly_achieved_name = None
+#MAP FUNCTIONS
+def add_map_point(name, description, point_type, latitude, longitude, address=None):
+    """
+    Adds a new point (e.g., recycling center, sustainable store) to the map_points table.
 
-    for threshold, name in achievements_config.items():
-        if old_points < threshold <= new_total_points:
-            newly_achieved_name = name
-            break
-    return newly_achieved_name
+    Args:
+        name (str): The name of the map point.
+        description (str): A description of the map point.
+        point_type (str): The type of point (e.g., 'tienda', 'reciclaje', 'punto_de_encuentro').
+        latitude (float): The latitude coordinate.
+        longitude (float): The longitude coordinate.
+        address (str, optional): The street address of the point. Defaults to None.
 
+    Returns:
+        int: The point_id of the newly created map point if successful, None otherwise.
+    """
+    point_id = None
+    conn = db_conn.create_connection()
 
+    if conn is None:
+        print("Error: Could not establish database connection.")
+        return None
 
+    try:
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO map_points (name, description, point_type, latitude, longitude, address)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (name, description, point_type, latitude, longitude, address))
 
+        conn.commit()
+        point_id = cursor.lastrowid
+        print(f"Successfully added map point '{name}' with ID: {point_id}")
 
+    except sqlite3.Error as e:
+        print(f"Error adding map point: {e}")
+        if conn:
+            conn.rollback() # Rollback on error
+    finally:
+        if conn:
+            conn.close()
 
+    return point_id
 
+def get_map_points(point_type=None):
+    """
+    Retrieves map points from the database, optionally filtered by type.
 
+    Args:
+        point_type (str, optional): The type of point to filter by
+                                     (e.g., 'tienda', 'reciclaje').
+                                     If None, retrieves all points. Defaults to None.
+
+    Returns:
+        list: A list of dictionaries, where each dictionary represents a map point
+              matching the criteria. Returns an empty list if no points are found
+              or an error occurs.
+    """
+    map_points_list = []
+    conn = db_conn.create_connection()
+
+    if conn is None:
+        print("Error: Could not establish database connection.")
+        return map_points_list
+
+    try:
+        cursor = conn.cursor()
+
+        sql_query = '''
+            SELECT point_id, name, description, point_type, latitude, longitude, address, creation_date
+            FROM map_points
+        '''
+        params = []
+
+        if point_type:
+            sql_query += " WHERE point_type = ?"
+            params.append(point_type)
+
+        sql_query += " ORDER BY name" # Order results alphabetically by name
+
+        cursor.execute(sql_query, params)
+        rows = cursor.fetchall()
+
+        for row in rows:
+            point_data = {
+                'point_id': row[0],
+                'name': row[1],
+                'description': row[2],
+                'point_type': row[3],
+                'latitude': row[4],
+                'longitude': row[5],
+                'address': row[6],
+                'creation_date': row[7]
+            }
+            map_points_list.append(point_data)
+
+    except sqlite3.Error as e:
+        print(f"Error retrieving map points: {e}")
+    finally:
+        if conn:
+            conn.close()
+
+    return map_points_list
 
