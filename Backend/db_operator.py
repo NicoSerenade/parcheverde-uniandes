@@ -457,6 +457,55 @@ def create_event(organizer_id, organizer_type, name, description, event_type, lo
         conn.close()
     return event_id
 
+def delete_event(event_id, entity_id, user_type):
+    """
+    Deletes an event by its ID if the entity matches the organizer.
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    success = False
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+            SELECT organizer_id, organizer_type 
+            FROM events 
+            WHERE event_id = ?
+            ''', (event_id,))
+            
+            event_info = cursor.fetchone()
+            
+            if not event_info:
+                print("Error: Event not found.")
+                return False
+            
+            organizer_id, organizer_type = event_info
+            
+            # Check if entity is authorized to delete this event
+            if organizer_id == entity_id and organizer_type == user_type:
+                cursor.execute('''
+                DELETE FROM events
+                WHERE event_id = ?
+                ''', (event_id,))
+                conn.commit()
+                success = cursor.rowcount > 0
+
+                if success:
+                    print("Event successfully deleted.")
+                else:
+                    print("Error: Failed to delete event.")
+            else:
+                print("Error: You are not authorized to delete this event.")
+                
+        except sqlite3.Error as e:
+            print(f"Error deleting event: {e}")
+        finally:
+            conn.close()
+            
+    return success
+
 def register_for_event(event_id, entity_id, user_type):
     """
     Registers a user or organization for an event.
@@ -494,6 +543,7 @@ def register_for_event(event_id, entity_id, user_type):
             conn.close()
             
     return success
+
 
 
 #GENERAL LOGIC

@@ -30,7 +30,10 @@ def test_functions():
        print("11. Get Organization by ID")
        print("12. Delete Organization by ID")
        
-
+       print("\n==== EVENT OPERATIONS ====")
+       print("13. Create New Event")
+       print("14. Delete Event")
+       print("15. Register for Event")
        
        choice = input("\nSelect option: ")
        
@@ -58,6 +61,7 @@ def test_functions():
               password = input("Password: ")
               result = op.authenticate_user(student_code, password)
               print(f"Result: {result}")
+              logged_entity = result
        
        elif choice == "3":
               print("\n-- UPDATE USER PROFILE --")
@@ -146,7 +150,38 @@ def test_functions():
               org_id = int(input("Organization ID: "))
               result = op.delete_org_by_id(org_id)
               print(f"Result: {result}")
-       
+
+       # EVENT OPERATIONS
+       elif choice == "13":
+              print("\n-- CREATE NEW EVENT --")
+              organizer_id = int(input("Organizer ID: "))
+              organizer_type = input("Organizer Type (user/org): ")
+              name = input("Event Name: ")
+              description = input("Event Description: ")
+              event_type = input("Event Type: ")
+              location = input("Location: ")
+              event_datetime = input("Event Date and Time (YYYY-MM-DD HH:MM:SS): ")
+              result = op.create_event(
+                     organizer_id, organizer_type, name, description, event_type, location, event_datetime
+              )
+              print(f"Event created with ID: {result}")
+            
+       elif choice == "14":
+              print("\n-- DELETE EVENT --")
+              event_id = int(input("Event ID to delete: "))
+              entity_id = int(input("Your ID (as organizer): "))
+              user_type = input("Your user type: ")
+              result = op.delete_event(event_id, entity_id, user_type)
+              print(f"Event deletion result: {result}")
+
+       elif choice == "15":
+              print("\n-- REGISTER FOR EVENT --")
+              event_id = int(input("Event ID: "))
+              entity_id = int(input("User/Organization ID: "))
+              user_type = input("Entity Type (user/org): ")
+              result = op.register_for_event(event_id, entity_id, user_type)
+              print(f"Registration result: {result}")
+
        else:
               print("Invalid option. Try again.")
 

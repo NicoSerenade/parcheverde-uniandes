@@ -60,7 +60,7 @@ def setup_database():
                 registered_date TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (org_id) REFERENCES organizations(org_id) ON DELETE CASCADE,
                 FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-                UNIQUE (org_id, user_id),
+                UNIQUE (org_id, user_id)
 
             )
             ''')
@@ -78,7 +78,7 @@ def setup_database():
                 event_datetime TEXT NOT NULL,
                 status TEXT DEFAULT 'active',
                 points_value INTEGER DEFAULT 0, --poits it gives to creators and participants
-                creation_date TEXT DEFAULT CURRENT_TIMESTAMP,
+                creation_date TEXT DEFAULT CURRENT_TIMESTAMP
             )
             ''')
             
@@ -93,7 +93,7 @@ def setup_database():
                 attended BOOLEAN DEFAULT 0,
                 FOREIGN KEY (event_id) REFERENCES events(event_id) ON DELETE CASCADE,
                 FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-                UNIQUE (event_id, user_id),
+                UNIQUE (event_id, user_id)
             )
             ''')
 
@@ -107,7 +107,7 @@ def setup_database():
                 attended BOOLEAN DEFAULT 0,
                 FOREIGN KEY (event_id) REFERENCES events(event_id) ON DELETE CASCADE,
                 FOREIGN KEY (org_id) REFERENCES organizations(org_id) ON DELETE CASCADE,
-                UNIQUE (event_id, org_id),
+                UNIQUE (event_id, org_id)
             )
             ''')
         
@@ -123,7 +123,7 @@ def setup_database():
                 status TEXT DEFAULT 'available',
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
-                UNIQUE (user_id, title, item_type),
+                UNIQUE (user_id, name, item_type)
             )
             ''')
 
@@ -197,7 +197,7 @@ def setup_database():
                 goal_type TEXT NOT NULL,       
                 goal_target INTEGER NOT NULL,       -- The numeric target for the goal_type (e.g., 5, 100)
                 points_reward INTEGER DEFAULT 0,    -- Points awarded upon successful completion
-                time_allowed INTEGER DEFAULT NULL, -- Time allowed in seconds (NULL = no limit)
+                time_allowed INTEGER DEFAULT NULL -- Time allowed in seconds (NULL = no limit)
             )
             ''')
 
@@ -210,7 +210,7 @@ def setup_database():
                 goal_type TEXT NOT NULL,
                 goal_target INTEGER NOT NULL,
                 points_reward INTEGER DEFAULT 0,
-                time_allowed INTEGER DEFAULT NULL,
+                time_allowed INTEGER DEFAULT NULL
             )
             ''')
 
@@ -221,7 +221,7 @@ def setup_database():
                 user_id INTEGER NOT NULL,           
                 challenge_id INTEGER NOT NULL,     
                 goal_progress INTEGER DEFAULT 0, 
-                status TEXT NOT NULL DEFAULT 'active'
+                status TEXT NOT NULL DEFAULT 'active',
                 start_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 deadline TEXT DEFAULT NULL,
                 date_completed TEXT DEFAULT NULL,
@@ -239,7 +239,7 @@ def setup_database():
                 org_id INTEGER NOT NULL,  
                 challenge_id INTEGER NOT NULL,    
                 goal_progress INTEGER DEFAULT 0,
-                status TEXT NOT NULL DEFAULT 'in_progress'
+                status TEXT NOT NULL DEFAULT 'in_progress',
                 start_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 deadline TEXT DEFAULT NULL,
                 date_completed TEXT DEFAULT NULL,
