@@ -136,6 +136,23 @@ def setup_database():
                 UNIQUE (user_id, name, item_type)
             )
             ''')
+
+            # exchange_requests table
+            cursor.execute('''
+            CREATE TABLE IF NOT EXISTS exchange_requests (
+                exchange_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                item_id INTEGER NOT NULL,
+                requester_id INTEGER NOT NULL,
+                owner_id INTEGER NOT NULL, -- The user_id of the item's owner
+                message TEXT,
+                status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'accepted', 'rejected', 'cancelled'
+                request_date TEXT NOT NULL, -- ISO 8601 format: YYYY-MM-DD HH:MM:SS
+                decision_date TEXT, -- ISO 8601 format, filled when accepted/rejected
+                FOREIGN KEY (item_id) REFERENCES items (item_id) ON DELETE CASCADE,
+                FOREIGN KEY (requester_id) REFERENCES users (user_id) ON DELETE CASCADE,
+                FOREIGN KEY (owner_id) REFERENCES users (user_id) ON DELETE CASCADE
+            )
+            ''')
             
             #  achievements for users table
             cursor.execute('''

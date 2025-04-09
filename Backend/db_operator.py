@@ -1254,6 +1254,272 @@ def update_item_status(item_id, status):
             
     return success
 
+# --- ITEM EXCHANGE FUNCTIONS ---
+
+def create_exchange_request(item_id, requester_id, owner_id, message=""):
+    """
+    Creates a new exchange request record in the database.
+
+    Args:
+        item_id (int): The ID of the item being requested.
+        requester_id (int): The user_id of the person requesting the item.
+        owner_id (int): The user_id of the item's owner.
+        message (str, optional): A message from the requester. Defaults to "".
+
+    Returns:
+        int: The exchange_id of the newly created request if successful, None otherwise.
+    """
+    exchange_id = None
+    conn = db_conn.create_connection()
+    if conn is None:
+        print("Error: Could not establish database connection.")
+        return None
+
+    try:
+        cursor = conn.cursor()
+        current_time_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        # Optional: Add checks here to ensure item exists, is 'available', requester != owner etc.
+        # These checks could also live in the logic layer before calling this function.
+
+        cursor.execute('''
+            INSERT INTO exchange_requests
+                (item_id, requester_id, owner_id, message, status, request_date)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (item_id, requester_id, owner_id, message, 'pending', current_time_str))
+
+        conn.commit()
+        exchange_id = cursor.lastrowid
+        print(f"Successfully created exchange request with ID: {exchange_id}")
+
+    except sqlite3.Error as e:
+        print(f"Error creating exchange request: {e}")
+        if conn:
+            conn.rollback()
+    finally:
+        if conn:
+            conn.close()
+
+    return exchange_id
+
+def get_item_owner(item_id):
+    """
+    Retrieves the user_id of the owner of a specific item.
+
+    Args:
+        item_id (int): The ID of the item.
+
+    Returns:
+        int: The user_id of the item's owner, or None if the item is not found.
+    """
+    owner_id = None
+    conn = db_conn.create_connection()
+    if conn is None:
+        print("Error: Could not establish database connection.")
+        return None
+
+    try:
+        cursor = conn.cursor()
+        # Assumes 'user_id' column in 'items' table holds the owner's ID
+        cursor.execute("SELECT user_id FROM items WHERE item_id = ?", (item_id,))
+        result = cursor.fetchone()
+        if result:
+            owner_id = result[0]
+
+    except sqlite3.Error as e:
+        print(f"Error retrieving item owner for item ID {item_id}: {e}")
+    finally:
+        if conn:
+            conn.close()
+
+    return owner_id
+
+def get_exchange_request(exchange_id):
+    """
+    Retrieves details for a specific exchange request.
+
+    Args:
+        exchange_id (int): The ID of the exchange request.
+
+    Returns:
+        dict: A dictionary containing the request details (exchange_id, item_id,
+              requester_id, owner_id, message, status, request_date, decision_date)
+              or None if the request is not found or an error occurs.
+    """
+    request_details = None
+    conn = db_conn.create_connection()
+    if conn is None:
+        print("Error: Could not establish database connection.")
+        return None
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT exchange_id, item_id, requester_id, owner_id, message, status, request_date, decision_date
+            FROM exchange_requests
+            WHERE exchange_id = ?
+        ''', (exchange_id,))
+        row = cursor.fetchone()
+
+        if row:
+            request_details = {
+                'exchange_id': row[0],
+                'item_id': row[1],
+                'requester_id': row[2],
+                'owner_id': row[3],
+                'message': row[4],
+                'status': row[5],
+                'request_date': row[6],
+                'decision_date': row[7]
+            }
+
+    except sqlite3.Error as e:
+        print(f"Error retrieving exchange request ID {exchange_id}: {e}")
+    finally:
+        if conn:
+            conn.close()
+
+    return request_details
+
+def update_exchange_status(exchange_id, new_status):
+    """
+    Updates the status (and decision_date) of an exchange request.
+
+    Args:
+        exchange_id (int): The ID of the exchange request to update.
+        new_status (str): The new status ('accepted', 'rejected', 'cancelled').
+
+    Returns:
+        bool: True if the update was successful, False otherwise.
+    """
+    success = False
+    conn = db_conn.create_connection()
+    if conn is None:
+        print("Error: Could not establish database connection.")
+        return False
+
+    # Validate status (optional but recommended)
+    valid_statuses = ['accepted', 'rejected', 'cancelled', 'pending'] # Add any other valid statuses
+    if new_status not in valid_statuses:
+        print(f"Error: Invalid status '{new_status}' provided.")
+        return False
+
+    try:
+        cursor = conn.cursor()
+        current_time_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+        # Update status and set decision_date if status is terminal (accepted/rejected/cancelled)
+        if new_status in ['accepted', 'rejected', 'cancelled']:
+             cursor.execute('''
+                UPDATE exchange_requests
+                SET status = ?, decision_date = ?
+                WHERE exchange_id = ? AND status = 'pending' -- Only update pending requests
+            ''', (new_status, current_time_str, exchange_id))
+        else:
+             # Allow updating to other statuses if needed, potentially without decision_date
+             cursor.execute('''
+                UPDATE exchange_requests
+                SET status = ?
+                WHERE exchange_id = ?
+             ''', (new_status, exchange_id))
+
+
+        conn.commit()
+        # Check if any row was actually updated
+        if cursor.rowcount > 0:
+             print(f"Successfully updated exchange request ID {exchange_id} to status '{new_status}'.")
+             success = True
+        else:
+             # This might happen if the exchange_id doesn't exist or wasn't in 'pending' state for terminal updates
+             print(f"Warning: No rows updated for exchange request ID {exchange_id}. It might not exist or was not in a state to be updated to '{new_status}'.")
+
+
+    except sqlite3.Error as e:
+        print(f"Error updating status for exchange request ID {exchange_id}: {e}")
+        if conn:
+            conn.rollback()
+    finally:
+        if conn:
+            conn.close()
+
+    return success
+
+def get_user_exchange_requests(user_id, request_type='received'):
+    """
+    Retrieves exchange requests associated with a user, either sent or received.
+
+    Args:
+        user_id (int): The ID of the user whose requests are being fetched.
+        request_type (str): 'received' (requests for user's items) or
+                           'sent' (requests made by the user). Defaults to 'received'.
+
+    Returns:
+        list: A list of dictionaries, each representing an exchange request with
+              details about the item and the other party involved. Returns an empty list
+              if no requests are found, or None if an error occurs.
+    """
+    requests_list = []
+    conn = db_conn.create_connection()
+    if conn is None:
+        print("Error: Could not establish database connection.")
+        return None # Indicate error
+
+    try:
+        cursor = conn.cursor()
+        sql_query = '''
+            SELECT
+                er.exchange_id, er.item_id, i.name AS item_name,
+                er.requester_id, u_req.name AS requester_name,
+                er.owner_id, u_own.name AS owner_name,
+                er.message, er.status, er.request_date, er.decision_date
+            FROM exchange_requests er
+            JOIN items i ON er.item_id = i.item_id
+            JOIN users u_req ON er.requester_id = u_req.user_id
+            JOIN users u_own ON er.owner_id = u_own.user_id
+        '''
+        params = (user_id,)
+
+        if request_type == 'received':
+            sql_query += " WHERE er.owner_id = ?"
+        elif request_type == 'sent':
+            sql_query += " WHERE er.requester_id = ?"
+        else:
+            print(f"Error: Invalid request_type '{request_type}' specified.")
+            if conn: conn.close()
+            return None # Indicate error
+
+        sql_query += " ORDER BY er.request_date DESC" # Show newest first
+
+        cursor.execute(sql_query, params)
+        rows = cursor.fetchall()
+
+        for row in rows:
+            request_data = {
+                'exchange_id': row[0],
+                'item_id': row[1],
+                'item_name': row[2],
+                'requester_id': row[3],
+                'requester_name': row[4],
+                'owner_id': row[5],
+                'owner_name': row[6],
+                'message': row[7],
+                'status': row[8],
+                'request_date': row[9],
+                'decision_date': row[10]
+            }
+            requests_list.append(request_data)
+
+    except sqlite3.Error as e:
+        print(f"Error retrieving {request_type} exchange requests for user ID {user_id}: {e}")
+        requests_list = None # Indicate error on SQL failure
+    finally:
+        if conn:
+            conn.close()
+
+    # Return the list (possibly empty) or None if there was an error
+    return requests_list if requests_list is not None else []
+
+
 #CHALLENGES
 def search_challenges(user_type):
     """
@@ -1740,6 +2006,76 @@ def update_entity_points(entity_id, user_type, points_to_add):
     
     return achievement_unlocked
 
+def get_user_points_and_achievements(user_id):
+    """
+    Retrieves the current points and unlocked achievements for a specific user.
+
+    Args:
+        user_id (int): The ID of the user.
+
+    Returns:
+        dict: A dictionary containing 'points' (int) and 'achievements' (list of dicts),
+              or None if the user is not found or an error occurs.
+              Each achievement dict contains 'achievement_id', 'name', 'description', 'badge_icon', 'date_unlocked'.
+    """
+    user_data = None
+    conn = db_conn.create_connection()
+
+    if conn is None:
+        print("Error: Could not establish database connection.")
+        return None
+
+    try:
+        cursor = conn.cursor()
+
+        # 1. Get user's current points
+        cursor.execute("SELECT points FROM users WHERE user_id = ?", (user_id,))
+        points_result = cursor.fetchone()
+
+        if not points_result:
+            print(f"Error: User with ID {user_id} not found.")
+            return None
+
+        current_points = points_result[0]
+
+        # 2. Get user's unlocked achievements
+        cursor.execute('''
+            SELECT
+                ua.achievement_id,
+                a.name,
+                a.description,
+                a.badge_icon,
+                ua.date_unlocked
+            FROM user_achievements ua
+            JOIN achievements_for_users a ON ua.achievement_id = a.achievement_id
+            WHERE ua.user_id = ?
+            ORDER BY ua.date_unlocked DESC
+        ''', (user_id,))
+
+        achievements_list = []
+        for row in cursor.fetchall():
+            achievement = {
+                'achievement_id': row[0],
+                'name': row[1],
+                'description': row[2],
+                'badge_icon': row[3],
+                'date_unlocked': row[4]
+            }
+            achievements_list.append(achievement)
+
+        user_data = {
+            'points': current_points,
+            'achievements': achievements_list
+        }
+
+    except sqlite3.Error as e:
+        print(f"Error retrieving points and achievements for user ID {user_id}: {e}")
+    finally:
+        if conn:
+            conn.close()
+
+    return user_data
+
 #USER TO USER FUNCTIONS
 def search_users(query=None, career=None, interests=None):
     """
@@ -1812,6 +2148,7 @@ def add_map_point(user_id, user_type, name, description, point_type, latitude, l
     Returns:
         int: The point_id of the newly created map point if successful, None otherwise.
     """
+
     # Only 'admin' or 'store' users can add map points
     if user_type not in ["admin", "store"]:
         print(f"Permission Denied: User type '{user_type}' cannot add map points.")
@@ -1976,3 +2313,4 @@ def get_map_points(point_type=None):
             conn.close()
 
     return map_points_list
+
