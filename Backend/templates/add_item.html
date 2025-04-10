@@ -1,0 +1,24 @@
+{% extends "index.html" %}
+
+{% block content %}
+    <h2>Add Item for Exchange/Gift</h2>
+    <form action="{{ url_for('add_item') }}" method="post">
+        <label for="name">Item Name:</label>
+        <input type="text" id="name" name="name" required>
+
+        <label for="description">Description:</label>
+        <textarea id="description" name="description" rows="3" required></textarea>
+
+        <label for="item_type">Type:</label>
+        <select id="item_type" name="item_type" required>
+            <option value="gift">Gift (Dar)</option>
+            <option value="exchange">Exchange (Intercambiar)</option>
+            {# Add other types if your logic supports them #}
+        </select>
+
+        <label for="item_terms">Terms (e.g., condition, pickup details, what you want in exchange):</label>
+        <textarea id="item_terms" name="item_terms" rows="3" required></textarea>
+
+        <button type="submit">Add Item</button>
+    </form>
+{% endblock %} 

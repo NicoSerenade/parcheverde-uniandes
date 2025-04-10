@@ -5,18 +5,17 @@ import db_operator
 # This acts as a simple session state holder.
 current_logged_in_entity = None #dict with logged entity data
 
+#SESSION MANAGEMENT FUNCTIONS
+
 def register_user(name, email, student_code, password, interests=None, career=None):
     """
     Registers a new user in the system.
     Returns a status message indicating success or failure.
     """
-    print(f"Logic: Attempting user registration for {email}") # Keep console logs for backend debugging
     result_id = db_operator.register_user(student_code, password, name, email, career, interests)
     if result_id:
-        # Frontend might just need a success status, not necessarily the ID here.
         return {"status": "success", "message": f"User '{name}' registered successfully."}
     else:
-        # Provide a more informative error for the frontend.
         return {"status": "error", "message": "User registration failed. Email or student code might already exist, or email domain is invalid."}
 
 def register_organization(name, email, description, password, interests=None):
@@ -27,19 +26,16 @@ def register_organization(name, email, description, password, interests=None):
     global current_logged_in_entity
     if not current_logged_in_entity:
         return {"status": "error", "message": "Login required to register an organization."}
+    
     if current_logged_in_entity.get('user_type') != 'user':
         return {"status": "error", "message": "Only standard users can register organizations."}
 
     creator_student_code = current_logged_in_entity.get('student_code')
-    if not creator_student_code:
-         return {"status": "error", "message": "Could not identify logged-in user to register organization."}
-
-    print(f"Logic: User {creator_student_code} attempting to register organization {name} ({email})")
     result_id = db_operator.register_org(creator_student_code, password, name, email, description, interests)
     if result_id:
         return {"status": "success", "message": f"Organization '{name}' registered successfully."}
     else:
-        return {"status": "error", "message": "Organization registration failed. Email might already exist or be invalid."}
+        return {"status": "error", "message": "Organization registration failed. Email might already exist."}
 
 def login(identifier, password):
     """
@@ -47,14 +43,9 @@ def login(identifier, password):
     Returns the entity's data dictionary on success, None on failure.
     """
     global current_logged_in_entity
-    print(f"Logic: Attempting login for identifier: {identifier}")
-
-    # Try user authentication
     user_data = db_operator.authenticate_user(identifier, password)
     if user_data:
          current_logged_in_entity = user_data # Store session data
-         print(f"Logic: User '{user_data.get('name')}' logged in.")
-         # Return necessary data for the frontend session
          return {
              "status": "success",
              "entity_type": "user",
@@ -62,10 +53,10 @@ def login(identifier, password):
              "name": user_data.get('name'),
              "email": user_data.get('email'),
              "student_code": user_data.get('student_code'),
-             # Add other relevant fields for the frontend session
              "points": user_data.get('points'),
              "interests": user_data.get('interests'),
-             "career": user_data.get('career')
+             "career": user_data.get('career'),
+             "creation_date": user_data.get("creation_date")
          }
 
     # Try organization authentication
@@ -73,21 +64,18 @@ def login(identifier, password):
     if org_data:
         current_logged_in_entity = org_data # Store session data
         print(f"Logic: Organization '{org_data.get('name')}' logged in.")
-        # Return necessary data for the frontend session
         return {
             "status": "success",
-            "entity_type": "organization",
+            "entity_type": "org",
             "org_id": org_data.get('org_id'),
             "name": org_data.get('name'),
             "email": org_data.get('email'),
             "description": org_data.get('description'),
-            # Add other relevant fields for the frontend session
             "points": org_data.get('points'),
-            "interests": org_data.get('interests')
+            "interests": org_data.get('interests'),
+            "creation_date": org_data.get("creation_date")
          }
-
     # If both fail
-    print(f"Logic: Login failed for identifier: {identifier}.")
     current_logged_in_entity = None
     return {"status": "error", "message": "Invalid credentials or entity not found."}
 
@@ -98,8 +86,6 @@ def logout():
     """
     global current_logged_in_entity
     if current_logged_in_entity:
-        identifier_key = 'name' # Use name for both user and org for simplicity in log
-        print(f"Logic: Logging out {current_logged_in_entity.get(identifier_key)}.")
         current_logged_in_entity = None
         return {"status": "success", "message": "Successfully logged out."}
     else:
@@ -118,7 +104,7 @@ def get_current_session():
 def _get_session_details():
     """Internal helper to get ID and type from the current session."""
     if not current_logged_in_entity:
-        return None, None, "Login required." # Return error message
+        return None, None, "Login required."
 
     entity_type = current_logged_in_entity.get('user_type')
     entity_id = None
@@ -205,22 +191,18 @@ def add_item_for_exchange_logic(name, description, item_type, item_terms):
     else:
         return {"status": "error", "message": "Failed to add item."}
 
-def add_map_point_logic(name, latitude, longitude, point_type, description):
+def add_map_point_logic(permission_code, name, latitude, longitude, point_type, description):
     """
-    Allows logged-in admins or stores to add a map point.
+    Allows logged-in users to add a map point if they have the permission code.
     Returns a status message.
     """
     adder_id, adder_type, error = _get_session_details()
     if error:
         return {"status": "error", "message": error}
-
-    # db_operator.add_map_point handles permission check ('admin', 'store')
-    print(f"Logic: {adder_type.capitalize()} ID {adder_id} adding map point '{name}'")
-    result_id = db_operator.add_map_point(adder_id, adder_type, name, description, point_type, latitude, longitude)
+    result_id = db_operator.add_map_point(adder_id, permission_code, name, description, point_type, latitude, longitude)
     if result_id:
         return {"status": "success", "message": f"Map point '{name}' added successfully."}
     else:
-        # db_operator might print specific permission errors to console
         return {"status": "error", "message": "Failed to add map point. Check permissions or data."}
 
 def update_my_profile_logic(new_data):
@@ -233,12 +215,9 @@ def update_my_profile_logic(new_data):
     if error:
         return {"status": "error", "message": error}
 
-    print(f"Logic: Updating profile for {entity_type} ID {entity_id}")
-
     # Filter data - prevent updating sensitive fields like ID, type, password directly here.
-    # Frontend should send only editable fields.
     allowed_user_fields = {'student_code', 'name', 'email', 'career', 'interests'}
-    allowed_org_fields = {'name', 'email', 'description', 'interests'} # No creator_student_code update here
+    allowed_org_fields = {'name', 'email', 'description', 'interests'}
 
     update_payload = {}
     if entity_type == 'user':
@@ -263,7 +242,6 @@ def update_my_profile_logic(new_data):
         return {"status": "success", "message": "Profile updated successfully."}
     else:
         return {"status": "error", "message": "Failed to update profile. Check data or email domain."}
-
 
 def award_points_logic(user_id, points, reason=""):
      """
@@ -295,12 +273,13 @@ def award_points_logic(user_id, points, reason=""):
 def view_all_events_logic():
     """
     Retrieves a list of all events.
-    Returns the list of event dictionaries or an error message.
+    Returns the list of event dictionaries or an empty list on error.
     """
     print("Logic: Fetching all events.")
+
     events = db_operator.search_events()
-    # Frontend expects a list of events, maybe wrapped in a dict
-    return {"status": "success", "data": events}
+
+    return events
 
 def search_events_logic(query):
     """
@@ -314,11 +293,11 @@ def search_events_logic(query):
 def view_exchange_items_logic():
     """
     Retrieves items currently available for exchange.
-    Returns the list of item dictionaries or an error message.
+    Returns the list of item dictionaries or an empty list on error.
     """
-    print("Logic: Fetching available exchange items.")
+
     items = db_operator.get_available_items()
-    return {"status": "success", "data": items}
+    return items
 
 def get_map_points_logic():
     """

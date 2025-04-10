@@ -1,0 +1,28 @@
+{% extends "index.html" %}
+
+{% block content %}
+    <h2>Available Events</h2>
+    {% if events %}
+        <ul>
+            {% for event in events %}
+                <li>
+                    <strong>{{ event.name }}</strong> (Type: {{ event.event_type }})<br>
+                    Description: {{ event.description }}<br>
+                    When: {{ event.event_datetime }} | Where: {{ event.location }}<br>
+                    {# Temporarily removed organizer info as it's not in the data yet #}
+                    {# Organizer: {{ event.organizer_name }} ({{ event.organizer_type }}) #}
+                    {# Add a button to register if the user is logged in and is a standard user #}
+                    {% if current_session and current_session.user_type == 'user' %}
+                        <form action="{{ url_for('register_for_event', event_id=event.event_id) }}" method="post" style="display: inline; margin-left: 10px;">
+                            <button type="submit">Register for Event</button>
+                        </form>
+                    {% elif not current_session %}
+                       <small style="margin-left: 10px;">(Login as user to register)</small>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No events found.</p>
+    {% endif %}
+{% endblock %} 

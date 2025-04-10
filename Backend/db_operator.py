@@ -181,12 +181,15 @@ def delete_my_user(student_code, password):
 
 #ORG REGISTRATION
 def register_org(creator_student_code, password, name, email, description=None, interests=None):
+    """
+    Registers a new organization, but FIRST checks if the creator_student_code
+    exists in the 'users' table.
+    Returns:
+        int or None: The ID of the newly registered organization if the creator exists
+                     and registration is successful, otherwise None.
+    """
     user_type = "org"
     org_id = None
-
-    if not isinstance(email, str) or not email.endswith("@uniandes.edu.co"):
-        print(f"Error: Email must end with {"@uniandes.edu.co"}")
-        return None
 
     conn = db_conn.create_connection()
     if conn is not None:
@@ -196,12 +199,16 @@ def register_org(creator_student_code, password, name, email, description=None, 
             hashed_password = bcrypt.hashpw(password_bytes, salt) 
 
             cursor = conn.cursor()
-            cursor.execute('''
-            INSERT INTO organizations (user_type, creator_student_code, password, name, email, description, interests)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (user_type, creator_student_code, hashed_password, name, email, description, interests)) 
-            conn.commit()
-            org_id = cursor.lastrowid
+            cursor.execute("SELECT user_id FROM users WHERE student_code = ?", (creator_student_code,))
+            creator_user = cursor.fetchone()
+
+            if creator_user:
+                cursor.execute('''
+                INSERT INTO organizations (user_type, creator_student_code, password, name, email, description, interests)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (user_type, creator_student_code, hashed_password, name, email, description, interests)) 
+                conn.commit()
+                org_id = cursor.lastrowid
         except sqlite3.Error as e:
             print(f"Error registering organization: {e}")
         finally:
@@ -1182,7 +1189,8 @@ def get_available_items(item_type=None, item_terms=None, user_id=None):
         except sqlite3.Error as e:
             print(f"Error retrieving available items: {e}")
         finally:
-            conn.close()
+            if conn:
+                 conn.close()
             
     return items
 
@@ -1194,8 +1202,8 @@ def create_item(user_id, name, description, item_type, item_terms):
         user_id (int): ID of the user creating the item
         name (str): Name of the item
         description (str): Description of the item
-        item_type (str): Type of item (e.g., 'clothing', 'technology')
-        item_terms (str): Terms for the item (e.g., 'gift', 'exchange')
+        item_type (str): Type of item --ropa, libros, hogar, otros
+        item_terms (str): Terms for the item --regalo, prestamo, intercambio (NO SE PUEDEN VENDER)
     
     Returns:
         int: ID of the created item if successful, None otherwise
@@ -1227,7 +1235,7 @@ def update_item_status(item_id, status):
     
     Args:
         item_id (int): ID of the item
-        status (str): New status ('available', 'pending', 'exchanged', etc.)
+        status (str): New status --available, borrowed, unavailable
     
     Returns:
         bool: True if successful, False otherwise
@@ -1278,10 +1286,6 @@ def create_exchange_request(item_id, requester_id, owner_id, message=""):
     try:
         cursor = conn.cursor()
         current_time_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-        # Optional: Add checks here to ensure item exists, is 'available', requester != owner etc.
-        # These checks could also live in the logic layer before calling this function.
-
         cursor.execute('''
             INSERT INTO exchange_requests
                 (item_id, requester_id, owner_id, message, status, request_date)
@@ -1398,8 +1402,7 @@ def update_exchange_status(exchange_id, new_status):
         print("Error: Could not establish database connection.")
         return False
 
-    # Validate status (optional but recommended)
-    valid_statuses = ['accepted', 'rejected', 'cancelled', 'pending'] # Add any other valid statuses
+    valid_statuses = ['accepted', 'rejected', 'cancelled', 'pending']
     if new_status not in valid_statuses:
         print(f"Error: Invalid status '{new_status}' provided.")
         return False
@@ -1408,31 +1411,19 @@ def update_exchange_status(exchange_id, new_status):
         cursor = conn.cursor()
         current_time_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-        # Update status and set decision_date if status is terminal (accepted/rejected/cancelled)
         if new_status in ['accepted', 'rejected', 'cancelled']:
              cursor.execute('''
                 UPDATE exchange_requests
                 SET status = ?, decision_date = ?
-                WHERE exchange_id = ? AND status = 'pending' -- Only update pending requests
-            ''', (new_status, current_time_str, exchange_id))
-        else:
-             # Allow updating to other statuses if needed, potentially without decision_date
-             cursor.execute('''
-                UPDATE exchange_requests
-                SET status = ?
                 WHERE exchange_id = ?
-             ''', (new_status, exchange_id))
-
+            ''', (new_status, current_time_str, exchange_id))
 
         conn.commit()
-        # Check if any row was actually updated
         if cursor.rowcount > 0:
              print(f"Successfully updated exchange request ID {exchange_id} to status '{new_status}'.")
              success = True
         else:
-             # This might happen if the exchange_id doesn't exist or wasn't in 'pending' state for terminal updates
              print(f"Warning: No rows updated for exchange request ID {exchange_id}. It might not exist or was not in a state to be updated to '{new_status}'.")
-
 
     except sqlite3.Error as e:
         print(f"Error updating status for exchange request ID {exchange_id}: {e}")
@@ -1455,8 +1446,12 @@ def get_user_exchange_requests(user_id, request_type='received'):
 
     Returns:
         list: A list of dictionaries, each representing an exchange request with
-              details about the item and the other party involved. Returns an empty list
-              if no requests are found, or None if an error occurs.
+              details about the item and the other party involved. 
+                received: Finds requests made by other users for items owned by the specified user_id.
+                sent: Finds requests made by the specified user_id for items owned by other users.
+              
+              Returns an empty list if no requests are found, or None if an error occurs.
+
     """
     requests_list = []
     conn = db_conn.create_connection()
@@ -1486,7 +1481,7 @@ def get_user_exchange_requests(user_id, request_type='received'):
         else:
             print(f"Error: Invalid request_type '{request_type}' specified.")
             if conn: conn.close()
-            return None # Indicate error
+            return None
 
         sql_query += " ORDER BY er.request_date DESC" # Show newest first
 
@@ -1511,7 +1506,7 @@ def get_user_exchange_requests(user_id, request_type='received'):
 
     except sqlite3.Error as e:
         print(f"Error retrieving {request_type} exchange requests for user ID {user_id}: {e}")
-        requests_list = None # Indicate error on SQL failure
+        requests_list = None
     finally:
         if conn:
             conn.close()
@@ -2142,16 +2137,15 @@ def search_users(query=None, career=None, interests=None):
     return users
 
 #MAP FUNCTIONS
-def add_map_point(user_id, user_type, name, description, point_type, latitude, longitude, address=None):
+def add_map_point(user_id, permission_code, name, description, point_type, latitude, longitude, address=None):
     """
-    Adds a new map point if the user has the required permissions ('admin' or 'store'):
+    Adds a new map point if the user has the permission code for doing so. (admin2000)
     Returns:
         int: The point_id of the newly created map point if successful, None otherwise.
     """
 
-    # Only 'admin' or 'store' users can add map points
-    if user_type not in ["admin", "store"]:
-        print(f"Permission Denied: User type '{user_type}' cannot add map points.")
+    if permission_code != "admin2000":
+        print(f"Permission Denied: User type '{permission_code}' cannot add map points.")
         return None
 
     point_id = None
@@ -2190,7 +2184,7 @@ def delete_map_point(user_id, user_type, point_id):
 
     Args:
         user_id (int): The ID of the user attempting the deletion.
-        user_type (str): The type of the user ('admin', 'store', 'user', etc.).
+        user_type (str): The type of the user -- 'admin', 'user'
         point_id (int): The ID of the map point to delete.
 
     Returns:
@@ -2205,38 +2199,21 @@ def delete_map_point(user_id, user_type, point_id):
 
     try:
         cursor = conn.cursor()
-
         if user_type == "admin":
             # Admin can delete any point by its ID
             cursor.execute("DELETE FROM map_points WHERE point_id = ?", (point_id,))
-            print(f"Admin user ID {user_id} attempting to delete point ID {point_id}.")
         else:
             # Non-admin users can only delete points they created
             cursor.execute("DELETE FROM map_points WHERE point_id = ? AND creator_id = ?", (point_id, user_id))
-            print(f"User ID {user_id} (type: {user_type}) attempting to delete own point ID {point_id}.")
-
         conn.commit()
-
         if cursor.rowcount > 0:
-            print(f"Successfully deleted map point with ID: {point_id}")
             deleted = True
         else:
-            # Could be that the point_id doesn't exist, or the non-admin user doesn't own it
-             # We can add a check to see if the point exists first for a more specific message
-            cursor.execute("SELECT 1 FROM map_points WHERE point_id = ?", (point_id,))
-            exists = cursor.fetchone()
-            if not exists:
-                 print(f"Deletion failed: Map point with ID {point_id} not found.")
-            elif user_type != "admin":
-                 print(f"Deletion failed: User ID {user_id} does not have permission to delete point ID {point_id} or it doesn't exist.")
-            else: # Admin case, point not found
-                 print(f"Deletion failed: Map point with ID {point_id} not found (Admin attempt).")
-
-
+            print("You don't own that point.")
     except sqlite3.Error as e:
         print(f"Error deleting map point: {e}")
         if conn:
-            conn.rollback() # Rollback on error
+            conn.rollback()
     finally:
         if conn:
             conn.close()

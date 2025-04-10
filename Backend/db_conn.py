@@ -128,7 +128,7 @@ def setup_database():
                 user_id INTEGER,
                 name TEXT NOT NULL,
                 description TEXT NOT NULL,
-                item_type TEXT NOT NULL, --ropa,
+                item_type TEXT NOT NULL, --ropa, libros, hogar, otros
                 item_terms TEXT NOT NULL, --regalo, prestamo, intercambio (NO SE PUEDEN VENDER)
                 item_status TEXT DEFAULT 'available', --available, borrowed, unavailable
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -313,9 +313,7 @@ def drop_table():
     else:
         print("Operation cancelled. Table was not dropped.")
 
-
-
-
+setup_database()
 
 
 

@@ -1,0 +1,21 @@
+{% extends "index.html" %}
+
+{% block content %}
+    <h2>Items for Exchange/Gift</h2>
+    {% if items %}
+        <ul>
+            {% for item in items %}
+                <li>
+                    <strong>{{ item.name }}</strong> (Type: {{ item.item_type }})<br>
+                    Owner: {{ item.user_name }}<br>
+                    Description: {{ item.description }}<br>
+                    Terms: {{ item.item_terms }}<br>
+                    Listed on: {{ item.creation_date }}
+                    {# Add buttons for actions like requesting exchange later if needed #}
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No items found.</p>
+    {% endif %}
+{% endblock %} 

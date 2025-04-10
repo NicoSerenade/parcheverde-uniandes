@@ -1,0 +1,31 @@
+{% extends "index.html" %}
+
+{% block content %}
+    <h2>My Profile</h2>
+    {% if current_session %}
+        <p><strong>Name:</strong> {{ current_session.name }}</p>
+        <p><strong>Email:</strong> {{ current_session.email }}</p>
+        <p><strong>Type:</strong> {{ current_session.user_type }}</p>
+        <p><strong>Points:</strong> {{ current_session.points }}</p>
+        <p><strong>Joined:</strong> {{ current_session.creation_date }}</p>
+
+        {# User Specific Fields #}
+        {% if current_session.user_type == 'user' %}
+            <p><strong>Student Code:</strong> {{ current_session.student_code }}</p>
+            {% if current_session.career %}<p><strong>Career:</strong> {{ current_session.career }}</p>{% endif %}
+        {% endif %}
+
+        {# Org Specific Fields #}
+        {% if current_session.user_type == 'org' or current_session.user_type == 'organization' %}
+            <p><strong>Description:</strong> {{ current_session.description }}</p>
+        {% endif %}
+
+         {% if current_session.interests %}<p><strong>Interests:</strong> {{ current_session.interests }}</p>{% endif %}
+
+        {# Add link to edit profile later if needed #}
+        {# Add sections for owned items, joined events, badges etc. later #}
+
+    {% else %}
+        <p>You are not logged in.</p>
+    {% endif %}
+{% endblock %} 

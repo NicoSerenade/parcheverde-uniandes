@@ -1,0 +1,26 @@
+{% extends "index.html" %}
+
+{% block content %}
+    <h2>Register New User</h2>
+    <form action="{{ url_for('register_user') }}" method="post">
+        <label for="name">Name:</label>
+        <input type="text" id="name" name="name" required>
+
+        <label for="email">Email (@uniandes.edu.co):</label>
+        <input type="email" id="email" name="email" required pattern=".*@uniandes\.edu\.co$">
+
+        <label for="student_code">Student Code:</label>
+        <input type="text" id="student_code" name="student_code" required>
+
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required>
+
+        <label for="career">Career (Optional):</label>
+        <input type="text" id="career" name="career">
+
+        <label for="interests">Interests (Optional, comma-separated):</label>
+        <input type="text" id="interests" name="interests">
+
+        <button type="submit">Register</button>
+    </form>
+{% endblock %} 
