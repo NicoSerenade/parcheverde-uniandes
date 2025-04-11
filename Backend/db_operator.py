@@ -1146,11 +1146,11 @@ def get_available_items(item_type=None, item_terms=None, user_id=None):
             
             query = '''
             SELECT i.item_id, i.user_id, i.name, i.description, 
-                   i.item_type, i.item_terms, i.status, i.creation_date,
+                   i.item_type, i.item_terms, i.item_status, i.creation_date,
                    u.name as user_name
             FROM items i
             JOIN users u ON i.user_id = u.user_id
-            WHERE i.status = 'available'
+            WHERE i.item_status = 'available'
             '''
             
             params = []
@@ -1180,7 +1180,7 @@ def get_available_items(item_type=None, item_terms=None, user_id=None):
                     'description': row[3],
                     'item_type': row[4],
                     'item_terms': row[5],
-                    'status': row[6],
+                    'item_status': row[6],
                     'creation_date': row[7],
                     'user_name': row[8]
                 }

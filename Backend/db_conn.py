@@ -86,7 +86,7 @@ def setup_database():
                 event_type TEXT NOT NULL,
                 location TEXT NOT NULL,
                 event_datetime TEXT NOT NULL,
-                status TEXT DEFAULT 'active', active, completed
+                status TEXT DEFAULT 'active', --active, completed
                 points_value INTEGER DEFAULT 0, --poits it gives to creators and participants
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP
             )
