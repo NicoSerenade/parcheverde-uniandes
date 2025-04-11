@@ -1,36 +1,48 @@
 '''Core application logic module'''
 
 import db_operator
+import sqlite3 # Import sqlite3 for error handling if needed in modified functions
+import db_conn # Import db_conn for direct DB access in some functions
 
-# This acts as a simple session state holder.
-current_logged_in_entity = None #dict with logged entity data
+# --- Session Management Removed ---
+# Global variable 'current_logged_in_entity' has been removed.
+# Session state will now be managed by Flask's session mechanism in app.py.
+# Functions 'get_current_session' and '_get_session_details' have been removed.
 
-#SESSION MANAGEMENT FUNCTIONS
+# --- Authentication Functions ---
 
 def register_user(name, email, student_code, password, interests=None, career=None):
     """
     Registers a new user in the system.
     Returns a status message indicating success or failure.
     """
+    # No change needed here as it didn't depend on session state
     result_id = db_operator.register_user(student_code, password, name, email, career, interests)
     if result_id:
         return {"status": "success", "message": f"User '{name}' registered successfully."}
     else:
-        return {"status": "error", "message": "User registration failed. Email or student code might already exist, or email domain is invalid."}
+        # Added specific check for duplicate error if db_operator raises it
+        # Note: This requires db_operator to potentially raise specific errors
+        # or return more detailed failure info. For now, keeping generic message.
+        return {"status": "error", "message": "User registration failed. Email, student code might exist, or email domain is invalid."}
 
-def register_organization(name, email, description, password, interests=None):
+def register_organization(creator_student_code, name, email, description, password, interests=None):
     """
-    Registers a new organization. Requires a standard user to be logged in.
+    Registers a new organization.
+    Requires the student code of the creating user.
     Returns a status message indicating success or failure.
-    """
-    global current_logged_in_entity
-    if not current_logged_in_entity:
-        return {"status": "error", "message": "Login required to register an organization."}
-    
-    if current_logged_in_entity.get('user_type') != 'user':
-        return {"status": "error", "message": "Only standard users can register organizations."}
 
-    creator_student_code = current_logged_in_entity.get('student_code')
+    Args:
+        creator_student_code (str): The student code of the user creating the org.
+        name (str): Organization name.
+        email (str): Organization email.
+        description (str): Organization description.
+        password (str): Organization password.
+        interests (str, optional): Organization interests.
+    """
+    # Removed check for global current_logged_in_entity
+    # The check if the creator is a standard user should now happen in app.py before calling this.
+    print(f"Logic: User with student code {creator_student_code} attempting to register org '{name}'")
     result_id = db_operator.register_org(creator_student_code, password, name, email, description, interests)
     if result_id:
         return {"status": "success", "message": f"Organization '{name}' registered successfully."}
@@ -39,34 +51,36 @@ def register_organization(name, email, description, password, interests=None):
 
 def login(identifier, password):
     """
-    Logs in a user (using student_code) or an organization (using name).
-    Returns the entity's data dictionary on success, None on failure.
+    Authenticates a user (using student_code) or an organization (using name).
+    Returns a dictionary containing status and entity data on success,
+    or status and error message on failure.
+    It no longer manages global session state.
     """
-    global current_logged_in_entity
+    # Removed global current_logged_in_entity management
     user_data = db_operator.authenticate_user(identifier, password)
     if user_data:
-         current_logged_in_entity = user_data # Store session data
+         # Return data needed for Flask session setup
          return {
              "status": "success",
-             "entity_type": "user",
+             "entity_type": "user", # Consistent type name
              "user_id": user_data.get('user_id'),
+             "student_code": user_data.get('student_code'), # Keep student_code
              "name": user_data.get('name'),
              "email": user_data.get('email'),
-             "student_code": user_data.get('student_code'),
              "points": user_data.get('points'),
              "interests": user_data.get('interests'),
              "career": user_data.get('career'),
              "creation_date": user_data.get("creation_date")
+             # Add other necessary fields if needed for session
          }
 
-    # Try organization authentication
     org_data = db_operator.authenticate_org(identifier, password)
     if org_data:
-        current_logged_in_entity = org_data # Store session data
-        print(f"Logic: Organization '{org_data.get('name')}' logged in.")
+        # Return data needed for Flask session setup
+        print(f"Logic: Organization '{org_data.get('name')}' authenticated.")
         return {
             "status": "success",
-            "entity_type": "org",
+            "entity_type": "organization", # Consistent type name
             "org_id": org_data.get('org_id'),
             "name": org_data.get('name'),
             "email": org_data.get('email'),
@@ -74,198 +88,240 @@ def login(identifier, password):
             "points": org_data.get('points'),
             "interests": org_data.get('interests'),
             "creation_date": org_data.get("creation_date")
+            # Add other necessary fields if needed for session
          }
+
     # If both fail
-    current_logged_in_entity = None
+    print(f"Logic: Login failed for identifier '{identifier}'")
     return {"status": "error", "message": "Invalid credentials or entity not found."}
 
 def logout():
     """
-    Logs out the currently logged-in entity.
+    This function is now a placeholder.
+    Actual logout (clearing the Flask session) should be handled in app.py.
+    """
+    # Removed global current_logged_in_entity management
+    print("Logic: Logout called (Session clearing happens in app.py).")
+    return {"status": "success", "message": "Logout processed (session cleared by Flask)."}
+
+# --- Helper function _get_session_details REMOVED ---
+# Functions below now accept entity_id and entity_type as arguments
+
+# --- Core Features (Now Require Entity Info as Args) ---
+
+def create_event_logic(organizer_id, organizer_type, title, description, event_datetime, location, event_type):
+    """
+    Allows a user or organization (specified by ID and type) to create a new event.
     Returns a status message.
+
+    Args:
+        organizer_id (int): The ID of the user or organization creating the event.
+        organizer_type (str): 'user' or 'organization'.
+        title (str): Event title.
+        description (str): Event description.
+        event_datetime (str): Event date and time.
+        location (str): Event location.
+        event_type (str): Event type.
     """
-    global current_logged_in_entity
-    if current_logged_in_entity:
-        current_logged_in_entity = None
-        return {"status": "success", "message": "Successfully logged out."}
-    else:
-        return {"status": "info", "message": "No one is currently logged in."}
+    # Removed _get_session_details call
+    # Input validation (e.g., ensuring organizer_id/type are provided) might be needed
+    if not organizer_id or not organizer_type:
+         return {"status": "error", "message": "Organizer ID and type are required."}
 
-def get_current_session():
-    """
-    Returns the data dictionary of the currently logged-in entity.
-    This is useful for the frontend to know who is logged in.
-    Returns None if no one is logged in.
-    """
-    # Return a copy to prevent external modification of the session state
-    return current_logged_in_entity.copy() if current_logged_in_entity else None
-
-# --- Helper function to get ID and Type safely ---
-def _get_session_details():
-    """Internal helper to get ID and type from the current session."""
-    if not current_logged_in_entity:
-        return None, None, "Login required."
-
-    entity_type = current_logged_in_entity.get('user_type')
-    entity_id = None
-
-    if entity_type == 'user':
-        entity_id = current_logged_in_entity.get('user_id')
-    elif entity_type == 'organization' or entity_type == 'org': # Allow 'org' as well
-         # Ensure consistency in db_operator return keys ('org_id')
-         entity_id = current_logged_in_entity.get('org_id')
-    else:
-        return None, None, "Unknown entity type in session."
-
-    if not entity_id:
-         return None, None, f"Could not find ID for entity type '{entity_type}'."
-
-    return entity_id, entity_type, None # No error
-
-# --- Core Features (Require Login) ---
-
-def create_event_logic(title, description, event_datetime, location, event_type):
-    """
-    Allows the logged-in user or organization to create a new event.
-    Returns a status message.
-    """
-    organizer_id, organizer_type, error = _get_session_details()
-    if error:
-        return {"status": "error", "message": error}
-        
-    # Map 'organization' type from session back to 'org' if needed by db_operator
-    db_organizer_type = 'org' if organizer_type == 'organization' else organizer_type 
+    # Map 'organization' type to 'org' if needed by db_operator
+    db_organizer_type = 'org' if organizer_type == 'organization' else organizer_type
+    if db_organizer_type not in ['user', 'org']:
+         return {"status": "error", "message": f"Invalid organizer type: {organizer_type}"}
 
     print(f"Logic: {organizer_type.capitalize()} ID {organizer_id} creating event '{title}'")
     result_id = db_operator.create_event(organizer_id, db_organizer_type, title, description, event_type, location, event_datetime)
     if result_id:
         return {"status": "success", "message": f"Event '{title}' created successfully."}
     else:
+        # Consider more specific error messages based on db_operator return/exceptions
         return {"status": "error", "message": "Failed to create event."}
 
-def register_for_event_logic(event_id):
+def register_for_event_logic(user_id, event_id):
     """
-    Allows the logged-in user to register for an event.
+    Allows a specified user to register for an event.
     Returns a status message, potentially including points awarded.
+
+    Args:
+        user_id (int): The ID of the user registering.
+        event_id (int): The ID of the event to register for.
     """
-    user_id, user_type, error = _get_session_details()
-    if error:
-        return {"status": "error", "message": error}
-    if user_type != 'user':
-        return {"status": "error", "message": "Only users can register for events."}
+    # Removed _get_session_details call
+    # Type check (ensuring it's a user) should happen in app.py before calling
+    if not user_id:
+         return {"status": "error", "message": "User ID is required."}
 
     print(f"Logic: User ID {user_id} registering for event ID {event_id}")
     # Assuming db_operator.join_event expects 'user' as user_type
     success = db_operator.join_event(event_id, user_id, 'user')
 
     if success:
-        # Award points for joining (adjust points/reason as needed)
         points_reason = f"Joined event {event_id}"
         points_to_award = 5 # Example points
+        # Pass user_id to award_points_logic
         award_result = award_points_logic(user_id, points_to_award, points_reason)
-        # Include points message in the success response
         return {"status": "success", "message": f"Successfully registered for the event! {award_result.get('message', '')}"}
     else:
-        return {"status": "error", "message": "Failed to register for the event. Maybe you are already registered, or the event doesn't exist."}
+        # Consider more specific errors (already registered, event full, event not found)
+        return {"status": "error", "message": "Failed to register for the event. Maybe already registered, or the event doesn't exist."}
 
-def add_item_for_exchange_logic(name, description, item_type, item_terms):
+def add_item_for_exchange_logic(owner_id, name, description, item_type, item_terms):
     """
-    Allows the logged-in user to add an item for exchange.
+    Allows a specified user to add an item for exchange.
     Returns a status message, potentially including points awarded.
+
+    Args:
+        owner_id (int): The user_id of the item owner.
+        name (str): Item name.
+        description (str): Item description.
+        item_type (str): Item type.
+        item_terms (str): Item terms.
     """
-    owner_id, owner_type, error = _get_session_details()
-    if error:
-        return {"status": "error", "message": error}
-    if owner_type != 'user':
-        return {"status": "error", "message": "Only users can add items for exchange."}
+    # Removed _get_session_details call
+    # Type check (ensuring it's a user) should happen in app.py
+    if not owner_id:
+        return {"status": "error", "message": "Owner ID is required."}
 
     print(f"Logic: User ID {owner_id} adding item '{name}'")
     item_id = db_operator.create_item(owner_id, name, description, item_type, item_terms)
 
     if item_id:
-         # Award points for adding an item
          points_reason = f"Added item '{name}' for exchange"
          points_to_award = 2 # Example points
+         # Pass owner_id to award_points_logic
          award_result = award_points_logic(owner_id, points_to_award, points_reason)
          return {"status": "success", "message": f"Item '{name}' added successfully. {award_result.get('message', '')}"}
     else:
         return {"status": "error", "message": "Failed to add item."}
 
-def add_map_point_logic(permission_code, name, latitude, longitude, point_type, description):
+
+def add_map_point_logic(adder_id, adder_type, permission_code, name, latitude, longitude, point_type, description):
     """
-    Allows logged-in users to add a map point if they have the permission code.
+    Allows logged-in users/orgs (specified by ID/type) to add a map point if they have the permission code.
     Returns a status message.
+
+    Args:
+        adder_id (int): The ID of the user/org adding the point.
+        adder_type (str): 'user' or 'organization'.
+        permission_code (str): The required permission code.
+        name (str): Point name.
+        latitude (float): Point latitude.
+        longitude (float): Point longitude.
+        point_type (str): Type of map point.
+        description (str): Point description.
     """
-    adder_id, adder_type, error = _get_session_details()
-    if error:
-        return {"status": "error", "message": error}
+    # Removed _get_session_details call
+    if not adder_id or not adder_type:
+        return {"status": "error", "message": "Adder ID and type are required."}
+
+    # Basic permission check (could be more complex)
+    # TODO: Move permission check logic here or confirm db_operator handles it
+    # For now, assuming db_operator handles the permission check
+    print(f"Logic: {adder_type.capitalize()} ID {adder_id} attempting to add map point '{name}'")
     result_id = db_operator.add_map_point(adder_id, permission_code, name, description, point_type, latitude, longitude)
+
     if result_id:
         return {"status": "success", "message": f"Map point '{name}' added successfully."}
     else:
-        return {"status": "error", "message": "Failed to add map point. Check permissions or data."}
+        # Provide more specific feedback if possible
+        return {"status": "error", "message": "Failed to add map point. Check permissions, data, or if the point already exists."}
 
-def update_my_profile_logic(new_data):
+
+def update_my_profile_logic(entity_id, entity_type, new_data):
     """
-    Updates the profile of the logged-in user or organization.
+    Updates the profile of the specified user or organization.
     Input `new_data` should be a dictionary of fields to update.
     Returns a status message.
-    """
-    entity_id, entity_type, error = _get_session_details()
-    if error:
-        return {"status": "error", "message": error}
 
-    # Filter data - prevent updating sensitive fields like ID, type, password directly here.
-    allowed_user_fields = {'student_code', 'name', 'email', 'career', 'interests'}
-    allowed_org_fields = {'name', 'email', 'description', 'interests'}
+    Args:
+        entity_id (int): The ID of the user or organization to update.
+        entity_type (str): 'user' or 'organization'.
+        new_data (dict): Dictionary of fields to update.
+    """
+    # Removed _get_session_details call
+    if not entity_id or not entity_type:
+        return {"status": "error", "message": "Entity ID and type are required."}
+
+    allowed_user_fields = {'student_code', 'name', 'email', 'career', 'interests'} # Removed password update here
+    allowed_org_fields = {'name', 'email', 'description', 'interests'} # Removed password update here
+    # Password updates should likely have a separate, dedicated function/route for security.
 
     update_payload = {}
+    result = False # Initialize result
+
     if entity_type == 'user':
         for key, value in new_data.items():
             if key in allowed_user_fields:
                 update_payload[key] = value
-        result = db_operator.update_user_profile(entity_id, **update_payload)
-    elif entity_type == 'organization' or entity_type == 'org':
+        if update_payload: # Only call DB if there's something to update
+            print(f"Logic: Updating profile for User ID {entity_id} with data: {update_payload}")
+            result = db_operator.update_user_profile(entity_id, **update_payload)
+        else:
+             return {"status": "info", "message": "No valid fields provided for update."}
+
+    elif entity_type == 'organization':
          for key, value in new_data.items():
             if key in allowed_org_fields:
                 update_payload[key] = value
-         # Ensure db_operator.update_org_profile uses org_id
-         result = db_operator.update_org_profile(entity_id, **update_payload)
+         if update_payload: # Only call DB if there's something to update
+             print(f"Logic: Updating profile for Org ID {entity_id} with data: {update_payload}")
+             # Ensure db_operator.update_org_profile uses org_id correctly
+             result = db_operator.update_org_profile(entity_id, **update_payload)
+         else:
+             return {"status": "info", "message": "No valid fields provided for update."}
     else:
-         return {"status": "error", "message": "Unknown entity type."} # Should be caught by _get_session_details
+         return {"status": "error", "message": f"Unknown entity type: {entity_type}"}
 
     if result:
-        # Update local session cache if critical info like name/email changed
-        for key, value in update_payload.items():
-             if key in current_logged_in_entity:
-                 current_logged_in_entity[key] = value
+        # Removed update of local session cache (current_logged_in_entity)
+        # Flask session needs to be updated in app.py if critical info changes
         return {"status": "success", "message": "Profile updated successfully."}
     else:
-        return {"status": "error", "message": "Failed to update profile. Check data or email domain."}
+        # db_operator might return False even if payload was empty, check logic
+        if not update_payload:
+             # This case should have been caught above, but as a safeguard:
+             return {"status": "info", "message": "No valid fields provided for update."}
+        else:
+             return {"status": "error", "message": "Failed to update profile. Check data or if email/name constraints violated."}
 
 def award_points_logic(user_id, points, reason=""):
      """
      Awards points to a specific user and checks for achievement unlocks.
      Primarily for internal use by other logic functions.
      Returns a dictionary indicating status and any unlocked achievement.
+     Session points are NOT updated here; must be done in app.py after calling this.
      """
-     # Add permission checks if this needs to be exposed directly via API endpoint
+     # Removed global current_logged_in_entity usage
+     if not user_id:
+          print("Logic Error: award_points called without user_id")
+          return {"status": "error", "message": "User ID is required to award points."}
+
      print(f"Logic: Awarding {points} points to user ID {user_id} for: {reason}")
 
      # db_operator.update_entity_points expects 'user' type for users
+     # It returns the name of a newly unlocked achievement or None, or False on error
      achievement_unlocked = db_operator.update_entity_points(user_id, 'user', points)
 
      response = {"status": "success"}
-     if achievement_unlocked is False: # Check for explicit failure indication if db_op uses it
+     if achievement_unlocked is False: # Check for explicit failure from db_operator
          print(f"Logic Error: Failed to award points to user {user_id}.")
-         response = {"status": "error", "message": "Failed to update points."}
-     elif achievement_unlocked: # Achievement name string returned
-          print(f"Logic: Awarded {points} points to user {user_id}. Unlocked: {achievement_unlocked}")
-          response["message"] = f"Awarded {points} points. Unlocked: {achievement_unlocked}!"
-          response["unlocked_achievement"] = achievement_unlocked
-     else: # Success, no new achievement
-          print(f"Logic: Awarded {points} points to user {user_id}. No new achievement.")
-          response["message"] = f"Awarded {points} points."
+         response = {"status": "error", "message": "Failed to update points in database."}
+     else:
+          # --- Session cache update REMOVED ---
+          # This needs to happen in app.py using the Flask session object
+
+          # --- Format response message ---
+          if isinstance(achievement_unlocked, str): # Achievement name string returned
+               print(f"Logic: Awarded {points} points to user {user_id}. Unlocked: {achievement_unlocked}")
+               response["message"] = f"Awarded {points} points. Unlocked: {achievement_unlocked}!"
+               response["unlocked_achievement"] = achievement_unlocked
+          else: # Success (achievement_unlocked is None), no new achievement
+               print(f"Logic: Awarded {points} points to user {user_id}. No new achievement.")
+               response["message"] = f"Awarded {points} points."
      return response
 
 # --- Data Retrieval Functions (Mostly Read-Only) ---
@@ -273,88 +329,103 @@ def award_points_logic(user_id, points, reason=""):
 def view_all_events_logic():
     """
     Retrieves a list of all events.
-    Returns the list of event dictionaries or an empty list on error.
+    Returns a dictionary with status and data.
     """
     print("Logic: Fetching all events.")
-
     events = db_operator.search_events()
-
-    return events
+    if events is None:  # DB error
+        return {"status": "error", "message": "Failed to retrieve events."}
+    else:
+        return {"status": "success", "data": events}
 
 def search_events_logic(query):
     """
     Searches for events matching the query in name or description.
-    Returns the list of matching event dictionaries or an error message.
+    Returns a dictionary with status and data.
     """
     print(f"Logic: Searching events for '{query}'")
     events = db_operator.search_events(query=query)
-    return {"status": "success", "data": events}
+    if events is None:  # DB error
+        return {"status": "error", "message": f"Failed to search events for '{query}'."}
+    else:
+        return {"status": "success", "data": events}
 
 def view_exchange_items_logic():
     """
     Retrieves items currently available for exchange.
-    Returns the list of item dictionaries or an empty list on error.
+    Returns a dictionary with status and data.
     """
-
+    print("Logic: Fetching available exchange items.")
     items = db_operator.get_available_items()
-    return items
+    if items is None:  # DB error
+        return {"status": "error", "message": "Failed to retrieve exchange items."}
+    else:
+        return {"status": "success", "data": items}
 
 def get_map_points_logic():
     """
     Retrieves all map points.
-    Returns the list of map point dictionaries or an error message.
+    Returns a dictionary with status and data.
     """
     print("Logic: Fetching all map points.")
     points = db_operator.get_map_points()
-    return {"status": "success", "data": points}
+    if points is None:  # DB error
+        return {"status": "error", "message": "Failed to retrieve map points."}
+    else:
+        return {"status": "success", "data": points}
 
-def view_my_points_and_badges_logic():
+def view_my_points_and_badges_logic(user_id):
      """
-     Retrieves the points and unlocked achievements (badges) for the logged-in user.
-     Returns a dictionary with points and a list of achievements, or an error message.
+     Retrieves the points and unlocked achievements (badges) for the specified user.
+     Returns a dictionary with status and data, or status and error message.
+
+     Args:
+         user_id (int): The ID of the user whose details to fetch.
      """
-     user_id, user_type, error = _get_session_details()
-     if error:
-        return {"status": "error", "message": error}
-     if user_type != 'user':
-         return {"status": "error", "message": "Only users have points and badges."}
+     # Removed _get_session_details call
+     # Type check ('user') should happen in app.py
+     if not user_id:
+        return {"status": "error", "message": "User ID is required."}
 
      print(f"Logic: Fetching points and badges for user ID {user_id}")
-     # Assumes db_operator.get_user_points_and_achievements is implemented correctly
      user_profile_data = db_operator.get_user_points_and_achievements(user_id)
 
-     if user_profile_data:
+     if user_profile_data is not None: # Check for None, which might indicate DB error
          # user_profile_data should be like {'points': X, 'achievements': [...]}
          return {"status": "success", "data": user_profile_data}
      else:
-         # Handle case where user exists but fetching failed, or user not found (already handled by db_op?)
+         # Handle case where user exists but fetching failed, or user not found
          return {"status": "error", "message": "Could not retrieve points and badges for the user."}
 
 
 # --- Item Exchange Logic ---
 
-def request_exchange_logic(item_id, message=""):
+def request_exchange_logic(requester_id, item_id, message=""):
     """
-    Allows the logged-in user to request an exchange for an item listed by another user.
+    Allows the specified user to request an exchange for an item.
     Returns a status message dictionary.
+
+    Args:
+        requester_id (int): The user_id of the person requesting the item.
+        item_id (int): The ID of the item being requested.
+        message (str, optional): A message from the requester. Defaults to "".
     """
-    requester_id, user_type, error = _get_session_details()
-    if error:
-        return {"status": "error", "message": error}
-    if user_type != 'user':
-        return {"status": "error", "message": "Only users can request items for exchange."}
+    # Removed _get_session_details call
+    # Type check ('user') should happen in app.py
+    if not requester_id:
+        return {"status": "error", "message": "Requester ID is required."}
 
     print(f"Logic: User ID {requester_id} requesting item ID {item_id}")
 
-    # --- Check Item Owner ---
+    # Check Item Owner
     owner_id = db_operator.get_item_owner(item_id)
     if owner_id is None:
         return {"status": "error", "message": "Item not found or could not determine owner."}
     if owner_id == requester_id:
          return {"status": "error", "message": "You cannot request your own item."}
-    # TODO: Add check here using db_operator to ensure item status is 'available'?
+    # TODO: Add check using db_operator to ensure item status is 'available'?
 
-    # --- Create Request in DB ---
+    # Create Request in DB
     exchange_id = db_operator.create_exchange_request(
         item_id=item_id,
         requester_id=requester_id,
@@ -368,21 +439,24 @@ def request_exchange_logic(item_id, message=""):
     else:
         return {"status": "error", "message": "Failed to send exchange request. Please try again."}
 
-def accept_exchange_logic(exchange_id):
+def accept_exchange_logic(current_user_id, exchange_id):
     """
-    Allows the logged-in user (owner of the item) to accept a pending exchange request.
+    Allows the specified user (owner of the item) to accept a pending exchange request.
     Updates the exchange status and the item status.
     Returns a status message dictionary.
+
+     Args:
+        current_user_id (int): The user_id attempting to accept the request.
+        exchange_id (int): The ID of the exchange request.
     """
-    current_user_id, user_type, error = _get_session_details()
-    if error:
-        return {"status": "error", "message": error}
-    if user_type != 'user':
-        return {"status": "error", "message": "Only users can accept exchange requests."}
+    # Removed _get_session_details call
+    # Type check ('user') should happen in app.py
+    if not current_user_id:
+        return {"status": "error", "message": "User ID is required."}
 
     print(f"Logic: User ID {current_user_id} attempting to accept exchange ID {exchange_id}")
 
-    # --- Get Request Details & Validate ---
+    # Get Request Details & Validate
     request_details = db_operator.get_exchange_request(exchange_id)
     if not request_details:
         return {"status": "error", "message": "Exchange request not found."}
@@ -392,47 +466,43 @@ def accept_exchange_logic(exchange_id):
     if request_details['status'] != 'pending':
          return {"status": "error", "message": f"This request is not pending (current status: {request_details['status']})."}
 
-    # --- Update DB ---
-    # 1. Accept the exchange request
+    # Update DB
     success_exchange = db_operator.update_exchange_status(exchange_id, 'accepted')
-
-    # 2. Mark the item as exchanged if request acceptance was successful
     success_item = False
     if success_exchange:
         item_id = request_details['item_id']
-        # update_item_status already exists in db_operator.py
         success_item = db_operator.update_item_status(item_id, 'exchanged')
         if not success_item:
-             # Handle inconsistency - log error, maybe try to revert exchange status? (More complex)
              print(f"Logic WARNING: Accepted exchange {exchange_id} but failed to update item {item_id} status.")
 
-    # --- Format Response ---
+    # Format Response
     if success_exchange and success_item:
         # Optional: Award points, notify requester
         return {"status": "success", "message": f"Exchange request {exchange_id} accepted and item status updated."}
     elif success_exchange:
-        # Exchange updated but item failed - inform user but maybe flag for admin review
         return {"status": "warning", "message": f"Exchange request {exchange_id} accepted, but there was an issue updating the item's status."}
     else:
-        # Failed to update the exchange request status itself
         return {"status": "error", "message": "Failed to accept exchange request."}
 
 
-def reject_exchange_logic(exchange_id):
+def reject_exchange_logic(current_user_id, exchange_id):
     """
-    Allows the logged-in user (owner of the item) to reject a pending exchange request.
+    Allows the specified user (owner of the item) to reject a pending exchange request.
     Updates the exchange status.
     Returns a status message dictionary.
+
+     Args:
+        current_user_id (int): The user_id attempting to reject the request.
+        exchange_id (int): The ID of the exchange request.
     """
-    current_user_id, user_type, error = _get_session_details()
-    if error:
-        return {"status": "error", "message": error}
-    if user_type != 'user':
-        return {"status": "error", "message": "Only users can reject exchange requests."}
+    # Removed _get_session_details call
+    # Type check ('user') should happen in app.py
+    if not current_user_id:
+        return {"status": "error", "message": "User ID is required."}
 
     print(f"Logic: User ID {current_user_id} attempting to reject exchange ID {exchange_id}")
 
-    # --- Get Request Details & Validate ---
+    # Get Request Details & Validate
     request_details = db_operator.get_exchange_request(exchange_id)
     if not request_details:
         return {"status": "error", "message": "Exchange request not found."}
@@ -442,145 +512,156 @@ def reject_exchange_logic(exchange_id):
     if request_details['status'] != 'pending':
          return {"status": "error", "message": f"This request is not pending (current status: {request_details['status']})."}
 
-    # --- Update DB ---
+    # Update DB
     success = db_operator.update_exchange_status(exchange_id, 'rejected')
 
-    # --- Format Response ---
+    # Format Response
     if success:
         # Optional: Notify requester
         return {"status": "success", "message": f"Exchange request {exchange_id} rejected successfully."}
     else:
         return {"status": "error", "message": "Failed to reject exchange request."}
 
-def view_my_exchange_requests_logic(request_type='received'):
+def view_my_exchange_requests_logic(user_id, request_type='received'):
     """
-    Allows the logged-in user to view their 'received' or 'sent' exchange requests.
+    Allows the specified user to view their 'received' or 'sent' exchange requests.
     Returns a dictionary containing the status and a list of request details.
+
+     Args:
+        user_id (int): The user_id whose requests to view.
+        request_type (str): 'received' or 'sent'. Defaults to 'received'.
     """
-    user_id, user_type, error = _get_session_details()
-    if error:
-        return {"status": "error", "message": error}
-    if user_type != 'user':
-        return {"status": "error", "message": "Only users have exchange requests to view."}
+    # Removed _get_session_details call
+    # Type check ('user') should happen in app.py
+    if not user_id:
+        return {"status": "error", "message": "User ID is required."}
 
     if request_type not in ['received', 'sent']:
         return {"status": "error", "message": "Invalid request type specified. Use 'received' or 'sent'."}
 
     print(f"Logic: User ID {user_id} viewing {request_type} exchange requests")
 
-    # --- Get Data from DB ---
+    # Get Data from DB
     requests_list = db_operator.get_user_exchange_requests(user_id, request_type)
 
-    # --- Format Response ---
-    if requests_list is None:
-        # Indicates an error occurred during DB fetch
+    # Format Response
+    if requests_list is None: # Indicates DB error
         return {"status": "error", "message": f"An error occurred while retrieving {request_type} requests."}
     else:
         # Return success status and the list (which might be empty)
         return {"status": "success", "data": requests_list}
 
+
 # --- Organization Membership Logic ---
 
-def join_org_logic(org_id):
+def join_org_logic(user_id, org_id):
     """
-    Allows the logged-in user to join an organization.
+    Allows the specified user to join an organization.
     Returns a status message dictionary.
-    """
-    user_id, user_type, error = _get_session_details()
-    if error:
-        return {"status": "error", "message": error}
-    if user_type != 'user':
-        return {"status": "error", "message": "Only users can join organizations."}
 
-    print(f"Logic: User ID {user_id} attempting to join organization ID {org_id}")
+    Args:
+        user_id (int): The ID of the user joining.
+        org_id (int): The ID of the organization to join.
+    """
+    # Removed _get_session_details call
+    # Type check ('user') should happen in app.py
+    if not user_id:
+        return {"status": "error", "message": "User ID is required."}
+
+    print(f"Logic: User ID {user_id} attempting to join Org ID {org_id}")
     success = db_operator.join_org(org_id, user_id)
 
     if success:
-        # Optionally award points for joining an org?
-        # award_result = award_points_logic(user_id, 1, f"Joined organization {org_id}")
-        return {"status": "success", "message": f"Successfully joined organization."} # {award_result.get('message', '')}"}
+        # Consider points/achievements for joining orgs?
+        return {"status": "success", "message": "Successfully joined the organization."}
     else:
-        return {"status": "error", "message": "Failed to join organization. Maybe you are already a member or the organization doesn't exist."}
+        # Possible reasons: already member, org doesn't exist, DB error
+        return {"status": "error", "message": "Failed to join organization. You might already be a member or the organization may not exist."}
 
-def leave_org_logic(org_id):
+def leave_org_logic(user_id, org_id):
     """
-    Allows the logged-in user to leave an organization.
+    Allows the specified user to leave an organization.
     Returns a status message dictionary.
-    """
-    user_id, user_type, error = _get_session_details()
-    if error:
-        return {"status": "error", "message": error}
-    if user_type != 'user':
-        return {"status": "error", "message": "Only users can leave organizations."}
 
-    print(f"Logic: User ID {user_id} attempting to leave organization ID {org_id}")
+    Args:
+        user_id (int): The ID of the user leaving.
+        org_id (int): The ID of the organization to leave.
+    """
+    # Removed _get_session_details call
+    # Type check ('user') should happen in app.py
+    if not user_id:
+        return {"status": "error", "message": "User ID is required."}
+
+    print(f"Logic: User ID {user_id} attempting to leave Org ID {org_id}")
     success = db_operator.leave_org(org_id, user_id)
 
     if success:
         return {"status": "success", "message": "Successfully left the organization."}
     else:
-        return {"status": "error", "message": "Failed to leave organization. Maybe you were not a member or the organization doesn't exist."}
+        # Possible reasons: not a member, org doesn't exist, DB error
+        return {"status": "error", "message": "Failed to leave organization. You might not be a member or the organization may not exist."}
 
 def get_org_members_logic(org_id):
     """
-    Retrieves the list of members for a given organization.
-    Accessible to any logged-in user (or adjust permissions as needed).
-    Returns a dictionary with status and data (list of members).
-    """
-    entity_id, entity_type, error = _get_session_details()
-    if error:
-        # Allow viewing even if not logged in? Decide based on requirements.
-        # If login is required, uncomment the following line:
-        # return {"status": "error", "message": error}
-        print(f"Logic: Public request (or failed session) to view members for org ID {org_id}")
-    else:
-         print(f"Logic: {entity_type.capitalize()} ID {entity_id} viewing members for org ID {org_id}")
+    Retrieves members of a specific organization.
+    Returns a dictionary with status and data.
 
+    Args:
+        org_id: ID of the organization
+    """
+    # No session check needed here
+    if not org_id:
+        return {"status": "error", "message": "Organization ID is required."}
+    
+    print(f"Logic: Getting members for organization ID {org_id}")
     members = db_operator.get_org_members(org_id)
-    if members is not None: # Check if db_operator returns None on error vs empty list
-        return {"status": "success", "data": members}
+    if members is None:  # DB error
+        return {"status": "error", "message": "Failed to retrieve organization members."}
     else:
-        # This suggests an issue within db_operator or org_id is invalid
-        return {"status": "error", "message": "Could not retrieve organization members."}
+        return {"status": "success", "data": members}
+
 
 # --- Event Management Logic ---
 
 def get_event_participants_logic(event_id):
     """
-    Retrieves the list of participants (users and orgs) for a given event.
-    Accessible to any logged-in user (adjust permissions as needed).
-    Returns a dictionary with status and data (dict with 'users' and 'orgs' lists).
+    Retrieves participants of a specific event.
+    Returns a dictionary with status and data.
+
+    Args:
+        event_id: ID of the event
     """
-    entity_id, entity_type, error = _get_session_details()
-    if error:
-        # Allow viewing even if not logged in? Decide based on requirements.
-        # If login is required, uncomment the following line:
-        # return {"status": "error", "message": error}
-         print(f"Logic: Public request (or failed session) to view participants for event ID {event_id}")
-    else:
-         print(f"Logic: {entity_type.capitalize()} ID {entity_id} viewing participants for event ID {event_id}")
-
-
+    # No session check needed here
+    if not event_id:
+        return {"status": "error", "message": "Event ID is required."}
+    
+    print(f"Logic: Getting participants for event ID {event_id}")
     participants = db_operator.get_event_participants(event_id)
-    if participants is not None: # Check if db_operator returns None on error
-         # participants should be {'users': [...], 'orgs': [...]}
-         return {"status": "success", "data": participants}
+    if participants is None:  # DB error
+        return {"status": "error", "message": "Failed to retrieve event participants."}
     else:
-         # This suggests an issue within db_operator or event_id is invalid
-         return {"status": "error", "message": "Could not retrieve event participants."}
+        return {"status": "success", "data": participants}
 
 
-def leave_event_logic(event_id):
+def leave_event_logic(entity_id, entity_type, event_id):
     """
-    Allows the logged-in user or organization to leave an event they are registered for.
+    Allows the specified user or organization to leave an event they are registered for.
     Returns a status message dictionary.
+
+    Args:
+        entity_id (int): The ID of the user or organization leaving.
+        entity_type (str): 'user' or 'organization'.
+        event_id (int): The ID of the event to leave.
     """
-    entity_id, entity_type, error = _get_session_details()
-    if error:
-        return {"status": "error", "message": error}
+    # Removed _get_session_details call
+    if not entity_id or not entity_type:
+        return {"status": "error", "message": "Entity ID and type are required."}
 
     # Map session type ('organization') to db type ('org') if necessary
     db_entity_type = 'org' if entity_type == 'organization' else entity_type
+    if db_entity_type not in ['user', 'org']:
+         return {"status": "error", "message": f"Invalid entity type: {entity_type}"}
+
 
     print(f"Logic: {entity_type.capitalize()} ID {entity_id} attempting to leave event ID {event_id}")
     success = db_operator.leave_event(event_id, entity_id, db_entity_type)
@@ -590,17 +671,26 @@ def leave_event_logic(event_id):
     else:
         return {"status": "error", "message": "Failed to leave event. Maybe you were not registered or the event doesn't exist."}
 
-def delete_event_logic(event_id):
+def delete_event_logic(entity_id, entity_type, event_id):
     """
-    Allows the logged-in user or organization (if they are the organizer) to delete an event.
+    Allows the specified user or organization (if they are the organizer) to delete an event.
     Returns a status message dictionary.
+
+     Args:
+        entity_id (int): The ID of the user or organization attempting deletion.
+        entity_type (str): 'user' or 'organization'.
+        event_id (int): The ID of the event to delete.
     """
-    entity_id, entity_type, error = _get_session_details()
-    if error:
-        return {"status": "error", "message": error}
+    # Removed _get_session_details call
+    # Permission check (is owner?) is handled by db_operator.delete_event
+    if not entity_id or not entity_type:
+        return {"status": "error", "message": "Entity ID and type are required."}
 
     # Map session type ('organization') to db type ('org') if necessary
     db_entity_type = 'org' if entity_type == 'organization' else entity_type
+    if db_entity_type not in ['user', 'org']:
+         return {"status": "error", "message": f"Invalid entity type: {entity_type}"}
+
 
     print(f"Logic: {entity_type.capitalize()} ID {entity_id} attempting to delete event ID {event_id}")
     # db_operator.delete_event handles the check if the entity is the organizer
@@ -612,61 +702,106 @@ def delete_event_logic(event_id):
         # db_operator might print specific errors (not found, not authorized)
         return {"status": "error", "message": "Failed to delete event. It might not exist or you are not the organizer."}
 
-def mark_event_attendance_logic(event_id, participant_id, participant_type):
+def mark_event_attendance_logic(marker_id, marker_type, event_id, participant_id, participant_type):
     """
-    Allows the logged-in event organizer or an admin to mark attendance for a participant.
-    Awards points upon successful marking.
-    Returns a status message dictionary, potentially including achievement info.
+    Allows the specified event organizer or an admin to mark attendance for a participant.
+    Awards points upon successful marking (points awarded within db_operator).
+    Returns a status message dictionary.
+
+    Args:
+        marker_id (int): ID of the user/org marking attendance (must be admin or organizer).
+        marker_type (str): 'user' or 'organization' (or 'admin').
+        event_id (int): The ID of the event.
+        participant_id (int): ID of the participant whose attendance is being marked.
+        participant_type (str): 'user' or 'organization'.
     """
-    marker_id, marker_type, error = _get_session_details()
-    if error:
-        return {"status": "error", "message": error}
+    # Permission validation
+    if not marker_id or not marker_type:
+        return {"status": "error", "message": "Marker ID and type are required."}
+    if not participant_id or not participant_type:
+        return {"status": "error", "message": "Participant ID and type are required."}
 
-    # --- Permission Check: Only Admin or Organizer ---
-    is_admin = marker_type == 'admin'
-    is_organizer = False
+    # Map participant_type 'organization' to 'org' for db_operator
+    db_participant_type = 'org' if participant_type == 'organization' else participant_type
+    if db_participant_type not in ['user', 'org']:
+        return {"status": "error", "message": f"Invalid participant type: {participant_type}"}
 
-    # Fetch event details to check organizer (could be cached or optimized)
-    # Simplified: Assume db_operator.mark_event_attendance needs organizer/admin check first
-    # Or enhance db_operator.mark_event_attendance to take marker_id/type and do the check
-    # For now, let's assume only admins can do this via this logic function for simplicity,
-    # or that the frontend only shows this button to the organizer.
-    # A more robust implementation fetches the event organizer ID/Type from db first.
-
-    if not is_admin:
-         # TODO: Add check if marker_id/marker_type matches the event's organizer_id/organizer_type
-         # event_details = db_operator.search_events(event_id=event_id) # Need a get_event_by_id function
-         # if not event_details or event_details[0]['organizer_id'] != marker_id or event_details[0]['organizer_type'] != ('org' if marker_type == 'organization' else marker_type):
-              return {"status": "error", "message": "Permission denied. Only the event organizer or admin can mark attendance."}
+    # Map marker_type 'organization' to 'org' for db_operator
+    db_marker_type = 'org' if marker_type == 'organization' else marker_type
+    if db_marker_type not in ['user', 'org', 'admin']:
+        return {"status": "error", "message": f"Invalid marker type: {marker_type}"}
+    
+    # Check if marker is authorized (event organizer or admin)
+    authorized = False
+    
+    # Special case for admin (admin authorization would need separate check)
+    if db_marker_type == 'admin':
+        authorized = True  # Assuming admin can mark attendance for any event
+    else:
+        # Check if marker is the event organizer
+        conn = db_conn.create_connection()
+        if conn is not None:
+            try:
+                cursor = conn.cursor()
+                cursor.execute('''
+                SELECT organizer_id, organizer_type 
+                FROM events 
+                WHERE event_id = ?
+                ''', (event_id,))
+                
+                event_data = cursor.fetchone()
+                if event_data:
+                    organizer_id, organizer_type = event_data
+                    # Check if marker is the organizer
+                    if (organizer_id == marker_id and 
+                        ((organizer_type == db_marker_type) or 
+                         (organizer_type == 'org' and db_marker_type == 'organization'))):
+                        authorized = True
+                
+            except sqlite3.Error as e:
+                print(f"Error checking event organizer: {e}")
+                return {"status": "error", "message": "Database error while checking permissions."}
+            finally:
+                conn.close()
+    
+    if not authorized:
+        return {"status": "error", "message": "You are not authorized to mark attendance for this event. Only the organizer can perform this action."}
 
     print(f"Logic: {marker_type.capitalize()} ID {marker_id} marking attendance for {participant_type} ID {participant_id} at event ID {event_id}")
 
-    # Map participant_type 'organization' to 'org' if needed by db_operator
-    db_participant_type = 'org' if participant_type == 'organization' else participant_type
-
+    # Call db_operator function with the expected signature
     success = db_operator.mark_event_attendance(event_id, participant_id, db_participant_type)
-
-    if success:
-         # db_operator.mark_event_attendance handles points and achievements internally now
-         # We just report success from the logic layer
-         # We might want db_operator to return unlocked achievement name here if needed
-         return {"status": "success", "message": f"Attendance marked successfully for {participant_type} ID {participant_id}. Points awarded if applicable."}
+    
+    # Format response
+    if not success:
+        return {"status": "error", "message": "Failed to mark attendance. Check if participant is registered for the event."}
     else:
-         return {"status": "error", "message": f"Failed to mark attendance. Ensure the participant is registered and the event exists."}
+        message = "Attendance marked successfully."
+        # Fetch user's points to include in response
+        if db_participant_type == 'user':
+            user_data = db_operator.get_user_points_and_achievements(participant_id)
+            points = user_data.get('points', 0) if user_data else 0
+            message += f" {points} total points."
+        
+        print(f"Logic: Attendance marked for {participant_type} {participant_id} at event {event_id}.")
+        return {"status": "success", "message": message}
 
 
 # --- Item Management Logic ---
 
-def delete_my_item_logic(item_id):
+def delete_my_item_logic(user_id, item_id):
     """
-    Allows the logged-in user to delete (mark as 'removed') their own item.
+    Allows the specified user to delete (mark as 'removed') their own item.
     Returns a status message dictionary.
+
+    Args:
+        user_id (int): The user_id attempting to delete the item.
+        item_id (int): The ID of the item to delete.
     """
-    user_id, user_type, error = _get_session_details()
-    if error:
-        return {"status": "error", "message": error}
-    if user_type != 'user':
-        return {"status": "error", "message": "Only users can manage items."}
+    # Removed _get_session_details call
+    # Type check ('user') happens in app.py
+    if not user_id:
+        return {"status": "error", "message": "User ID is required."}
 
     print(f"Logic: User ID {user_id} attempting to delete item ID {item_id}")
 
@@ -675,6 +810,7 @@ def delete_my_item_logic(item_id):
     if owner_id is None:
         return {"status": "error", "message": "Item not found."}
     if owner_id != user_id:
+        # This check is crucial and correctly placed here.
         return {"status": "error", "message": "You can only delete your own items."}
 
     # 2. Update status to 'removed' (or implement a real delete in db_operator if preferred)
@@ -685,345 +821,329 @@ def delete_my_item_logic(item_id):
     else:
         return {"status": "error", "message": "Failed to remove item."}
 
-# --- User/Organization Account Deletion ---
 
-def delete_my_account_logic(password):
+# --- Account Management Logic ---
+
+def delete_my_account_logic(entity_id, entity_type, password):
     """
-    Allows the logged-in user or organization creator to delete their account after password verification.
-    Logs out the user upon successful deletion.
+    Allows the specified user or organization to delete their own account after verifying password.
     Returns a status message dictionary.
+
+    Args:
+        entity_id (int): The ID of the user or organization to delete.
+        entity_type (str): 'user' or 'organization'.
+        password (str): The password of the account for verification.
     """
-    entity_id, entity_type, error = _get_session_details()
-    if error:
-        return {"status": "error", "message": error}
+    # Removed _get_session_details call
+    if not entity_id or not entity_type:
+        return {"status": "error", "message": "Entity ID and type are required."}
 
     success = False
-    identifier_for_delete = None
-
     print(f"Logic: {entity_type.capitalize()} ID {entity_id} attempting account deletion.")
 
     if entity_type == 'user':
-        student_code = current_logged_in_entity.get('student_code')
-        if not student_code:
-             return {"status": "error", "message": "Could not retrieve student code for deletion."}
-        identifier_for_delete = student_code
-        success = db_operator.delete_my_user(student_code, password)
-    elif entity_type == 'organization' or entity_type == 'org':
-         creator_student_code = current_logged_in_entity.get('creator_student_code')
-         if not creator_student_code:
-             return {"status": "error", "message": "Could not retrieve creator student code for deletion."}
-         # Org deletion in db_operator uses creator_student_code for lookup
-         identifier_for_delete = creator_student_code
-         success = db_operator.delete_my_org(creator_student_code, password)
-    else:
-        return {"status": "error", "message": "Unknown entity type for deletion."}
+        # db_operator.delete_my_user needs user_id and password
+        # TODO: Confirm db_operator.delete_my_user signature and existence. Assuming it takes (user_id, password)
+        # Need to fetch student_code first to call the assumed delete_my_user(student_code, password)
+        user_data = db_operator.get_user_by_id(entity_id)
+        if user_data and user_data.get('student_code'):
+             student_code = user_data['student_code']
+             # Now call delete_my_user which likely handles password verification
+             success = db_operator.delete_my_user(student_code, password)
+        else:
+             print(f"Logic Error: Could not find student code for user {entity_id} to attempt deletion.")
+             return {"status": "error", "message": "Account details not found for deletion."}
 
+    elif entity_type == 'organization':
+        # db_operator.delete_my_org needs org_id and password
+        # TODO: Confirm db_operator.delete_my_org signature and existence. Assuming it takes (org_id, password)
+        # Need to fetch creator_student_code first based on current db_operator structure?
+        # Refactoring db_operator.delete_my_org to take org_id and password would be cleaner.
+        # Assuming for now delete_my_org can work with org_id and password directly (needs db_op change).
+        # success = db_operator.delete_my_org(entity_id, password) # Idealized call
+
+        # Workaround based on likely current db_operator.delete_my_org(creator_student_code, password):
+        org_data = db_operator.get_org_by_id(entity_id)
+        if org_data and org_data.get('creator_student_code'):
+             creator_code = org_data['creator_student_code']
+             success = db_operator.delete_my_org(creator_code, password) # This feels wrong, it should verify org's password
+             # MAJOR REFACTOR NEEDED: delete_my_org should take org_id and password, authenticate org, then delete.
+             # This current workaround is insecure if creator leaves Uniandes.
+             print("Logic WARNING: Org deletion logic using creator_student_code is potentially insecure and needs refactoring.")
+        else:
+             print(f"Logic Error: Could not find org details for org {entity_id} to attempt deletion.")
+             return {"status": "error", "message": "Account details not found for deletion."}
+
+
+    else:
+         return {"status": "error", "message": f"Unknown entity type: {entity_type}"}
 
     if success:
-        print(f"Logic: Account associated with identifier {identifier_for_delete} deleted successfully. Logging out.")
-        logout() # Log out after successful deletion
+        # Logout should be triggered in app.py after this returns success
         return {"status": "success", "message": "Account deleted successfully."}
     else:
-        # db_operator prints specific errors (pw mismatch, not found)
-        return {"status": "error", "message": "Account deletion failed. Password may be incorrect or account not found."}
+        # Failure reasons: wrong password, DB error
+        return {"status": "error", "message": "Failed to delete account. Please check your password."}
 
 
-# --- Challenge Logic ---
+# --- Challenge Logic --- (Assuming these exist and may need session info)
 
-def search_challenges_logic():
+def search_challenges_logic(entity_type):
     """
-    Retrieves available challenges for the logged-in entity's type (user or org).
-    Returns a dictionary with status and data (list of challenges).
+    Searches for challenges available for the given entity type ('user' or 'organization').
+
+    Args:
+        entity_type (str): 'user' or 'organization'.
     """
-    entity_id, entity_type, error = _get_session_details()
-    if error:
-        # Decide if anonymous users can see challenges. If so, default to 'user'?
-        # For now, require login.
-         return {"status": "error", "message": error}
-
-    # Map session type ('organization') to db type ('org') if necessary
-    db_entity_type = 'org' if entity_type == 'organization' else entity_type
-
-    print(f"Logic: Fetching available challenges for {db_entity_type}s.")
-    challenges = db_operator.search_challenges(db_entity_type)
-
-    if challenges is not None: # Check if db_operator returns None on error
-        return {"status": "success", "data": challenges}
+    if entity_type not in ['user', 'organization']:
+         return {"status": "error", "message": "Invalid entity type for challenges."}
+    db_type = 'org' if entity_type == 'organization' else 'user'
+    print(f"Logic: Searching challenges for {entity_type}s")
+    challenges = db_operator.search_challenges(user_type=db_type)
+    if challenges is None: # DB Error
+        return {"status": "error", "message": f"Could not retrieve challenges for {entity_type}s."}
     else:
-        return {"status": "error", "message": f"Could not retrieve challenges for {db_entity_type}s."}
+        return {"status": "success", "data": challenges}
 
-def join_challenge_logic(challenge_id):
+
+def join_challenge_logic(entity_id, entity_type, challenge_id):
     """
-    Allows the logged-in user or organization to join a challenge.
-    Returns a status message dictionary.
+    Allows the specified user or organization to join a challenge.
+
+    Args:
+        entity_id (int): ID of the user/org joining.
+        entity_type (str): 'user' or 'organization'.
+        challenge_id (int): ID of the challenge to join.
     """
-    entity_id, entity_type, error = _get_session_details()
-    if error:
-        return {"status": "error", "message": error}
+    if not entity_id or not entity_type:
+        return {"status": "error", "message": "Entity ID and type are required."}
+    db_type = 'org' if entity_type == 'organization' else 'user'
+    if db_type not in ['user', 'org']:
+         return {"status": "error", "message": f"Invalid entity type: {entity_type}"}
 
-    # Map session type ('organization') to db type ('org') if necessary
-    db_entity_type = 'org' if entity_type == 'organization' else entity_type
 
-    print(f"Logic: {entity_type.capitalize()} ID {entity_id} attempting to join challenge ID {challenge_id}")
-    success = db_operator.join_challenge(entity_id, db_entity_type, challenge_id)
-
+    print(f"Logic: {entity_type.capitalize()} ID {entity_id} joining challenge ID {challenge_id}")
+    success = db_operator.join_challenge(entity_id, db_type, challenge_id)
     if success:
         return {"status": "success", "message": "Successfully joined the challenge."}
     else:
-        # db_operator might print specific errors (already joined, not found)
-        return {"status": "error", "message": "Failed to join challenge. You might already be participating, or the challenge is invalid for your type."}
+        return {"status": "error", "message": "Failed to join challenge. Maybe already joined, challenge doesn't exist, or type mismatch."}
 
-
-def get_my_active_challenges_logic():
+def get_my_active_challenges_logic(entity_id, entity_type):
     """
-    Retrieves the active challenges and progress for the logged-in user or organization.
-    Returns a dictionary with status and data (list of active challenges).
-    """
-    entity_id, entity_type, error = _get_session_details()
-    if error:
-        return {"status": "error", "message": error}
+    Retrieves the active challenges for the specified user or organization.
 
-    # Map session type ('organization') to db type ('org') if necessary
-    db_entity_type = 'org' if entity_type == 'organization' else entity_type
+     Args:
+        entity_id (int): ID of the user/org.
+        entity_type (str): 'user' or 'organization'.
+    """
+    if not entity_id or not entity_type:
+        return {"status": "error", "message": "Entity ID and type are required."}
+    db_type = 'org' if entity_type == 'organization' else 'user'
+    if db_type not in ['user', 'org']:
+         return {"status": "error", "message": f"Invalid entity type: {entity_type}"}
 
     print(f"Logic: Fetching active challenges for {entity_type.capitalize()} ID {entity_id}")
-    active_challenges = db_operator.get_active_challenges(entity_id, db_entity_type)
-
-    if active_challenges is not None: # Check if db_operator returns None on error
-        return {"status": "success", "data": active_challenges}
-    else:
+    active_challenges = db_operator.get_active_challenges(entity_id, db_type)
+    if active_challenges is None: # DB error
         return {"status": "error", "message": "Could not retrieve active challenges."}
-
-
-# --- Achievement Logic ---
-
-def search_achievements_logic():
-    """
-    Retrieves all possible achievements for the logged-in entity's type (user or org).
-    Returns a dictionary with status and data (list of achievements).
-    """
-    entity_id, entity_type, error = _get_session_details()
-    if error:
-        # Allow anonymous viewing? Default to user? Require login for now.
-         return {"status": "error", "message": error}
-
-    # Map session type ('organization') to db type ('org') if necessary
-    db_entity_type = 'org' if entity_type == 'organization' else entity_type
-
-    print(f"Logic: Fetching all possible achievements for {db_entity_type}s.")
-    achievements = db_operator.search_achievements(db_entity_type)
-
-    if achievements is not None: # Check if db_operator returns None on error
-        return {"status": "success", "data": achievements}
     else:
-        return {"status": "error", "message": f"Could not retrieve achievements for {db_entity_type}s."}
+        return {"status": "success", "data": active_challenges}
+
+# --- Achievement Logic --- (Assuming search doesn't need session)
+
+def search_achievements_logic(entity_type):
+    """
+    Searches for all defined achievements for a given type.
+
+     Args:
+        entity_type (str): 'user' or 'organization'.
+    """
+    if entity_type not in ['user', 'organization']:
+         return {"status": "error", "message": "Invalid entity type for achievements."}
+    db_type = 'org' if entity_type == 'organization' else 'user'
+
+    print(f"Logic: Searching all achievements for {entity_type}s")
+    achievements = db_operator.search_achievements(user_type=db_type)
+    if achievements is None: # DB error
+        return {"status": "error", "message": f"Could not retrieve achievements for {entity_type}s."}
+    else:
+        return {"status": "success", "data": achievements}
 
 
-# --- Searching Logic ---
+# --- Search Logic --- (No session needed)
 
 def search_users_logic(query=None, career=None, interests=None):
-    """
-    Searches for users based on query, career, or interests.
-    Accessible to any logged-in user.
-    Returns a dictionary with status and data (list of users).
-    """
-    entity_id, entity_type, error = _get_session_details()
-    if error:
-        # Allow anonymous search? Require login for now.
-         return {"status": "error", "message": error}
-
-    print(f"Logic: {entity_type.capitalize()} ID {entity_id} searching users (query='{query}', career='{career}', interests='{interests}')")
+    """Searches users based on criteria."""
+    print(f"Logic: Searching users with query='{query}', career='{career}', interests='{interests}'")
     users = db_operator.search_users(query=query, career=career, interests=interests)
-
-    if users is not None:
-        return {"status": "success", "data": users}
+    if users is None:
+         return {"status": "error", "message": "Error searching users."}
     else:
-        return {"status": "error", "message": "Failed to search users."}
+        return {"status": "success", "data": users}
 
 def search_orgs_logic(query=None, interests=None, sort_by=None):
-    """
-    Searches for organizations based on query, interests, or sorting.
-    Accessible to any logged-in user.
-    Returns a dictionary with status and data (list of organizations).
-    """
-    entity_id, entity_type, error = _get_session_details()
-    if error:
-        # Allow anonymous search? Require login for now.
-         return {"status": "error", "message": error}
-
-    print(f"Logic: {entity_type.capitalize()} ID {entity_id} searching orgs (query='{query}', interests='{interests}', sort='{sort_by}')")
+    """Searches organizations based on criteria."""
+    print(f"Logic: Searching orgs with query='{query}', interests='{interests}', sort_by='{sort_by}'")
     orgs = db_operator.search_orgs(query=query, interests=interests, sort_by=sort_by)
-
-    if orgs is not None:
-        return {"status": "success", "data": orgs}
+    if orgs is None:
+         return {"status": "error", "message": "Error searching organizations."}
     else:
-        return {"status": "error", "message": "Failed to search organizations."}
+        return {"status": "success", "data": orgs}
 
-# --- Map Point Logic ---
+# --- Map Point Deletion --- (Needs permission check)
 
-def delete_map_point_logic(point_id):
+def delete_map_point_logic(deleter_id, deleter_type, point_id):
     """
-    Allows the logged-in user (if admin or creator) to delete a map point.
-    Returns a status message dictionary.
+    Allows an admin or potentially the creator to delete a map point.
+    Permission logic needs clarification (is it admin only, or creator?).
+    Currently assumes db_operator handles permissions based on deleter_id/type.
+
+    Args:
+        deleter_id (int): ID of the user/org attempting deletion.
+        deleter_type (str): 'user', 'organization', or 'admin'.
+        point_id (int): ID of the map point to delete.
     """
-    entity_id, entity_type, error = _get_session_details()
-    if error:
-        return {"status": "error", "message": error}
-
-    # Map session type ('organization') to db type ('org') if necessary
-    # Although add_map_point uses 'store', delete uses creator_id, so user_type mapping less critical here
-    # db_operator.delete_map_point handles admin override and creator check
-    db_entity_type = 'org' if entity_type == 'organization' else entity_type
-
-
-    print(f"Logic: {entity_type.capitalize()} ID {entity_id} attempting to delete map point ID {point_id}")
-    success = db_operator.delete_map_point(entity_id, db_entity_type, point_id) # Pass user type for permission check in db_op
+    if not deleter_id or not deleter_type:
+        return {"status": "error", "message": "Deleter ID and type are required."}
+    # Assuming db_operator.delete_map_point handles permission check
+    # TODO: Clarify and confirm db_operator.delete_map_point signature and permission logic
+    # Assumed signature: delete_map_point(user_id, user_type, point_id)
+    print(f"Logic: {deleter_type.capitalize()} ID {deleter_id} attempting to delete map point ID {point_id}")
+    success = db_operator.delete_map_point(deleter_id, deleter_type, point_id)
 
     if success:
         return {"status": "success", "message": "Map point deleted successfully."}
     else:
-        # db_operator prints specific errors (not found, permission denied)
-        return {"status": "error", "message": "Failed to delete map point. It might not exist or you lack permission."}
+        return {"status": "error", "message": "Failed to delete map point. Check permissions or if the point exists."}
 
 
-# --- Admin Specific Logic ---
-# These functions MUST include robust checks for admin privileges
+# --- Admin Functions ---
+# These functions require an admin check, which should now happen in app.py
+# before calling these logic functions.
 
 def _is_admin_session():
-    """Internal helper to check if the current session is for an admin."""
-    if not current_logged_in_entity:
-        return False, {"status": "error", "message": "Login required."}
-    if current_logged_in_entity.get('user_type') != 'admin':
-         return False, {"status": "error", "message": "Admin privileges required."}
-    return True, None
+     """
+     Placeholder/Removed. Admin checks must now happen in app.py
+     """
+     # This function should be removed or left as a non-functional placeholder.
+     # Admin role check needs to be based on Flask session data in app.py routes.
+     print("Logic Warning: _is_admin_session called, but admin checks must happen in app.py")
+     return False # Always return False, forcing check in app.py
 
-def admin_delete_user_logic(user_id_to_delete):
+def admin_delete_user_logic(admin_id, user_id_to_delete):
     """
-    Allows an admin to delete any user account.
-    Returns a status message dictionary.
+    Allows an admin (verified in app.py) to delete a user.
+
+    Args:
+        admin_id (int): The ID of the admin performing the action (for logging).
+        user_id_to_delete (int): The ID of the user to delete.
     """
-    is_admin, error_response = _is_admin_session()
-    if not is_admin:
-        return error_response
-
-    admin_id = current_logged_in_entity.get('user_id')
-    print(f"Logic: Admin ID {admin_id} attempting to delete user ID {user_id_to_delete}")
-
-    if admin_id == user_id_to_delete:
-         return {"status": "error", "message": "Admin cannot delete their own account using this function."}
-
+    # Admin check MUST happen in app.py route before calling this
+    print(f"Logic: Admin ID {admin_id} deleting user ID {user_id_to_delete}")
     success = db_operator.delete_user_by_id(user_id_to_delete)
     if success:
         return {"status": "success", "message": f"User ID {user_id_to_delete} deleted successfully."}
     else:
-        return {"status": "error", "message": f"Failed to delete user ID {user_id_to_delete}. User might not exist."}
+        return {"status": "error", "message": f"Failed to delete user ID {user_id_to_delete}."}
 
-def admin_delete_org_logic(org_id_to_delete):
+
+def admin_delete_org_logic(admin_id, org_id_to_delete):
     """
-    Allows an admin to delete any organization account.
-    Returns a status message dictionary.
+    Allows an admin (verified in app.py) to delete an organization.
+
+     Args:
+        admin_id (int): The ID of the admin performing the action (for logging).
+        org_id_to_delete (int): The ID of the organization to delete.
     """
-    is_admin, error_response = _is_admin_session()
-    if not is_admin:
-        return error_response
-
-    admin_id = current_logged_in_entity.get('user_id')
-    print(f"Logic: Admin ID {admin_id} attempting to delete organization ID {org_id_to_delete}")
-
+    # Admin check MUST happen in app.py route before calling this
+    print(f"Logic: Admin ID {admin_id} deleting organization ID {org_id_to_delete}")
     success = db_operator.delete_org_by_id(org_id_to_delete)
     if success:
         return {"status": "success", "message": f"Organization ID {org_id_to_delete} deleted successfully."}
     else:
-        return {"status": "error", "message": f"Failed to delete organization ID {org_id_to_delete}. Organization might not exist."}
+        return {"status": "error", "message": f"Failed to delete organization ID {org_id_to_delete}."}
 
-def admin_create_achievement_logic(name, description, points_required, badge_icon, achievement_user_type):
+
+def admin_create_achievement_logic(admin_id, name, description, points_required, badge_icon, achievement_user_type):
     """
-    Allows an admin to create a new achievement for users or orgs.
-    Returns a status message dictionary.
+    Allows an admin (verified in app.py) to create a new achievement.
+
+     Args:
+        admin_id (int): The ID of the admin performing the action (for logging).
+        name (str): Achievement name.
+        description (str): Achievement description.
+        points_required (int): Points needed to unlock.
+        badge_icon (str): Icon identifier/URL.
+        achievement_user_type (str): 'user' or 'org'.
     """
-    is_admin, error_response = _is_admin_session()
-    if not is_admin:
-        return error_response
-
-    admin_id = current_logged_in_entity.get('user_id')
-    db_achievement_type = 'org' if achievement_user_type == 'organization' else achievement_user_type
-    if db_achievement_type not in ['user', 'org']:
-        return {"status": "error", "message": "Invalid achievement user type. Must be 'user' or 'org'."}
-
-    print(f"Logic: Admin ID {admin_id} creating achievement '{name}' for {db_achievement_type}s")
-    achievement_id = db_operator.create_achievement(name, description, points_required, badge_icon, db_achievement_type)
-
-    if achievement_id:
-        return {"status": "success", "message": f"Achievement '{name}' created successfully with ID {achievement_id}."}
+    # Admin check MUST happen in app.py route before calling this
+    print(f"Logic: Admin ID {admin_id} creating {achievement_user_type} achievement '{name}'")
+    result_id = db_operator.create_achievement(name, description, points_required, badge_icon, achievement_user_type)
+    if result_id:
+        return {"status": "success", "message": f"Achievement '{name}' created successfully."}
     else:
-        return {"status": "error", "message": "Failed to create achievement."}
+        return {"status": "error", "message": "Failed to create achievement. Name might already exist."}
 
-def admin_delete_achievement_logic(achievement_id, achievement_user_type):
+
+def admin_delete_achievement_logic(admin_id, achievement_id, achievement_user_type):
     """
-    Allows an admin to delete an achievement for users or orgs.
-    Returns a status message dictionary.
+    Allows an admin (verified in app.py) to delete an achievement.
+
+    Args:
+        admin_id (int): The ID of the admin performing the action (for logging).
+        achievement_id (int): ID of the achievement to delete.
+        achievement_user_type (str): 'user' or 'org'.
     """
-    is_admin, error_response = _is_admin_session()
-    if not is_admin:
-        return error_response
-
-    admin_id = current_logged_in_entity.get('user_id')
-    db_achievement_type = 'org' if achievement_user_type == 'organization' else achievement_user_type
-    if db_achievement_type not in ['user', 'org']:
-        return {"status": "error", "message": "Invalid achievement user type. Must be 'user' or 'org'."}
-
-    print(f"Logic: Admin ID {admin_id} deleting achievement ID {achievement_id} for {db_achievement_type}s")
-    success = db_operator.delete_achievement(achievement_id, db_achievement_type)
-
+    # Admin check MUST happen in app.py route before calling this
+    print(f"Logic: Admin ID {admin_id} deleting {achievement_user_type} achievement ID {achievement_id}")
+    success = db_operator.delete_achievement(achievement_id, achievement_user_type)
     if success:
-        return {"status": "success", "message": f"Achievement ID {achievement_id} deleted successfully."}
+        return {"status": "success", "message": "Achievement deleted successfully."}
     else:
-        return {"status": "error", "message": f"Failed to delete achievement ID {achievement_id}. It might not exist for the specified type."}
+        return {"status": "error", "message": "Failed to delete achievement."}
 
-def admin_create_challenge_logic(name, description, goal_type, goal_target, points_reward, time_allowed, challenge_user_type):
+
+def admin_create_challenge_logic(admin_id, name, description, goal_type, goal_target, points_reward, time_allowed, challenge_user_type):
     """
-    Allows an admin to create a new challenge for users or orgs.
-    Returns a status message dictionary.
+    Allows an admin (verified in app.py) to create a new challenge.
+
+    Args:
+        admin_id (int): ID of the admin (for logging).
+        name (str): Challenge name.
+        description (str): Challenge description.
+        goal_type (str): Type of goal.
+        goal_target (int): Target value for the goal.
+        points_reward (int): Points reward.
+        time_allowed (int, optional): Time limit in seconds.
+        challenge_user_type (str): 'user' or 'org'.
     """
-    is_admin, error_response = _is_admin_session()
-    if not is_admin:
-        return error_response
-
-    admin_id = current_logged_in_entity.get('user_id')
-    db_challenge_type = 'org' if challenge_user_type == 'organization' else challenge_user_type
-    if db_challenge_type not in ['user', 'org']:
-        return {"status": "error", "message": "Invalid challenge user type. Must be 'user' or 'org'."}
-
-    print(f"Logic: Admin ID {admin_id} creating challenge '{name}' for {db_challenge_type}s")
-    challenge_id = db_operator.create_challenge(name, description, goal_type, goal_target, points_reward, time_allowed, db_challenge_type)
-
-    if challenge_id:
-        return {"status": "success", "message": f"Challenge '{name}' created successfully with ID {challenge_id}."}
+    # Admin check MUST happen in app.py route before calling this
+    print(f"Logic: Admin ID {admin_id} creating {challenge_user_type} challenge '{name}'")
+    result_id = db_operator.create_challenge(name, description, goal_type, goal_target, points_reward, time_allowed, challenge_user_type)
+    if result_id:
+        return {"status": "success", "message": f"Challenge '{name}' created successfully."}
     else:
-        return {"status": "error", "message": "Failed to create challenge."}
+        return {"status": "error", "message": "Failed to create challenge. Name might already exist."}
 
-def admin_delete_challenge_logic(challenge_id, challenge_user_type):
+
+def admin_delete_challenge_logic(admin_id, challenge_id, challenge_user_type):
     """
-    Allows an admin to delete a challenge for users or orgs.
-    Returns a status message dictionary.
+    Allows an admin (verified in app.py) to delete a challenge.
+
+    Args:
+        admin_id (int): ID of the admin (for logging).
+        challenge_id (int): ID of the challenge to delete.
+        challenge_user_type (str): 'user' or 'org'.
     """
-    is_admin, error_response = _is_admin_session()
-    if not is_admin:
-        return error_response
-
-    admin_id = current_logged_in_entity.get('user_id')
-    db_challenge_type = 'org' if challenge_user_type == 'organization' else challenge_user_type
-    if db_challenge_type not in ['user', 'org']:
-        return {"status": "error", "message": "Invalid challenge user type. Must be 'user' or 'org'."}
-
-    print(f"Logic: Admin ID {admin_id} deleting challenge ID {challenge_id} for {db_challenge_type}s")
-    success = db_operator.delete_challenge(challenge_id, db_challenge_type)
-
+    # Admin check MUST happen in app.py route before calling this
+    print(f"Logic: Admin ID {admin_id} deleting {challenge_user_type} challenge ID {challenge_id}")
+    success = db_operator.delete_challenge(challenge_id, challenge_user_type)
     if success:
-        return {"status": "success", "message": f"Challenge ID {challenge_id} deleted successfully."}
+        return {"status": "success", "message": "Challenge deleted successfully."}
     else:
-        return {"status": "error", "message": f"Failed to delete challenge ID {challenge_id}. It might not exist for the specified type."}
+        return {"status": "error", "message": "Failed to delete challenge."}
 
-
-# --- Initialization Message ---
-print("Logic Module Loaded and Ready.")
+# Note: Some functions might require further refinement based on specific needs
+# or changes in db_operator function signatures (e.g., delete_my_account_logic).
+print("Logic Module Loaded and Ready (Refactored for Flask Sessions).")

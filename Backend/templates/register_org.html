@@ -2,7 +2,7 @@
 
 {% block content %}
     <h2>Register New Organization</h2>
-    <p>You must be logged in as a standard user ({{ current_session.name }}) to perform this action.</p>
+    <p>Registering organization as user: <strong>{{ session.name }}</strong></p>
     <form action="{{ url_for('register_org') }}" method="post">
         <label for="name">Organization Name:</label>
         <input type="text" id="name" name="name" required>

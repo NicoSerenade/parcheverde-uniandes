@@ -3,26 +3,41 @@
 {% block content %}
     <h2>Available Events</h2>
     {% if events %}
-        <ul>
+        <ul class="list-group list-group-flush">
             {% for event in events %}
-                <li>
-                    <strong>{{ event.name }}</strong> (Type: {{ event.event_type }})<br>
-                    Description: {{ event.description }}<br>
-                    When: {{ event.event_datetime }} | Where: {{ event.location }}<br>
-                    {# Temporarily removed organizer info as it's not in the data yet #}
-                    {# Organizer: {{ event.organizer_name }} ({{ event.organizer_type }}) #}
-                    {# Add a button to register if the user is logged in and is a standard user #}
-                    {% if current_session and current_session.user_type == 'user' %}
-                        <form action="{{ url_for('register_for_event', event_id=event.event_id) }}" method="post" style="display: inline; margin-left: 10px;">
-                            <button type="submit">Register for Event</button>
-                        </form>
-                    {% elif not current_session %}
-                       <small style="margin-left: 10px;">(Login as user to register)</small>
-                    {% endif %}
+                <li class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="mb-0">{{ event.name }}</h5>
+                        <span class="badge bg-secondary">{{ event.event_type }}</span>
+                    </div>
+                    <p>{{ event.description }}</p>
+                    <div class="mb-2">
+                        <small class="text-muted">
+                            <i class="fa fa-calendar"></i> {{ event.event_datetime }} | 
+                            <i class="fa fa-map-marker"></i> {{ event.location }}
+                        </small>
+                    </div>
+                    <div class="btn-group" role="group">
+                        {% if session.get('entity_type') == 'user' %}
+                            <form action="{{ url_for('register_for_event', event_id=event.event_id) }}" method="post">
+                                <button type="submit" class="btn btn-primary btn-sm">Register for Event</button>
+                            </form>
+                        {% elif 'entity_type' not in session %}
+                            <a href="{{ url_for('login') }}" class="btn btn-outline-secondary btn-sm">Login to Register</a>
+                        {% endif %}
+
+                        {% if 'entity_type' in session %}
+                            <a href="{{ url_for('view_event_participants', event_id=event.event_id) }}" class="btn btn-info btn-sm ms-2">
+                                View Participants
+                            </a>
+                        {% endif %}
+                    </div>
                 </li>
             {% endfor %}
         </ul>
     {% else %}
-        <p>No events found.</p>
+        <div class="alert alert-info">
+            <p>No events found.</p>
+        </div>
     {% endif %}
 {% endblock %} 

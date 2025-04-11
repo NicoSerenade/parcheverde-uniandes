@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Parche Verde Uniandes - Test Interface</title>
+    <title>{% if 'name' in session %}{{ session.name }} - {% endif %}Parche Verde Uniandes</title>
     <style>
         body { font-family: sans-serif; margin: 20px; }
         nav { margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ccc; }
@@ -36,29 +36,29 @@
 
     <nav>
         <a href="{{ url_for('index') }}">Home</a>
-        {% if current_session %}
+        {% if 'entity_type' in session %}
             <span class="user-info">
-                Logged in as: <strong>{{ current_session.name }}</strong> ({{ current_session.user_type }}) |
-                Points: {{ current_session.points }} |
+                Logged in as: <strong>{{ session.name }}</strong> ({{ session.entity_type }}) |
+                Points: {{ session.points | default('N/A') }} |
                 <a href="{{ url_for('logout') }}">Logout</a>
             </span>
-            <a href="{{ url_for('create_event') }}">Create Event</a>
-            <a href="{{ url_for('add_item') }}">Add Item</a>
+            <a href="{{ url_for('profile') }}">My Profile</a>
             <a href="{{ url_for('view_events') }}">View Events</a>
             <a href="{{ url_for('view_items') }}">View Items</a>
-             <a href="{{ url_for('profile') }}">My Profile</a>
-            {# Add more links as needed #}
+            {% if session.entity_type == 'user' %}
+                <a href="{{ url_for('add_item') }}">Add Item</a>
+                <a href="{{ url_for('register_org') }}">Register Org</a>
+            {% endif %}
+            <a href="{{ url_for('create_event') }}">Create Event</a>
         {% else %}
             <span class="user-info">Not logged in</span>
             <a href="{{ url_for('login') }}">Login</a>
             <a href="{{ url_for('register_user') }}">Register User</a>
-            <a href="{{ url_for('register_org') }}">Register Org (Requires Login)</a>
-             <a href="{{ url_for('view_events') }}">View Events</a>
+            <a href="{{ url_for('view_events') }}">View Events</a>
             <a href="{{ url_for('view_items') }}">View Items</a>
         {% endif %}
     </nav>
 
-    {# Flash messages area #}
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
@@ -67,11 +67,10 @@
       {% endif %}
     {% endwith %}
 
-    {# Content Block - Specific pages will extend this #}
     {% block content %}
         <h2>Welcome!</h2>
         <p>Use the navigation links above to test different features.</p>
-        {% if not current_session %}
+        {% if 'entity_type' not in session %}
             <p>Please log in or register to access more features.</p>
         {% endif %}
     {% endblock %}

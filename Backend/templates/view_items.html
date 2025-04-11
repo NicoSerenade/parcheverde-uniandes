@@ -11,11 +11,27 @@
                     Description: {{ item.description }}<br>
                     Terms: {{ item.item_terms }}<br>
                     Listed on: {{ item.creation_date }}
-                    {# Add buttons for actions like requesting exchange later if needed #}
+                    
+                    {# Add button to request exchange if logged in as a different user #}
+                    {% if session.get('entity_type') == 'user' and session.get('user_id') != item.user_id %}
+                        <form action="{{ url_for('request_exchange', item_id=item.item_id) }}" method="post" style="display: inline; margin-left: 10px;">
+                            {# Add a message field if needed #}
+                            <button type="submit">Request Exchange</button>
+                        </form>
+                    {% endif %}
+
+                    {# Add button to delete if logged in as the owner #}
+                     {% if session.get('entity_type') == 'user' and session.get('user_id') == item.user_id %}
+                        <form action="{{ url_for('delete_my_item', item_id=item.item_id) }}" method="post" style="display: inline; margin-left: 10px;">
+                            <button type="submit" style="background-color: #dc3545;">Delete My Item</button>
+                        </form>
+                    {% endif %}
                 </li>
             {% endfor %}
         </ul>
     {% else %}
         <p>No items found.</p>
     {% endif %}
-{% endblock %} 
+{% endblock %}
+
+{# Note: Need to implement the 'request_exchange' and 'delete_my_item' routes in app.py #} 

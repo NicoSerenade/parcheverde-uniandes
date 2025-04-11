@@ -2,30 +2,47 @@
 
 {% block content %}
     <h2>My Profile</h2>
-    {% if current_session %}
-        <p><strong>Name:</strong> {{ current_session.name }}</p>
-        <p><strong>Email:</strong> {{ current_session.email }}</p>
-        <p><strong>Type:</strong> {{ current_session.user_type }}</p>
-        <p><strong>Points:</strong> {{ current_session.points }}</p>
-        <p><strong>Joined:</strong> {{ current_session.creation_date }}</p>
+    <!-- Check if session exists and has an entity_type -->
+    {% if 'entity_type' in session %}
+        <!-- Access data directly from session -->
+        <p><strong>Name:</strong> {{ session.name }}</p>
+        <p><strong>Email:</strong> {{ session.email }}</p>
+        <p><strong>Type:</strong> {{ session.entity_type }}</p>
+        <p><strong>Points:</strong> {{ session.points | default(0) }}</p> 
+        {# Assuming creation_date is stored in session, add default if not #}
+        {# <p><strong>Joined:</strong> {{ session.creation_date | default('N/A') }}</p> #} 
 
         {# User Specific Fields #}
-        {% if current_session.user_type == 'user' %}
-            <p><strong>Student Code:</strong> {{ current_session.student_code }}</p>
-            {% if current_session.career %}<p><strong>Career:</strong> {{ current_session.career }}</p>{% endif %}
+        {% if session.entity_type == 'user' %}
+            <p><strong>Student Code:</strong> {{ session.student_code }}</p>
+            {# Check for career in session if stored #}
+            {# {% if session.career %}<p><strong>Career:</strong> {{ session.career }}</p>{% endif %} #}
         {% endif %}
 
         {# Org Specific Fields #}
-        {% if current_session.user_type == 'org' or current_session.user_type == 'organization' %}
-            <p><strong>Description:</strong> {{ current_session.description }}</p>
+        {% if session.entity_type == 'organization' %}
+             {# Check for description in session if stored #}
+             {# <p><strong>Description:</strong> {{ session.description }}</p> #}
         {% endif %}
 
-         {% if current_session.interests %}<p><strong>Interests:</strong> {{ current_session.interests }}</p>{% endif %}
+         {# Check for interests in session if stored #}
+         {# {% if session.interests %}<p><strong>Interests:</strong> {{ session.interests }}</p>{% endif %} #}
 
-        {# Add link to edit profile later if needed #}
-        {# Add sections for owned items, joined events, badges etc. later #}
+        <h3>My Badges</h3>
+        {% if badges %}
+            <ul>
+                {% for badge in badges %}
+                    <li>{{ badge.name }} - {{ badge.description }} (Earned: {{ badge.date_earned }})</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No badges earned yet.</p>
+        {% endif %}
+
+        {# TODO: Add sections for owned items, joined events, etc. later #}
+        {# These would likely require fetching data in the app.py route and passing it #}
 
     {% else %}
-        <p>You are not logged in.</p>
+        <p>You need to <a href="{{ url_for('login') }}">log in</a> to view your profile.</p>
     {% endif %}
 {% endblock %} 
