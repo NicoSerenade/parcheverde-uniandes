@@ -467,7 +467,6 @@ def view_organizations():
                               interests=interests, 
                               sort_by=sort_by)
 
-# Alias route to fix template reference to 'search_orgs'
 @app.route('/search_orgs')
 def search_orgs():
     """Alias for view_organizations to maintain compatibility with templates"""
@@ -825,8 +824,7 @@ def view_items():
 
 @app.route('/item/request/<int:item_id>', methods=['POST'])
 @user_login_required # Only users can request items
-def request_exchange(item_id):
-    """Handles a user requesting to exchange an item."""
+def request_item(item_id):
     requester_id = session.get('user_id')
     if not requester_id:
         flash("Could not identify user session.", "error")
@@ -844,7 +842,7 @@ def request_exchange(item_id):
         return redirect(url_for('view_items'))
 
     # Call the updated logic function with the requested term
-    result = logic.request_exchange_logic(requester_id, item_id, requested_term, message)
+    result = logic.request_item_logic(requester_id, item_id, requested_term, message)
     flash(result['message'], result['status'])
 
     return redirect(url_for('view_items'))
@@ -1095,15 +1093,23 @@ def admin_dashboard():
     # Get counts for various entities in the system
     users_count = logic.get_users_count()
     orgs_count = logic.get_orgs_count()
-    challenges_count = logic.get_active_challenges_count()
+    events_count = logic.get_events_count()
+    items_count = logic.get_items_count()
+    
+    # Get all users and organizations for display
+    all_users = logic.users_view()
+    all_orgs = logic.orgs_view()
     
     # Get top organizations by points
-    top_orgs = logic.get_top_orgs_by_points()
-    
+    top_orgs = logic.get_top_orgs_by_points(limit=5)
+
     return render_template('admin/dashboard.html',
                           users_count=users_count,
                           orgs_count=orgs_count,
-                          challenges_count=challenges_count,
+                          events_count=events_count,
+                          items_count=items_count,
+                          all_users=all_users,
+                          all_orgs=all_orgs,
                           top_orgs=top_orgs)
 
 # --- User Management ---
@@ -1303,11 +1309,31 @@ def admin_stats():
     stats = {
         'total_users': logic.get_users_count(),
         'total_orgs': logic.get_orgs_count(),
-        'top_users': logic.get_events_count(),
-        'top_orgs': logic.get_items_count()
+        'total_events': logic.get_events_count(),
+        'total_items': logic.get_items_count(),
+        'users': logic.users_view(),
+        'orgs': logic.orgs_view(),
+        'top_orgs': logic.get_top_orgs_by_points(limit=10)
     }
     
     return render_template('admin/stats.html', stats=stats)
+
+@app.route('/admin/update_org_points', methods=['GET', 'POST'])
+@admin_required
+def admin_update_org_points():
+    """Update all organization points based on their members' points."""
+    if request.method == 'POST':
+        # Update all organizations' points
+        result = logic.update_org_points_from_members_logic()
+        flash(result['message'], result['status'])
+        
+        # If organizations were updated, show details
+        if result['status'] == 'success' and 'updated_orgs' in result:
+            updated_orgs = result['updated_orgs']
+            return render_template('admin/org_points_updated.html', updated_orgs=updated_orgs)
+        
+    # GET request or no organizations updated
+    return render_template('admin/update_org_points.html')
 
 if __name__ == '__main__':
     # Initialize the database

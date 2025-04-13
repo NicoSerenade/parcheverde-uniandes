@@ -35,7 +35,7 @@
                     
                     {# Add button to request exchange if logged in as a different user #}
                     {% if session.get('entity_type') == 'user' and session.get('user_id') != item.user_id %}
-                        <form action="{{ url_for('request_exchange', item_id=item.item_id) }}" method="post" style="display: inline; margin-left: 10px;">
+                        <form action="{{ url_for('request_item', item_id=item.item_id) }}" method="post" style="display: inline; margin-left: 10px;">
                             <!-- Inside the item request modal/form, add a dropdown for selecting exchange terms -->
                             <div class="form-group">
                                 <label for="requested_term">How would you like to receive this item?</label>
@@ -119,4 +119,4 @@
     </style>
 {% endblock %}
 
-{# Note: Need to implement the 'request_exchange' and 'delete_my_item' routes in app.py #} 
+{# Note: Need to implement the 'request_item' and 'delete_my_item' routes in app.py #} 

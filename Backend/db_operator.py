@@ -1306,7 +1306,7 @@ def get_item_details(item_id):
         if conn is not None:
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT owner_id, name, description, item_type, item_terms, status
+                SELECT user_id, name, description, item_type, item_terms, item_status
                 FROM items
                 WHERE item_id = ?
             ''', (item_id,))
@@ -1316,12 +1316,12 @@ def get_item_details(item_id):
             
             if item:
                 return {
-                    'owner_id': item[0],
+                    'owner_id': item[0],  # Map user_id to owner_id for compatibility
                     'name': item[1],
                     'description': item[2],
                     'item_type': item[3],
                     'item_terms': item[4],
-                    'status': item[5]
+                    'status': item[5]  # Map item_status to status for compatibility
                 }
             else:
                 return None
@@ -1560,9 +1560,9 @@ def accept_exchange_request(exchange_id, requested_term):
         current_time_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         cursor.execute('''
             UPDATE exchange_requests
-            SET status = 'accepted', decision_date = ?, requested_term = ?
+            SET status = 'accepted', decision_date = ?
             WHERE exchange_id = ?
-        ''', ('accepted', current_time_str, requested_term, exchange_id))
+        ''', (current_time_str, exchange_id))
         
         # Update the item status based on the requested term
         new_item_status = ''
@@ -1571,21 +1571,26 @@ def accept_exchange_request(exchange_id, requested_term):
             # Also update the owner to the requester
             cursor.execute('''
                 UPDATE items
-                SET status = ?, owner_id = ?
+                SET item_status = ?, user_id = ?
                 WHERE item_id = ?
             ''', (new_item_status, requester_id, item_id))
         elif requested_term == 'prestamo':
             new_item_status = 'borrowed'
+            # We can't set borrower_id because it doesn't exist in the schema
+            # Instead, we'll just update the status
             cursor.execute('''
                 UPDATE items
-                SET status = ?, borrower_id = ?
+                SET item_status = ?
                 WHERE item_id = ?
-            ''', (new_item_status, requester_id, item_id))
+            ''', (new_item_status, item_id))
+            
+            # Consider adding a record in a separate borrowers table if needed
+            # or extending the schema to add a borrower_id column
         elif requested_term == 'intercambio':
             new_item_status = 'exchanged'
             cursor.execute('''
                 UPDATE items
-                SET status = ?
+                SET item_status = ?
                 WHERE item_id = ?
             ''', (new_item_status, item_id))
         else:
@@ -2616,3 +2621,90 @@ def get_items_count():
             conn.close()
     
     return count
+
+def users_view():
+    """
+    Retrieves all users from the database for admin viewing.
+    Returns all user information except passwords.
+    
+    Returns:
+        list: A list of dictionaries containing user data without passwords.
+    """
+    users_list = []
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT user_id, student_code, name, email, career, 
+                       interests, points, creation_date, user_type
+                FROM users
+                ORDER BY creation_date DESC
+            ''')
+            
+            for row in cursor.fetchall():
+                user_data = {
+                    'user_id': row[0],
+                    'student_code': row[1],
+                    'name': row[2],
+                    'email': row[3],
+                    'career': row[4],
+                    'interests': row[5],
+                    'points': row[6],
+                    'creation_date': row[7],
+                    'user_type': row[8]
+                }
+                users_list.append(user_data)
+                
+            print(f"Retrieved {len(users_list)} users for admin view.")
+            
+        except sqlite3.Error as e:
+            print(f"Error retrieving users for admin view: {e}")
+        finally:
+            conn.close()
+    
+    return users_list
+
+def orgs_view():
+    """
+    Retrieves all organizations from the database for admin viewing.
+    Returns all organization information except passwords.
+    
+    Returns:
+        list: A list of dictionaries containing organization data without passwords.
+    """
+    orgs_list = []
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT org_id, name, email, description, 
+                       interests, points, creation_date, creator_student_code
+                FROM organizations
+                ORDER BY creation_date DESC
+            ''')
+            
+            for row in cursor.fetchall():
+                org_data = {
+                    'org_id': row[0],
+                    'name': row[1],
+                    'email': row[2],
+                    'description': row[3],
+                    'interests': row[4],
+                    'points': row[5],
+                    'creation_date': row[6],
+                    'creator_student_code': row[7]
+                }
+                orgs_list.append(org_data)
+                
+            print(f"Retrieved {len(orgs_list)} organizations for admin view.")
+            
+        except sqlite3.Error as e:
+            print(f"Error retrieving organizations for admin view: {e}")
+        finally:
+            conn.close()
+    
+    return orgs_list

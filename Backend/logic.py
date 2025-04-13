@@ -1,5 +1,17 @@
+import db_operator # Database operations
+import db_conn # Used occasionally for direct DB access
+import sqlite3 # For error handling
+
+
 """
 Main business logic module for the Comunidad Verde application.
+
+for creating an admin account:
+- student_code: admin
+- password: whatever you want (let's use admin2000 for standarization)
+
+for adding a point map:
+- permission_code: admin2000
 
 Points System:
 -------------
@@ -12,17 +24,17 @@ Events:
   * 20 points when at least 5 members have confirmed attendance at an event
 
 Items:
-- Users: Points for adding items to exchange (varies by item type)
-- Users: Points for successful exchanges
+- Users: 2 points for confirmed exchanged items, 4 points for borrowed items and 10 points for gave items
+
+Challenges:
+- Points are awarded based on the challenge's difficulty (admins add challenges in the system)
+
+Achievements:
+- Are prizes based on the entity's points (users or organizations)
 
 The points system encourages participation and community engagement.
 """
 
-from flask import session # Only needed for session references in docstrings
-import db_operator # Database operations
-import db_conn # Used occasionally for direct DB access
-import sqlite3 # For error handling
-import re # For validation
 
 # --- Authentication Functions ---
 
@@ -31,14 +43,11 @@ def register_user(name, email, student_code, password, interests=None, career=No
     Registers a new user in the system.
     Returns a status message indicating success or failure.
     """
-    # No change needed here as it didn't depend on session state
+
     result_id = db_operator.register_user(student_code, password, name, email, career, interests)
     if result_id:
         return {"status": "success", "message": f"User '{name}' registered successfully."}
     else:
-        # Added specific check for duplicate error if db_operator raises it
-        # Note: This requires db_operator to potentially raise specific errors
-        # or return more detailed failure info. For now, keeping generic message.
         return {"status": "error", "message": "User registration failed. Email, student code might exist, or email domain is invalid."}
 
 def register_organization(creator_student_code, name, email, description, password, interests=None):
@@ -210,15 +219,137 @@ def update_my_profile_logic(entity_id, entity_type, new_data):
         else:
              return {"status": "error", "message": "Failed to update profile. Check data or if email/name constraints violated."}
 
+def update_org_points_from_members_logic(org_id=None, user_id=None):
+    """
+    Updates organization points based on the sum of its members' points.
+    
+    If org_id is provided, only that organization's points are updated.
+    If user_id is provided, all organizations that the user is a member of will be updated.
+    If neither is provided, all organizations will be updated.
+    
+    Args:
+        org_id (int, optional): The ID of a specific organization to update
+        user_id (int, optional): The ID of a user whose organizations should be updated
+        
+    Returns:
+        dict: Status message and list of updated organizations
+    """
+    updated_orgs = []
+    
+    if user_id:
+        # Get all organizations this user is a member of
+        user_orgs = db_operator.search_orgs(user_id=user_id)
+        if user_orgs:
+            for org in user_orgs:
+                update_result = update_single_org_points(org['org_id'])
+                if update_result:
+                    updated_orgs.append(update_result)
+    elif org_id:
+        # Update a specific organization
+        update_result = update_single_org_points(org_id)
+        if update_result:
+            updated_orgs.append(update_result)
+    else:
+        # Update all organizations
+        all_orgs = db_operator.search_orgs()
+        if all_orgs:
+            for org in all_orgs:
+                update_result = update_single_org_points(org['org_id'])
+                if update_result:
+                    updated_orgs.append(update_result)
+    
+    if updated_orgs:
+        return {
+            "status": "success", 
+            "message": f"Updated points for {len(updated_orgs)} organizations",
+            "updated_orgs": updated_orgs
+        }
+    else:
+        return {"status": "info", "message": "No organizations were updated"}
+
+def update_single_org_points(org_id):
+    """
+    Helper function to update a single organization's points.
+    
+    Args:
+        org_id (int): The ID of the organization to update
+        
+    Returns:
+        dict or None: Information about the updated organization or None if update failed
+    """
+    # Get all members of the organization
+    members = db_operator.get_org_members(org_id)
+    
+    if not members:
+        return None
+    
+    # Calculate the sum of all members' points
+    total_points = 0
+    member_points = []
+    
+    for member in members:
+        # Get user details including points
+        user_data = db_operator.get_user_by_id(member['user_id'])
+        if user_data and 'points' in user_data:
+            member_points.append({
+                'user_id': member['user_id'],
+                'name': user_data.get('name', 'Unknown'),
+                'points': user_data.get('points', 0)
+            })
+            total_points += user_data.get('points', 0)
+    
+    # Get current organization points
+    org_data = db_operator.get_org_by_id(org_id)
+    if not org_data:
+        return None
+    
+    current_points = org_data.get('points', 0)
+    
+    # If the calculated points are different, update the organization
+    if total_points != current_points:
+        # Use the update_entity_points function to set the points directly
+        # Calculate the difference to add to the current points
+        points_diff = total_points - current_points
+        
+        # Only update if there's a difference
+        if points_diff != 0:
+            # We need to directly set the new points, not just add the difference
+            # For now, we'll use the update_entity_points function, which adds points
+            db_operator.update_entity_points(org_id, 'org', points_diff)
+            
+            print(f"Logic: Updated organization ID {org_id} points from {current_points} to {total_points}")
+            
+            return {
+                'org_id': org_id,
+                'name': org_data.get('name', 'Unknown'),
+                'previous_points': current_points,
+                'new_points': total_points,
+                'members_count': len(members),
+                'member_points': member_points
+            }
+    
+    return None
+
 def award_points_logic(entity_id, points, reason="", entity_type="user"):
      """
      Awards points to a specific user or organization and checks for achievement unlocks.
      
      Points System:
-     - Users get 5 points when their attendance at an event is confirmed
-     - Event organizers get 10 points when the first participant is confirmed
-     - Event organizers get 2 points for each confirmed participant
-     - Organizations get 20 points when at least 5 of their members attend an event
+     - Events:
+       * Users: 5 points when their attendance is confirmed
+       * Event Organizers: 
+         - 10 points when the first participant is confirmed (event is happening)
+         - 2 points for each confirmed participant
+       * Organizations: 20 points when at least 5 members have confirmed attendance at an event
+     
+     - Items:
+       * Users: 2 points for confirmed exchanged items, 4 points for borrowed items and 10 points for gave items
+     
+     - Challenges:
+       * Points are awarded based on the challenge's difficulty (admins add challenges in the system)
+     
+     - Achievements:
+       * Are prizes based on the entity's points (users or organizations)
      
      Args:
         entity_id (int): The ID of the user or organization
@@ -229,7 +360,6 @@ def award_points_logic(entity_id, points, reason="", entity_type="user"):
      Returns:
         dict: Status message and any unlocked achievements
      """
-     # Removed global current_logged_in_entity usage
      if not entity_id:
           print("Logic Error: award_points called without entity_id")
           return {"status": "error", "message": "Entity ID is required to award points."}
@@ -248,9 +378,6 @@ def award_points_logic(entity_id, points, reason="", entity_type="user"):
          print(f"Logic Error: Failed to award points to {db_entity_type} {entity_id}.")
          response = {"status": "error", "message": "Failed to update points in database."}
      else:
-          # --- Session cache update REMOVED ---
-          # This needs to happen in app.py using the Flask session object
-
           # --- Format response message ---
           if isinstance(achievement_unlocked, str): # Achievement name string returned
                print(f"Logic: Awarded {points} points to {db_entity_type} {entity_id}. Unlocked: {achievement_unlocked}")
@@ -259,6 +386,11 @@ def award_points_logic(entity_id, points, reason="", entity_type="user"):
           else: # Success (achievement_unlocked is None), no new achievement
                print(f"Logic: Awarded {points} points to {db_entity_type} {entity_id}. No new achievement.")
                response["message"] = f"Awarded {points} points."
+          
+          # If this is a user, update points for all organizations they belong to
+          if db_entity_type == 'user':
+               update_org_points_from_members_logic(user_id=entity_id)
+     
      return response
 
 def view_my_points_and_badges_logic(user_id):
@@ -364,6 +496,36 @@ def search_orgs_logic(query=None, interests=None, sort_by=None, user_id=None):
     else:
         return {"status": "success", "data": orgs}
 
+def get_user_orgs_logic(user_id):
+    """
+    Retrieves all organizations that a user is a member of.
+    
+    Args:
+        user_id (int): The ID of the user
+        
+    Returns:
+        dict: A dictionary with status, message, and data if successful
+    """
+    if not user_id:
+        return {"status": "error", "message": "User ID is required"}
+    
+    try:
+        # Use the search_orgs function with the user_id filter
+        user_orgs = db_operator.search_orgs(user_id=user_id)
+        
+        if user_orgs is not None:
+            return {
+                "status": "success",
+                "message": f"Found {len(user_orgs)} organizations for user",
+                "data": user_orgs
+            }
+        else:
+            return {"status": "error", "message": "Failed to retrieve user organizations"}
+    
+    except Exception as e:
+        print(f"Logic Error in get_user_orgs_logic: {e}")
+        return {"status": "error", "message": "An error occurred while retrieving user organizations"}
+
 def get_org_members_logic(org_id):
     """
     Retrieves members of a specific organization.
@@ -401,6 +563,9 @@ def join_org_logic(user_id, org_id):
     success = db_operator.join_org(org_id, user_id)
 
     if success:
+        # Update organization points to include the new member's points
+        update_org_points_from_members_logic(org_id=org_id)
+        
         # Consider points/achievements for joining orgs?
         return {"status": "success", "message": "Successfully joined the organization."}
     else:
@@ -425,6 +590,9 @@ def leave_org_logic(user_id, org_id):
     success = db_operator.leave_org(org_id, user_id)
 
     if success:
+        # Update organization points after member leaves
+        update_org_points_from_members_logic(org_id=org_id)
+        
         return {"status": "success", "message": "Successfully left the organization."}
     else:
         # Possible reasons: not a member, org doesn't exist, DB error
@@ -587,10 +755,12 @@ def mark_event_attendance_logic(marker_id, marker_type, event_id, participant_id
     """
     Allows the specified event organizer or an admin to mark attendance for a participant.
     
-    Points system:
-    - Participants get points when their attendance is confirmed
-    - Organizers get 10 points when the first participant is confirmed + 2 points per each confirmed attendee
-    - Organizations get 20 points when at least 5 of their members have confirmed attendance
+    Points System:
+    - Users: 5 points when their attendance is confirmed
+    - Event Organizers: 
+      * 10 points when the first participant is confirmed (event is happening)
+      * 2 points for each confirmed participant
+    - Organizations: 20 points when at least 5 members have confirmed attendance at an event
     
     Args:
         marker_id (int): ID of the user/org marking attendance (must be admin or organizer).
@@ -825,11 +995,11 @@ def add_item_logic(owner_id, name, description, item_type, item_terms):
     item_id = db_operator.create_item(owner_id, name, description, item_type, item_terms)
 
     if item_id:
-         points_reason = f"Added item '{name}' for {item_terms}"
-         points_to_award = 2 # Example points
-         # Pass owner_id to award_points_logic
-         award_result = award_points_logic(owner_id, points_to_award, points_reason)
-         return {"status": "success", "message": f"Item '{name}' added successfully. {award_result.get('message', '')}"}
+        # Add a small incentive for listing items, but the main points come when the exchange actually happens
+        points_to_award = 1  # Just 1 point for listing an item
+        points_reason = f"Listed item '{name}' for {item_terms}"
+        award_result = award_points_logic(owner_id, points_to_award, points_reason)
+        return {"status": "success", "message": f"Item '{name}' added successfully. {award_result.get('message', '')}"}
     else:
         return {"status": "error", "message": "Failed to add item."}
 
@@ -884,7 +1054,7 @@ def view_items_logic(item_terms=None):
     else:
         return {"status": "success", "data": items}
 
-def request_exchange_logic(requester_id, item_id, requested_term, message=""):
+def request_item_logic(requester_id, item_id, requested_term, message=""):
     """
     Allows a user to request an item for exchange, gift, or borrowing.
     Users can now specify the requested term (regalo, prestamo, intercambio)
@@ -919,6 +1089,7 @@ def request_exchange_logic(requester_id, item_id, requested_term, message=""):
         return {"status": "error", "message": "You cannot request your own items."}
     
     # Check if item is available
+    # Note: get_item_details maps item_status to status for API compatibility
     if item_details.get('status') != 'available':
         return {"status": "error", "message": "This item is not available for request."}
 
@@ -987,6 +1158,11 @@ def accept_exchange_logic(owner_id, exchange_id):
     """
     Allows an item owner to accept an exchange request.
     The item will be marked with the status based on the requested_term.
+    Points are awarded according to the exchange type:
+    - 2 points for exchange
+    - 4 points for borrowing
+    - 10 points for gifts
+    
     Returns a status message.
 
     Args:
@@ -1025,17 +1201,26 @@ def accept_exchange_logic(owner_id, exchange_id):
     success = db_operator.accept_exchange_request(exchange_id, requested_term)
     
     if success:
-        # Award points to both parties
-        # The exact point values could vary based on your app's rules
-        owner_points = 5
-        requester_points = 5
+        # Award points based on the exchange type
+        if requested_term == 'regalo':
+            # 10 points for giving an item as a gift
+            owner_points = 10
+            requester_points = 2
+        elif requested_term == 'prestamo':
+            # 4 points for lending an item
+            owner_points = 4
+            requester_points = 2
+        else:  # intercambio
+            # 2 points for exchanging an item
+            owner_points = 2
+            requester_points = 2
         
         # Award points to owner
-        owner_points_reason = f"Accepted request for {item_name}"
+        owner_points_reason = f"Accepted request for {item_name} as {requested_term}"
         award_points_logic(owner_id, owner_points, owner_points_reason)
         
         # Award points to requester
-        requester_points_reason = f"Request for {item_name} was accepted"
+        requester_points_reason = f"Received {item_name} as {requested_term}"
         award_points_logic(requester_id, requester_points, requester_points_reason)
         
         # Create success message based on the requested term
@@ -1052,7 +1237,7 @@ def accept_exchange_logic(owner_id, exchange_id):
         
         return {
             "status": "success", 
-            "message": f"{base_message} You and the requester have each earned {owner_points} points!"
+            "message": f"{base_message} You earned {owner_points} points for this transaction!"
         }
     else:
         return {"status": "error", "message": "Failed to accept exchange request. Please try again."}
@@ -1249,15 +1434,6 @@ def search_achievements_logic(entity_type):
 
 
 # --- Admin Functions ---
-# These functions require an admin check
-def _is_admin_session():
-     """
-     Placeholder/Removed. Admin checks must now happen in app.py
-     """
-     # This function should be removed or left as a non-functional placeholder.
-     # Admin role check needs to be based on Flask session data in app.py routes.
-     print("Logic Warning: _is_admin_session called, but admin checks must happen in app.py")
-     return False # Always return False, forcing check in app.py
 
 def admin_delete_user_logic(admin_id, user_id_to_delete):
     """
@@ -1290,7 +1466,6 @@ def admin_delete_org_logic(admin_id, org_id_to_delete):
         return {"status": "success", "message": f"Organization ID {org_id_to_delete} deleted successfully."}
     else:
         return {"status": "error", "message": f"Failed to delete organization ID {org_id_to_delete}."}
-
 
 def admin_create_achievement_logic(admin_id, name, description, points_required, badge_icon, achievement_user_type):
     """
@@ -1368,70 +1543,99 @@ def admin_delete_challenge_logic(admin_id, challenge_id, challenge_user_type):
     else:
         return {"status": "error", "message": "Failed to delete challenge."}
 
+def admin_get_events(query=None):
+    """
+    Admin function to get all events, optionally filtered by a search query.
+    
+    Args:
+        query (str, optional): Optional search term for event title or description
+        
+    Returns:
+        dict: Status and data containing a list of events
+    """
+    print(f"Logic: Admin retrieving all events with query='{query}'")
+    events = db_operator.search_events(query=query)
+    
+    if events is None:
+        return {"status": "error", "message": "Failed to retrieve events."}
+    else:
+        return {"status": "success", "data": events}
+
+def admin_delete_event(event_id):
+    """
+    Admin function to delete any event regardless of organizer.
+    
+    Args:
+        event_id (int): ID of the event to delete
+        
+    Returns:
+        dict: Status and message
+    """
+    if not event_id:
+        return {"status": "error", "message": "Event ID is required."}
+    
+    print(f"Logic: Admin deleting event ID {event_id}")
+    
+    # Admin can delete any event, so we pass special parameters to db_operator
+    # Using None for entity_id and 'admin' for user_type to bypass organizer check
+    success = db_operator.delete_event(event_id, None, 'admin')
+    
+    if success:
+        return {"status": "success", "message": "Event deleted successfully."}
+    else:
+        return {"status": "error", "message": "Failed to delete event. It might not exist."}
+
+
 # --- Stats Functions ---
 def get_users_count():
-    """Returns the total number of registered users."""
+    """Returns the total number of users in the system."""
     return db_operator.get_users_count()
 
 def get_orgs_count():
-    """Returns the total number of registered organizations."""
+    """Returns the total number of organizations in the system."""
     return db_operator.get_orgs_count()
 
 def get_events_count():
-    """Returns the total number of events."""
+    """Returns the total number of events in the system."""
     return db_operator.get_events_count()
 
 def get_items_count():
-    """Returns the total number of exchange items."""
+    """Returns the total number of exchange items in the system."""
     return db_operator.get_items_count()
 
-def get_user_orgs_logic(user_id):
+def users_view():
     """
-    Retrieves all organizations that a user is a member of.
-    
-    Args:
-        user_id (int): The ID of the user
-        
-    Returns:
-        dict: A dictionary with status, message, and data if successful
+    Retrieves all users from the database for admin viewing.
+    Returns a list of user dictionaries with all information except passwords.
     """
-    if not user_id:
-        return {"status": "error", "message": "User ID is required"}
-    
-    try:
-        # Use the search_orgs function with the user_id filter
-        user_orgs = db_operator.search_orgs(user_id=user_id)
-        
-        if user_orgs is not None:
-            return {
-                "status": "success",
-                "message": f"Found {len(user_orgs)} organizations for user",
-                "data": user_orgs
-            }
-        else:
-            return {"status": "error", "message": "Failed to retrieve user organizations"}
-    
-    except Exception as e:
-        print(f"Logic Error in get_user_orgs_logic: {e}")
-        return {"status": "error", "message": "An error occurred while retrieving user organizations"}
+    return db_operator.users_view()
 
-def get_top_orgs_by_points(limit=10):
+def orgs_view():
     """
-    Returns the top organizations by points.
+    Retrieves all organizations from the database for admin viewing.
+    Returns a list of organization dictionaries with all information except passwords.
+    """
+    return db_operator.orgs_view()
+
+def get_top_orgs_by_points(limit=5):
+    """
+    Get a list of top organizations by points.
     
     Args:
-        limit (int, optional): The maximum number of organizations to return. Defaults to 10.
+        limit (int): Number of organizations to return
         
     Returns:
-        list: A list of dictionaries containing organization data, sorted by points.
+        list: List of top organizations
     """
-    print(f"Logic: Fetching top {limit} organizations by points")
-    # Use search_orgs with points sorting and limit
-    top_orgs = db_operator.search_orgs(sort_by='points')
+    # Get all orgs
+    result = search_orgs_logic(sort_by="points")
     
-    if top_orgs is None:
-        print("Logic Error: Failed to retrieve top organizations by points")
-        return []  # Return empty list on error
+    if result['status'] != 'success':
+        return []
         
+    # Sort by points in descending order
+    top_orgs = sorted(result['data'], key=lambda x: x.get('points', 0), reverse=True)
+    
     # Limit the results to the specified number
     return top_orgs[:limit] if limit and len(top_orgs) > limit else top_orgs
+
