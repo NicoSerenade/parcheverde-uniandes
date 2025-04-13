@@ -36,20 +36,22 @@
                     {# Add button to request exchange if logged in as a different user #}
                     {% if session.get('entity_type') == 'user' and session.get('user_id') != item.user_id %}
                         <form action="{{ url_for('request_item', item_id=item.item_id) }}" method="post" style="display: inline; margin-left: 10px;">
-                            <!-- Inside the item request modal/form, add a dropdown for selecting exchange terms -->
+                            <!-- Show the terms offered by the owner -->
                             <div class="form-group">
-                                <label for="requested_term">How would you like to receive this item?</label>
-                                <select id="requested_term" name="requested_term" class="form-control" required>
-                                    <option value="">Select an option</option>
-                                    <option value="regalo">As a gift (Regalo)</option>
-                                    <option value="prestamo">As a loan (Préstamo)</option>
-                                    <option value="intercambio">As an exchange (Intercambio)</option>
-                                </select>
-                                <small class="form-text text-muted">
-                                    The original term offered by the owner: <strong>{{ item.item_terms }}</strong>
+                                <p class="form-text">
+                                    <strong>Terms offered by the owner:</strong> 
+                                    {% if item.item_terms == 'regalo' %}
+                                        <span class="terms-badge regalo">Gift (Regalo)</span>
+                                    {% elif item.item_terms == 'prestamo' %}
+                                        <span class="terms-badge prestamo">Borrowing (Préstamo)</span>
+                                    {% elif item.item_terms == 'intercambio' %}
+                                        <span class="terms-badge intercambio">Exchange (Intercambio)</span>
+                                    {% endif %}
                                     <br>
-                                    Note: The owner will review your request and has the right to accept or reject it.
-                                </small>
+                                    <small class="text-muted">
+                                        By requesting this item, you agree to the terms offered by the owner.
+                                    </small>
+                                </p>
                             </div>
 
                             <!-- Message field -->

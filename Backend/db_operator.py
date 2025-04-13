@@ -1288,8 +1288,6 @@ def update_item_status(item_id, status):
             
     return success
 
-# --- ITEM EXCHANGE FUNCTIONS ---
-
 def get_item_details(item_id):
     """
     Get detailed information about an item.
@@ -1329,7 +1327,7 @@ def get_item_details(item_id):
         print(f"Error getting item details: {e}")
         return None
 
-def create_exchange_request(requester_id, owner_id, item_id, requested_term, message=""):
+def create_item_request(requester_id, owner_id, item_id, requested_term, message=""):
     """
     Create a new exchange request with the specified terms.
     
@@ -1367,13 +1365,8 @@ def create_exchange_request(requester_id, owner_id, item_id, requested_term, mes
                 VALUES (?, ?, ?, ?, ?, 'pending', datetime('now'))
             ''', (requester_id, owner_id, item_id, requested_term, message))
             
-            # Get the ID of the new exchange request
             exchange_id = cursor.lastrowid
             
-            # Update item status to 'requested' (optional, depending on your app logic)
-            # cursor.execute('''
-            #     UPDATE items SET status = 'requested' WHERE item_id = ?
-            # ''', (item_id,))
             
             conn.commit()
             conn.close()
@@ -1467,6 +1460,88 @@ def get_exchange_request(exchange_id):
             conn.close()
 
     return request_details
+
+def get_user_exchange_requests(user_id, request_type='received'):
+    """
+    Retrieves exchange requests associated with a user, either sent or received.
+
+    Args:
+        user_id (int): The ID of the user whose requests are being fetched.
+        request_type (str): 'received' (requests for user's items) or
+                           'sent' (requests made by the user). Defaults to 'received'.
+
+    Returns:
+        list: A list of dictionaries, each representing an exchange request with
+              details about the item and the other party involved. 
+                received: Finds requests made by other users for items owned by the specified user_id.
+                sent: Finds requests made by the specified user_id for items owned by other users.
+              
+              Returns an empty list if no requests are found, or None if an error occurs.
+
+    """
+    requests_list = []
+    conn = db_conn.create_connection()
+    if conn is None:
+        print("Error: Could not establish database connection.")
+        return None # Indicate error
+
+    try:
+        cursor = conn.cursor()
+        sql_query = '''
+            SELECT
+                er.exchange_id, er.item_id, i.name AS item_name,
+                er.requester_id, u_req.name AS requester_name,
+                er.owner_id, u_own.name AS owner_name,
+                er.message, er.status, er.request_date, er.decision_date,
+                er.requested_term, i.item_terms AS original_term
+            FROM exchange_requests er
+            JOIN items i ON er.item_id = i.item_id
+            JOIN users u_req ON er.requester_id = u_req.user_id
+            JOIN users u_own ON er.owner_id = u_own.user_id
+        '''
+        params = (user_id,)
+
+        if request_type == 'received':
+            sql_query += " WHERE er.owner_id = ?"
+        elif request_type == 'sent':
+            sql_query += " WHERE er.requester_id = ?"
+        else:
+            print(f"Error: Invalid request_type '{request_type}' specified.")
+            if conn: conn.close()
+            return None
+
+        sql_query += " ORDER BY er.request_date DESC" # Show newest first
+
+        cursor.execute(sql_query, params)
+        rows = cursor.fetchall()
+
+        for row in rows:
+            request_data = {
+                'exchange_id': row[0],
+                'item_id': row[1],
+                'item_name': row[2],
+                'requester_id': row[3],
+                'requester_name': row[4],
+                'owner_id': row[5],
+                'owner_name': row[6],
+                'message': row[7],
+                'status': row[8],
+                'request_date': row[9],
+                'decision_date': row[10],
+                'requested_term': row[11] if len(row) > 11 else 'intercambio',  # Default if column doesn't exist yet
+                'original_term': row[12] if len(row) > 12 else None  # Original item term
+            }
+            requests_list.append(request_data)
+
+    except sqlite3.Error as e:
+        print(f"Error retrieving {request_type} exchange requests for user ID {user_id}: {e}")
+        requests_list = None
+    finally:
+        if conn:
+            conn.close()
+
+    # Return the list (possibly empty) or None if there was an error
+    return requests_list if requests_list is not None else []
 
 def update_exchange_status(exchange_id, new_status):
     """
@@ -1620,88 +1695,6 @@ def accept_exchange_request(exchange_id, requested_term):
             conn.close()
             
     return success
-
-def get_user_exchange_requests(user_id, request_type='received'):
-    """
-    Retrieves exchange requests associated with a user, either sent or received.
-
-    Args:
-        user_id (int): The ID of the user whose requests are being fetched.
-        request_type (str): 'received' (requests for user's items) or
-                           'sent' (requests made by the user). Defaults to 'received'.
-
-    Returns:
-        list: A list of dictionaries, each representing an exchange request with
-              details about the item and the other party involved. 
-                received: Finds requests made by other users for items owned by the specified user_id.
-                sent: Finds requests made by the specified user_id for items owned by other users.
-              
-              Returns an empty list if no requests are found, or None if an error occurs.
-
-    """
-    requests_list = []
-    conn = db_conn.create_connection()
-    if conn is None:
-        print("Error: Could not establish database connection.")
-        return None # Indicate error
-
-    try:
-        cursor = conn.cursor()
-        sql_query = '''
-            SELECT
-                er.exchange_id, er.item_id, i.name AS item_name,
-                er.requester_id, u_req.name AS requester_name,
-                er.owner_id, u_own.name AS owner_name,
-                er.message, er.status, er.request_date, er.decision_date,
-                er.requested_term, i.item_terms AS original_term
-            FROM exchange_requests er
-            JOIN items i ON er.item_id = i.item_id
-            JOIN users u_req ON er.requester_id = u_req.user_id
-            JOIN users u_own ON er.owner_id = u_own.user_id
-        '''
-        params = (user_id,)
-
-        if request_type == 'received':
-            sql_query += " WHERE er.owner_id = ?"
-        elif request_type == 'sent':
-            sql_query += " WHERE er.requester_id = ?"
-        else:
-            print(f"Error: Invalid request_type '{request_type}' specified.")
-            if conn: conn.close()
-            return None
-
-        sql_query += " ORDER BY er.request_date DESC" # Show newest first
-
-        cursor.execute(sql_query, params)
-        rows = cursor.fetchall()
-
-        for row in rows:
-            request_data = {
-                'exchange_id': row[0],
-                'item_id': row[1],
-                'item_name': row[2],
-                'requester_id': row[3],
-                'requester_name': row[4],
-                'owner_id': row[5],
-                'owner_name': row[6],
-                'message': row[7],
-                'status': row[8],
-                'request_date': row[9],
-                'decision_date': row[10],
-                'requested_term': row[11] if len(row) > 11 else 'intercambio',  # Default if column doesn't exist yet
-                'original_term': row[12] if len(row) > 12 else None  # Original item term
-            }
-            requests_list.append(request_data)
-
-    except sqlite3.Error as e:
-        print(f"Error retrieving {request_type} exchange requests for user ID {user_id}: {e}")
-        requests_list = None
-    finally:
-        if conn:
-            conn.close()
-
-    # Return the list (possibly empty) or None if there was an error
-    return requests_list if requests_list is not None else []
 
 
 #CHALLENGES

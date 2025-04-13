@@ -406,7 +406,7 @@ def delete_account():
     # GET: Show confirmation form
     return render_template('delete_account.html')
 
-@app.route('/profile/exchange_requests')
+@app.route('/exchange/requests')
 @user_login_required
 def view_my_requests():
     """
@@ -823,7 +823,7 @@ def view_items():
         return render_template('view_items.html', items=[], current_filter=item_terms)
 
 @app.route('/item/request/<int:item_id>', methods=['POST'])
-@user_login_required # Only users can request items
+@user_login_required
 def request_item(item_id):
     requester_id = session.get('user_id')
     if not requester_id:
@@ -833,16 +833,8 @@ def request_item(item_id):
     # Get message from form if added
     message = request.form.get('message', "") 
 
-    # Get the requested exchange term selected by the user
-    requested_term = request.form.get('requested_term')
-    
-    # Validate the requested term
-    if not requested_term or requested_term not in ['regalo', 'prestamo', 'intercambio']:
-        flash("Please select a valid exchange term (regalo, prestamo, or intercambio).", "error")
-        return redirect(url_for('view_items'))
-
-    # Call the updated logic function with the requested term
-    result = logic.request_item_logic(requester_id, item_id, requested_term, message)
+    # Call the updated logic function (using original item terms)
+    result = logic.request_item_logic(requester_id, item_id, message)
     flash(result['message'], result['status'])
 
     return redirect(url_for('view_items'))

@@ -381,7 +381,7 @@ def award_points_logic(entity_id, points, reason="", entity_type="user"):
           # --- Format response message ---
           if isinstance(achievement_unlocked, str): # Achievement name string returned
                print(f"Logic: Awarded {points} points to {db_entity_type} {entity_id}. Unlocked: {achievement_unlocked}")
-               response["message"] = f"Awarded {points} points. Unlocked: {achievement_unlocked}!"
+               response["message"] = f"Awarded {points} points. Unlocked: {achievement_unlocked}"
                response["unlocked_achievement"] = achievement_unlocked
           else: # Success (achievement_unlocked is None), no new achievement
                print(f"Logic: Awarded {points} points to {db_entity_type} {entity_id}. No new achievement.")
@@ -1054,16 +1054,14 @@ def view_items_logic(item_terms=None):
     else:
         return {"status": "success", "data": items}
 
-def request_item_logic(requester_id, item_id, requested_term, message=""):
+def request_item_logic(requester_id, item_id, message=""):
     """
     Allows a user to request an item for exchange, gift, or borrowing.
-    Users can now specify the requested term (regalo, prestamo, intercambio)
-    regardless of the item's original term.
+    Uses the original item terms defined by the owner.
     
     Args:
         requester_id (int): The user_id of the requester.
         item_id (int): The ID of the item being requested.
-        requested_term (str): The term the requester wants (regalo, prestamo, intercambio).
         message (str, optional): Optional message from requester to owner.
         
     Returns:
@@ -1071,9 +1069,6 @@ def request_item_logic(requester_id, item_id, requested_term, message=""):
     """
     if not requester_id or not item_id:
         return {"status": "error", "message": "Requester ID and Item ID are required."}
-    
-    if requested_term not in ['regalo', 'prestamo', 'intercambio']:
-        return {"status": "error", "message": "Invalid requested term. Must be regalo, prestamo, or intercambio."}
 
     # Get item details (need to know the owner and original term)
     item_details = db_operator.get_item_details(item_id)
@@ -1093,37 +1088,32 @@ def request_item_logic(requester_id, item_id, requested_term, message=""):
     if item_details.get('status') != 'available':
         return {"status": "error", "message": "This item is not available for request."}
 
-    print(f"Logic: User ID {requester_id} requesting item ID {item_id} with term '{requested_term}'")
-    print(f"Original item term was '{original_term}', owner is User ID {owner_id}")
+    print(f"Logic: User ID {requester_id} requesting item ID {item_id} with term '{original_term}'")
+    print(f"Owner is User ID {owner_id}")
     
-    # Create an exchange request with the requested term
-    exchange_id = db_operator.create_exchange_request(
-        requester_id, owner_id, item_id, requested_term, message
+    # Create an exchange request with the original term
+    exchange_id = db_operator.create_item_request(
+        requester_id, 
+        owner_id, 
+        item_id, 
+        original_term,
+        message
     )
     
     if exchange_id:
-        # Success message varies based on requested term
+        # Success message varies based on item term
         term_messages = {
-            'regalo': "You have requested this item as a gift.",
-            'prestamo': "You have requested to borrow this item.",
-            'intercambio': "You have requested to exchange this item."
+            'regalo': "You have requested this item as a gift. Please contact the owner to arrange a pickup or delivery.",
+            'prestamo': "You have requested to borrow this item. Please contact the owner to arrange pickup, delivery, and return details.",
+            'intercambio': "You have requested to exchange this item. Please contact the owner to arrange an exchange meeting."
         }
         
-        base_message = f"Request for '{item_name}' sent successfully! {term_messages[requested_term]}"
-        
-        # Add a note if the requested term differs from original
-        if requested_term != original_term:
-            term_translations = {
-                'regalo': "gift", 
-                'prestamo': "loan", 
-                'intercambio': "exchange"
-            }
-            base_message += f" Note: The owner originally offered this as a {term_translations[original_term]}."
+        base_message = f"Request for '{item_name}' sent successfully! {term_messages.get(original_term, '')}"
         
         return {"status": "success", "message": base_message}
     else:
         # Request failed in the database
-        return {"status": "error", "message": "Failed to create exchange request. You may have already requested this item."}
+        return {"status": "error", "message": "Failed to create exchange request. Please try again later."}
 
 def view_my_exchange_requests_logic(user_id, request_type='received'):
     """
@@ -1144,7 +1134,6 @@ def view_my_exchange_requests_logic(user_id, request_type='received'):
 
     print(f"Logic: User ID {user_id} viewing {request_type} exchange requests")
 
-    # Get Data from DB
     requests_list = db_operator.get_user_exchange_requests(user_id, request_type)
 
     # Format Response
@@ -1157,13 +1146,13 @@ def view_my_exchange_requests_logic(user_id, request_type='received'):
 def accept_exchange_logic(owner_id, exchange_id):
     """
     Allows an item owner to accept an exchange request.
-    The item will be marked with the status based on the requested_term.
-    Points are awarded according to the exchange type:
-    - 2 points for exchange
-    - 4 points for borrowing
-    - 10 points for gifts
+    The item will be marked with the status based on the original item terms.
+    Points are awarded according to the item term:
+    - regalo (gift): 10 points to owner
+    - prestamo (loan): 4 points to owner
+    - intercambio (exchange): 2 points to both owner and requester
     
-    Returns a status message.
+    Returns a status message with encouragement to contact the other party.
 
     Args:
         owner_id (int): The user_id of the item owner accepting the request.
@@ -1188,42 +1177,54 @@ def accept_exchange_logic(owner_id, exchange_id):
     # Get relevant data
     item_id = exchange_request.get('item_id')
     requester_id = exchange_request.get('requester_id')
-    requested_term = exchange_request.get('requested_term', 'intercambio')  # Default to intercambio if not specified
     
     # Get item details to refer to it by name in messages
     item_details = db_operator.get_item_details(item_id)
-    item_name = item_details.get('name', f"Item #{item_id}") if item_details else f"Item #{item_id}"
+    if not item_details:
+        return {"status": "error", "message": "Item details not found."}
+        
+    item_name = item_details.get('name', f"Item #{item_id}")
+    item_terms = item_details.get('item_terms')
     
     print(f"Logic: User ID {owner_id} accepting exchange request ID {exchange_id} for item {item_id}")
-    print(f"Requested term: {requested_term}")
+    print(f"Original item terms: {item_terms}")
     
-    # Accept the exchange in DB
-    success = db_operator.accept_exchange_request(exchange_id, requested_term)
+    # Accept the exchange in DB - using the original item_terms
+    success = db_operator.accept_exchange_request(exchange_id, item_terms)
     
     if success:
-        # Award points based on the exchange type
-        if requested_term == 'regalo':
+        # Award points based on the original item_terms
+        owner_points = 0
+        requester_points = 0
+        contact_message = ""
+        
+        if item_terms == 'regalo':
             # 10 points for giving an item as a gift
             owner_points = 10
-            requester_points = 2
-        elif requested_term == 'prestamo':
+            requester_points = 0
+            contact_message = "Please contact the requester to arrange a pickup or delivery."
+        elif item_terms == 'prestamo':
             # 4 points for lending an item
             owner_points = 4
-            requester_points = 2
-        else:  # intercambio
+            requester_points = 0
+            contact_message = "Please contact the requester to arrange pickup, delivery, and return details."
+        elif item_terms == 'intercambio':
             # 2 points for exchanging an item
             owner_points = 2
             requester_points = 2
+            contact_message = "Please contact the requester to arrange an exchange meeting."
         
         # Award points to owner
-        owner_points_reason = f"Accepted request for {item_name} as {requested_term}"
-        award_points_logic(owner_id, owner_points, owner_points_reason)
+        if owner_points > 0:
+            owner_points_reason = f"Accepted request for {item_name} as {item_terms}"
+            award_points_logic(owner_id, owner_points, owner_points_reason)
         
-        # Award points to requester
-        requester_points_reason = f"Received {item_name} as {requested_term}"
-        award_points_logic(requester_id, requester_points, requester_points_reason)
+        # Award points to requester if applicable
+        if requester_points > 0:
+            requester_points_reason = f"Request for {item_name} accepted as {item_terms}"
+            award_points_logic(requester_id, requester_points, requester_points_reason)
         
-        # Create success message based on the requested term
+        # Create success message based on the item_terms
         term_messages = {
             'regalo': f"You have given {item_name} as a gift.",
             'prestamo': f"You have loaned {item_name}. Remember it should be returned.",
@@ -1231,13 +1232,15 @@ def accept_exchange_logic(owner_id, exchange_id):
         }
         
         base_message = term_messages.get(
-            requested_term, 
+            item_terms, 
             f"Exchange request for {item_name} accepted successfully!"
         )
         
+        points_message = f"You earned {owner_points} points for this transaction!"
+        
         return {
             "status": "success", 
-            "message": f"{base_message} You earned {owner_points} points for this transaction!"
+            "message": f"{base_message} {points_message} {contact_message}"
         }
     else:
         return {"status": "error", "message": "Failed to accept exchange request. Please try again."}
