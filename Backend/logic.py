@@ -25,7 +25,7 @@ Events:
 
 Items:
 - Users: 2 points for confirmed exchanged items, 4 points for borrowed items and 10 points for gave items
-
+- Users: 1 point for each item added
 Challenges:
 - Points are awarded based on the challenge's difficulty (admins add challenges in the system)
 
