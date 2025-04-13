@@ -43,9 +43,6 @@ def org_login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# Helper removed: get_session_context() is no longer needed.
-# Templates will now access session data directly via the 'session' object.
-
 
 # --- Template Context Processor ---
 # This makes the 'session' object available in all templates automatically.
@@ -59,8 +56,8 @@ def inject_session():
 @app.route('/')
 def index():
     """Render the main page."""
-    # No longer passing current_session manually, handled by context processor.
     return render_template('index.html')
+
 
 # --- Authentication Routes ---
 
@@ -85,61 +82,8 @@ def register_user():
             return redirect(url_for('register_user'))
 
     # For GET request, just show the registration form
-    # No longer passing current_session manually
     return render_template('register_user.html')
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    # If user is already logged in, redirect to index
-    if 'entity_type' in session:
-        return redirect(url_for('index'))
-        
-    if request.method == 'POST':
-        identifier = request.form.get('identifier') 
-        password = request.form.get('password')
-
-        # logic.login now just authenticates and returns data or error
-        result = logic.login(identifier, password)
-
-        if result['status'] == 'success':
-            # --- Store relevant info in Flask session --- 
-            # Clear any old session data first
-            session.clear()
-            # Store common fields
-            session['entity_type'] = result['entity_type']
-            session['name'] = result['name']
-            session['email'] = result['email']
-            session['points'] = result.get('points', 0) # Default points to 0 if missing
-            # Store type-specific ID
-            if result['entity_type'] == 'user':
-                session['user_id'] = result['user_id']
-                session['student_code'] = result['student_code']
-            elif result['entity_type'] == 'organization':
-                session['org_id'] = result['org_id']
-            
-            # Optionally store other non-sensitive data if needed frequently
-            # session['interests'] = result.get('interests')
-
-            flash(f"Login successful for {session['name']}!", 'success')
-            return redirect(url_for('index'))
-        else:
-            # Login failed, flash the error message from logic
-            flash(result['message'], result['status'])
-            return redirect(url_for('login'))
-
-    # Show login form for GET request
-    # No longer passing current_session manually
-    return render_template('login.html')
-
-@app.route('/logout')
-def logout():
-    # logic.logout() is now just a placeholder
-    # Clear the Flask session
-    session.clear()
-    flash("You have been successfully logged out.", 'success')
-    return redirect(url_for('index'))
-
-# --- Organization Registration ---
 @app.route('/register/org', methods=['GET', 'POST'])
 @user_login_required # Use decorator to ensure a user is logged in
 def register_org():
@@ -170,6 +114,439 @@ def register_org():
     # GET request: Show the form
     # No longer passing current_session manually
     return render_template('register_org.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    # If user is already logged in, redirect to index
+    if 'entity_type' in session:
+        if session['entity_type'] == 'admin':
+            return redirect(url_for('admin_dashboard'))
+        return redirect(url_for('index'))
+        
+    if request.method == 'POST':
+        identifier = request.form.get('identifier') 
+        password = request.form.get('password')
+
+        # logic.login now just authenticates and returns data or error
+        result = logic.login(identifier, password)
+
+        if result['status'] == 'success':
+            # --- Store relevant info in Flask session --- 
+            # Clear any old session data first
+            session.clear()
+            # Store common fields
+            session['entity_type'] = result['entity_type']
+            session['name'] = result['name']
+            session['email'] = result['email']
+            session['points'] = result.get('points', 0) # Default points to 0 if missing
+            
+            # If admin user, redirect to admin dashboard
+            if result['entity_type'] == 'admin':
+                session['admin_id'] = result['user_id']
+                flash(f"Admin login successful for {session['name']}!", 'success')
+                return redirect(url_for('admin_dashboard'))
+            
+            # Store type-specific ID and data
+            if result['entity_type'] == 'user':
+                session['user_id'] = result['user_id']
+                session['student_code'] = result['student_code']
+                # Store additional profile data
+                session['career'] = result.get('career', '')
+                session['interests'] = result.get('interests', '')
+            elif result['entity_type'] == 'organization':
+                session['org_id'] = result['org_id']
+                session['description'] = result.get('description', '')
+                session['interests'] = result.get('interests', '')
+
+            flash(f"Login successful for {session['name']}!", 'success')
+            return redirect(url_for('index'))
+        else:
+            # Login failed, flash the error message from logic
+            flash(result['message'], result['status'])
+            return redirect(url_for('login'))
+
+    # Show login form for GET request
+    # No longer passing current_session manually
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    # logic.logout() is now just a placeholder
+    # Clear the Flask session
+    session.clear()
+    flash("You have been successfully logged out.", 'success')
+    return redirect(url_for('index'))
+
+
+# --- Profile Routes ---
+@app.route('/profile')
+@login_required # Must be logged in to view profile
+def profile():
+    """
+    View the user or organization profile based on the session data.
+    """
+    entity_id = None
+    entity_type = session.get('entity_type')
+    
+    if entity_type == 'user':
+        entity_id = session.get('user_id')
+        
+        # Create initial user_data from session information
+        user_data = {
+            'name': session.get('name'),
+            'email': session.get('email'),
+            'student_code': session.get('student_code'),
+            'career': session.get('career'),
+            'interests': session.get('interests'),
+            'points': session.get('points', 0)
+        }
+        
+        # Get full user data from database for accurate information
+        import db_operator
+        fresh_user_data = db_operator.get_user_by_id(entity_id)
+        if fresh_user_data:
+            # Update any missing fields with fresh data
+            if not user_data['career'] or user_data['career'] == 'None':
+                user_data['career'] = fresh_user_data.get('career', '')
+            if not user_data['interests'] or user_data['interests'] == 'None':
+                user_data['interests'] = fresh_user_data.get('interests', '')
+            # Update session with fresh data to avoid this issue in the future
+            session['career'] = fresh_user_data.get('career', '')
+            session['interests'] = fresh_user_data.get('interests', '')
+            session.modified = True
+        
+        # Get badges and achievements
+        points = session.get('points', 0)
+        badges = []
+        user_orgs = []
+        
+        # Get achievements if available
+        result = logic.view_my_points_and_badges_logic(entity_id)
+        if result['status'] == 'success':
+            badges = result['data'].get('achievements', [])
+            # Update points in session if needed
+            fresh_points = result['data'].get('points', 0)
+            if session.get('points') != fresh_points:
+                session['points'] = fresh_points
+                user_data['points'] = fresh_points
+                session.modified = True
+        
+        # Get user organizations
+        orgs_result = logic.get_user_orgs_logic(entity_id)
+        if orgs_result['status'] == 'success':
+            user_orgs = orgs_result['data']
+        
+        return render_template('profile.html', 
+                              user_data=user_data,
+                              points=points, 
+                              badges=badges,
+                              user_orgs=user_orgs)
+    
+    elif entity_type == 'organization':
+        entity_id = session.get('org_id')
+        
+        # Create org_data from session information
+        org_data = {
+            'name': session.get('name'),
+            'email': session.get('email'),
+            'description': session.get('description'),
+            'interests': session.get('interests'),
+            'points': session.get('points', 0)
+        }
+        
+        # Get org members if available
+        members = []
+        members_result = logic.get_org_members_logic(entity_id)
+        if members_result['status'] == 'success':
+            members = members_result['data']
+        
+        return render_template('profile.html', 
+                              org_data=org_data,
+                              members=members)
+    
+    else:
+        # This should not happen due to the @login_required decorator
+        flash("Unknown entity type.", "error")
+        return redirect(url_for('index'))
+
+@app.route('/profile/update', methods=['GET', 'POST'])
+@login_required
+def update_profile():
+    """
+    Allow users or organizations to update their profile information.
+    """
+    entity_id = session.get('user_id') or session.get('org_id')
+    entity_type = session.get('entity_type')
+    
+    if not entity_id or not entity_type:
+        flash("Could not identify your session.", "error")
+        return redirect(url_for('profile'))
+    
+    if request.method == 'POST':
+        # Get form data
+        new_data = {}
+        
+        if entity_type == 'user':
+            # Fields for users
+            if request.form.get('name'):
+                new_data['name'] = request.form.get('name')
+            if request.form.get('email'):
+                new_data['email'] = request.form.get('email')
+            if request.form.get('student_code'):
+                new_data['student_code'] = request.form.get('student_code')
+            if request.form.get('career'):
+                new_data['career'] = request.form.get('career')
+            if request.form.get('interests'):
+                new_data['interests'] = request.form.get('interests')
+        
+        elif entity_type == 'organization':
+            # Fields for organizations
+            if request.form.get('name'):
+                new_data['name'] = request.form.get('name')
+            if request.form.get('email'):
+                new_data['email'] = request.form.get('email')
+            if request.form.get('description'):
+                new_data['description'] = request.form.get('description')
+            if request.form.get('interests'):
+                new_data['interests'] = request.form.get('interests')
+        
+        # Update profile using logic function
+        result = logic.update_my_profile_logic(entity_id, entity_type, new_data)
+        flash(result['message'], result['status'])
+        
+        # Update session data if profile was updated successfully
+        if result['status'] == 'success':
+            if 'name' in new_data:
+                session['name'] = new_data['name']
+            if entity_type == 'user':
+                if 'career' in new_data:
+                    session['career'] = new_data['career']
+                if 'interests' in new_data:
+                    session['interests'] = new_data['interests']
+            elif entity_type == 'organization':
+                if 'description' in new_data:
+                    session['description'] = new_data['description']
+                if 'interests' in new_data:
+                    session['interests'] = new_data['interests']
+            session.modified = True
+        
+        return redirect(url_for('profile'))
+    
+    # GET: Show the form with current data
+    if entity_type == 'user':
+        # Create user_data from session information
+        data = {
+            'name': session.get('name'),
+            'email': session.get('email'),
+            'student_code': session.get('student_code'),
+            'career': session.get('career'),
+            'interests': session.get('interests'),
+            'points': session.get('points', 0)
+        }
+        
+        # Get additional data if available
+        result = logic.view_my_points_and_badges_logic(entity_id)
+        if result['status'] == 'success' and 'data' in result:
+            # Only update fields from the database that aren't already in session
+            db_data = result['data']
+            if 'email' in db_data and not data['email']:
+                data['email'] = db_data['email']
+            if 'career' in db_data and not data['career']:
+                data['career'] = db_data['career']
+            if 'interests' in db_data and not data['interests']:
+                data['interests'] = db_data['interests']
+        
+        return render_template('update_profile.html', entity_type=entity_type, data=data)
+    else:
+        # Create org_data from session information
+        data = {
+            'name': session.get('name'),
+            'email': session.get('email'),
+            'description': session.get('description'),
+            'interests': session.get('interests'),
+            'points': session.get('points', 0)
+        }
+        
+        # We could fetch more org data from the database here if needed
+        
+        return render_template('update_profile.html', entity_type=entity_type, data=data)
+
+@app.route('/profile/delete', methods=['GET', 'POST'])
+@login_required
+def delete_account():
+    """
+    Allow users or organizations to delete their account.
+    """
+    entity_id = session.get('user_id') or session.get('org_id')
+    entity_type = session.get('entity_type')
+    
+    if not entity_id or not entity_type:
+        flash("Could not identify your session.", "error")
+        return redirect(url_for('profile'))
+    
+    if request.method == 'POST':
+        password = request.form.get('password')
+        
+        if not password:
+            flash("Password is required to delete your account.", "error")
+            return redirect(url_for('delete_account'))
+        
+        # Use logic function to attempt deletion
+        result = logic.delete_my_account_logic(entity_id, entity_type, password)
+        
+        if result['status'] == 'success':
+            # Clear session and redirect to home page
+            session.clear()
+            flash("Your account has been deleted successfully.", "success")
+            return redirect(url_for('index'))
+        else:
+            flash(result['message'], result['status'])
+            return redirect(url_for('delete_account'))
+    
+    # GET: Show confirmation form
+    return render_template('delete_account.html')
+
+@app.route('/profile/exchange_requests')
+@user_login_required
+def view_my_requests():
+    """
+    View exchange requests (both sent and received).
+    """
+    user_id = session.get('user_id')
+    if not user_id:
+        flash("Could not identify user session.", "error")
+        return redirect(url_for('login'))
+    
+    # Get the request type from query parameter (default to 'received')
+    request_type = request.args.get('type', 'received')
+    if request_type not in ['received', 'sent']:
+        request_type = 'received'
+    
+    # Call the logic function
+    result = logic.view_my_exchange_requests_logic(user_id, request_type)
+    
+    if result['status'] == 'success':
+        requests = result.get('data', [])
+        return render_template('exchange_requests.html', 
+                              requests=requests, 
+                              request_type=request_type)
+    else:
+        flash(result['message'], result['status'])
+        return render_template('exchange_requests.html', 
+                              requests=[], 
+                              request_type=request_type)
+
+
+# --- Organization Routes ---
+@app.route('/organizations')
+def view_organizations():
+    """
+    Search and view organizations.
+    Users can search by name or interests.
+    """
+    # Get search parameters from the query string
+    query = request.args.get('q', '')
+    interests = request.args.get('interests', '')
+    sort_by = request.args.get('sort_by', 'name')
+    
+    # Call the logic function
+    result = logic.search_orgs_logic(query=query, interests=interests, sort_by=sort_by)
+    
+    if result['status'] == 'success':
+        orgs = result.get('data', [])
+        return render_template('view_organizations.html', 
+                              orgs=orgs, 
+                              query=query, 
+                              interests=interests, 
+                              sort_by=sort_by)
+    else:
+        flash(result['message'], result['status'])
+        return render_template('view_organizations.html', 
+                              orgs=[], 
+                              query=query, 
+                              interests=interests, 
+                              sort_by=sort_by)
+
+# Alias route to fix template reference to 'search_orgs'
+@app.route('/search_orgs')
+def search_orgs():
+    """Alias for view_organizations to maintain compatibility with templates"""
+    return redirect(url_for('view_organizations'))
+
+@app.route('/organization/<int:org_id>/members')
+def view_org_members(org_id):
+    """
+    View all members of an organization.
+    """
+    # Call the logic function
+    result = logic.get_org_members_logic(org_id)
+    
+    # Get organization details
+    org_details = None
+    orgs_result = logic.search_orgs_logic(query="", sort_by="name")
+    if orgs_result['status'] == 'success':
+        for org in orgs_result['data']:
+            if org['org_id'] == org_id:
+                org_details = org
+                break
+    
+    if not org_details:
+        flash("Organization not found.", "error")
+        return redirect(url_for('view_organizations'))
+    
+    if result['status'] == 'success':
+        members = result.get('data', [])
+        # Check if current user is a member of this organization
+        is_member = False
+        if session.get('entity_type') == 'user' and session.get('user_id'):
+            user_id = session.get('user_id')
+            for member in members:
+                if member.get('user_id') == user_id:
+                    is_member = True
+                    break
+        
+        return render_template('org_members.html', 
+                               org=org_details,
+                               members=members,
+                               is_member=is_member)
+    else:
+        flash(result['message'], result['status'])
+        return redirect(url_for('view_organizations'))
+
+@app.route('/organization/join/<int:org_id>', methods=['POST'])
+@user_login_required
+def join_org(org_id):
+    """
+    Allows a user to join an organization.
+    """
+    user_id = session.get('user_id')
+    if not user_id:
+        flash("Could not identify user session.", "error")
+        return redirect(url_for('login'))
+    
+    # Call the logic function
+    result = logic.join_org_logic(user_id, org_id)
+    flash(result['message'], result['status'])
+    
+    return redirect(url_for('view_organizations'))
+
+@app.route('/organization/leave/<int:org_id>', methods=['POST'])
+@user_login_required
+def leave_org(org_id):
+    """
+    Allows a user to leave an organization they've joined.
+    """
+    user_id = session.get('user_id')
+    if not user_id:
+        flash("Could not identify user session.", "error")
+        return redirect(url_for('login'))
+    
+    # Call the logic function
+    result = logic.leave_org_logic(user_id, org_id)
+    flash(result['message'], result['status'])
+    
+    return redirect(url_for('view_organizations'))
+
 
 # --- Event Routes ---
 @app.route('/event/create', methods=['GET', 'POST'])
@@ -205,6 +582,43 @@ def create_event():
     # No longer passing current_session manually
     return render_template('create_event.html')
 
+@app.route('/event/delete/<int:event_id>', methods=['POST'])
+@login_required
+def delete_event(event_id):
+    """
+    Delete an event. Only the organizer or an admin can delete an event.
+    """
+    entity_id = session.get('user_id') or session.get('org_id')
+    entity_type = session.get('entity_type')
+    
+    if not entity_id or not entity_type:
+        flash("Could not identify your session.", "error")
+        return redirect(url_for('view_events'))
+    
+    # Call the logic function to delete the event
+    result = logic.delete_event_logic(entity_id, entity_type, event_id)
+    flash(result['message'], result['status'])
+
+    # Redirect back to the events list
+    return redirect(url_for('view_events'))
+
+@app.route('/events')
+def view_events():
+    # No login required to view events
+    # Add any needed event filtering parameters here
+    query = request.args.get('q', '')
+    
+    # Call the logic function
+    result = logic.search_events_logic(query)
+    
+    if result['status'] == 'success':
+        events = result.get('data', [])
+        # Render the template with the events data
+        return render_template('view_events.html', events=events)
+    else:
+        flash(result['message'], result['status'])
+        return render_template('view_events.html', events=[])
+
 @app.route('/event/participants/<int:event_id>')
 @login_required # Login required to view participants
 def view_event_participants(event_id):
@@ -234,7 +648,7 @@ def view_event_participants(event_id):
     event_details = None
     
     # Get event details
-    events_result = logic.view_all_events_logic()
+    events_result = logic.search_events_logic(query="")
     if events_result['status'] == 'success':
         for event in events_result['data']:
             if event['event_id'] == event_id:
@@ -256,6 +670,46 @@ def view_event_participants(event_id):
                            event=event_details,
                            participants=participants,
                            is_organizer=is_organizer)
+
+@app.route('/event/register/<int:event_id>', methods=['POST'])
+@user_login_required # Only users can register for events
+def register_for_event(event_id):
+    # Decorator ensures user login.
+    user_id = session.get('user_id')
+    if not user_id:
+        flash("Could not identify user session.", "error")
+        return redirect(url_for('login'))
+
+    # Pass user_id to the refactored logic function
+    result = logic.register_for_event_logic(user_id, event_id)
+    flash(result['message'], result['status'])
+
+    if result['status'] == 'success':
+         # --- Update points in session --- 
+         # Similar to add_item, re-fetch points or increment based on logic guarantees
+         user_data = logic.view_my_points_and_badges_logic(user_id)
+         if user_data['status'] == 'success':
+             session['points'] = user_data['data'].get('points', session.get('points'))
+             session.modified = True
+
+    # Redirect back to the events list
+    return redirect(url_for('view_events'))
+
+@app.route('/event/leave/<int:event_id>', methods=['POST'])
+@user_login_required
+def leave_event(event_id):
+    """
+    Allows a user to leave an event they've registered for.
+    """
+    user_id = session.get('user_id')
+    if not user_id:
+        flash("Could not identify user session.", "error")
+        return redirect(url_for('view_events'))
+    
+    result = logic.leave_event_logic(user_id, event_id)
+    flash(result['message'], result['status'])
+    
+    return redirect(url_for('view_events'))
 
 @app.route('/event/mark_attendance', methods=['POST'])
 @login_required # Login required to mark attendance
@@ -294,7 +748,8 @@ def mark_attendance():
     flash(result['message'], result['status'])
     return redirect(url_for('view_event_participants', event_id=event_id))
 
-# --- Item Exchange Routes ---
+
+# --- Item Routes ---
 @app.route('/item/add', methods=['GET', 'POST'])
 @user_login_required # Only users can add items
 def add_item():
@@ -310,120 +765,30 @@ def add_item():
         item_type = request.form.get('item_type')
         item_terms = request.form.get('item_terms')
 
-        # Pass owner_id to the refactored logic function
-        result = logic.add_item_for_exchange_logic(owner_id, name, description, item_type, item_terms)
+        # Validate required fields
+        if not all([name, description, item_type, item_terms]):
+            flash("All fields are required.", "error")
+            return redirect(url_for('add_item'))
+            
+        # Call the logic function with updated parameters
+        result = logic.add_item_logic(
+            owner_id, name, description, item_type, item_terms
+        )
 
         flash(result['message'], result['status'])
+        
+        # Update session points if successful
         if result['status'] == 'success':
-             # --- Update points in session if needed --- 
-             # Check if points were awarded (depends on award_points_logic response format)
-             # Simplified: Re-fetch user data to get latest points
-             # Note: This is inefficient. award_points_logic could return the delta or new total. 
-             # Or, we could increment points in session directly if logic guarantees DB success.
+            # Re-fetch current points to ensure accuracy
              user_data = logic.view_my_points_and_badges_logic(owner_id)
              if user_data['status'] == 'success':
                  session['points'] = user_data['data'].get('points', session.get('points')) # Update session points
                  session.modified = True # Required when modifying mutable session objects
 
-        return redirect(url_for('index'))
+        return redirect(url_for('view_items'))
 
     # GET request: Show the form
-    # No longer passing current_session manually
     return render_template('add_item.html')
-
-# --- Viewing Routes ---
-@app.route('/events')
-def view_events():
-    # No login required to view events
-    result = logic.view_all_events_logic()
-    
-    events_list = []
-    if result['status'] == 'success':
-        events_list = result['data']
-    else:
-        flash(result['message'], result['status'])
-    
-    # No longer passing current_session manually
-    return render_template('view_events.html', events=events_list)
-
-@app.route('/items')
-def view_items():
-    # No login required to view items
-    result = logic.view_exchange_items_logic()
-    
-    items_list = []
-    if result['status'] == 'success':
-        items_list = result['data']
-    else:
-        flash(result['message'], result['status'])
-    
-    # No longer passing current_session manually
-    return render_template('view_items.html', items=items_list)
-
-@app.route('/profile')
-@login_required # Must be logged in to view profile
-def profile():
-    # Decorator ensures login.
-    # The session object is automatically available in the template via context processor
-    # No need to pass it explicitly anymore.
-    # However, if you need complex data not in session, fetch it here.
-    # Example: Fetching badges (assuming view_my_points_and_badges_logic exists)
-    badges = []
-    if session['entity_type'] == 'user':
-        user_id = session['user_id']
-        profile_data = logic.view_my_points_and_badges_logic(user_id)
-        if profile_data['status'] == 'success':
-            badges = profile_data['data'].get('achievements', [])
-        else:
-            flash("Could not load badge information.", "warning")
-            
-    # Pass specific extra data if needed, session is already available.
-    return render_template('profile.html', badges=badges)
-
-# --- Action Routes (POST requests often) ---
-
-@app.route('/event/register/<int:event_id>', methods=['POST'])
-@user_login_required # Only users can register for events
-def register_for_event(event_id):
-    # Decorator ensures user login.
-    user_id = session.get('user_id')
-    if not user_id:
-        flash("Could not identify user session.", "error")
-        return redirect(url_for('login'))
-
-    # Pass user_id to the refactored logic function
-    result = logic.register_for_event_logic(user_id, event_id)
-    flash(result['message'], result['status'])
-
-    if result['status'] == 'success':
-         # --- Update points in session --- 
-         # Similar to add_item, re-fetch points or increment based on logic guarantees
-         user_data = logic.view_my_points_and_badges_logic(user_id)
-         if user_data['status'] == 'success':
-             session['points'] = user_data['data'].get('points', session.get('points'))
-             session.modified = True
-
-    # Redirect back to the events list
-    return redirect(url_for('view_events'))
-
-@app.route('/item/request/<int:item_id>', methods=['POST'])
-@user_login_required # Only users can request items
-def request_exchange(item_id):
-    """Handles a user requesting to exchange an item."""
-    requester_id = session.get('user_id')
-    if not requester_id:
-        flash("Could not identify user session.", "error")
-        return redirect(url_for('login'))
-
-    # Optional: Get message from form if you add a message field
-    message = request.form.get('message', "") 
-
-    # Call the logic function
-    result = logic.request_exchange_logic(requester_id, item_id, message)
-    flash(result['message'], result['status'])
-
-    # Redirect back to the items list (or item detail page if you have one)
-    return redirect(url_for('view_items'))
 
 @app.route('/item/delete/<int:item_id>', methods=['POST'])
 @user_login_required # Only users can delete their items
@@ -437,75 +802,520 @@ def delete_my_item(item_id):
     # Call the logic function to delete the item
     result = logic.delete_my_item_logic(user_id, item_id)
     flash(result['message'], result['status'])
-
-    # Redirect back to the items list or profile page
+    
+    # Redirect back to the items list
     return redirect(url_for('view_items'))
 
-# --- Example: Update Profile Route (Needs Implementation) ---
-# @app.route('/profile/update', methods=['POST'])
-# @login_required
-# def update_profile():
-#     entity_id = session.get('user_id') or session.get('org_id')
-#     entity_type = session.get('entity_type')
-#     if not entity_id or not entity_type:
-#         flash("Session error.", "error")
-#         return redirect(url_for('profile'))
-     
-#     # Extract allowed fields from request.form
-#     new_data = {}
-#     allowed_fields = ['name', 'email', 'interests', 'career', 'description'] # Adjust per entity type
-#     for field in allowed_fields:
-#         if field in request.form:
-#             new_data[field] = request.form[field]
+@app.route('/items')
+def view_items():
+    # No login required to view items
+    # Get optional filter for item terms
+    item_terms = request.args.get('terms')
+    
+    # Call the logic function with optional filter
+    result = logic.view_items_logic(item_terms)
+    
+    if result['status'] == 'success':
+        items = result.get('data', [])
+        # Render the template with items and current filter
+        return render_template('view_items.html', items=items, current_filter=item_terms)
+    else:
+        flash(result['message'], result['status'])
+        return render_template('view_items.html', items=[], current_filter=item_terms)
 
-#     if not new_data:
-#         flash("No data provided for update.", "info")
-#         return redirect(url_for('profile'))
+@app.route('/item/request/<int:item_id>', methods=['POST'])
+@user_login_required # Only users can request items
+def request_exchange(item_id):
+    """Handles a user requesting to exchange an item."""
+    requester_id = session.get('user_id')
+    if not requester_id:
+        flash("Could not identify user session.", "error")
+        return redirect(url_for('login'))
 
-#     result = logic.update_my_profile_logic(entity_id, entity_type, new_data)
-#     flash(result['message'], result['status'])
+    # Get message from form if added
+    message = request.form.get('message', "") 
 
-#     if result['status'] == 'success':
-#         # Update session if name/email changed
-#         if 'name' in new_data: session['name'] = new_data['name']
-#         if 'email' in new_data: session['email'] = new_data['email']
-#         session.modified = True
+    # Get the requested exchange term selected by the user
+    requested_term = request.form.get('requested_term')
+    
+    # Validate the requested term
+    if not requested_term or requested_term not in ['regalo', 'prestamo', 'intercambio']:
+        flash("Please select a valid exchange term (regalo, prestamo, or intercambio).", "error")
+        return redirect(url_for('view_items'))
 
-#     return redirect(url_for('profile'))
+    # Call the updated logic function with the requested term
+    result = logic.request_exchange_logic(requester_id, item_id, requested_term, message)
+    flash(result['message'], result['status'])
 
+    return redirect(url_for('view_items'))
 
-# --- Placeholder for other routes ---
-# TODO: Update other routes (item requests, org join/leave, etc.) 
-#       to use decorators and pass session data (entity_id, entity_type) 
-#       to their respective refactored logic functions.
-
-@app.route('/profile/exchange_requests')
-@user_login_required # Only users have exchange requests
-def view_my_requests():
+@app.route('/exchange/accept/<int:exchange_id>', methods=['POST'])
+@user_login_required
+def accept_exchange(exchange_id):
+    """
+    Accept an exchange request.
+    """
     user_id = session.get('user_id')
     if not user_id:
         flash("Could not identify user session.", "error")
         return redirect(url_for('login'))
 
-    # Get received requests by default
-    received_result = logic.view_my_exchange_requests_logic(user_id, request_type='received')
-    sent_result = logic.view_my_exchange_requests_logic(user_id, request_type='sent')
+    # Call the logic function
+    result = logic.accept_exchange_logic(user_id, exchange_id)
+    flash(result['message'], result['status'])
 
-    received_requests = []
-    sent_requests = []
-    if received_result['status'] == 'success':
-        received_requests = received_result['data']
+    # Redirect back to exchange requests
+    return redirect(url_for('view_my_requests'))
+
+@app.route('/exchange/reject/<int:exchange_id>', methods=['POST'])
+@user_login_required
+def reject_exchange(exchange_id):
+    """
+    Reject an exchange request.
+    """
+    user_id = session.get('user_id')
+    if not user_id:
+        flash("Could not identify user session.", "error")
+        return redirect(url_for('login'))
+    
+    # Call the logic function
+    result = logic.reject_exchange_logic(user_id, exchange_id)
+    flash(result['message'], result['status'])
+    
+    # Redirect back to exchange requests
+    return redirect(url_for('view_my_requests'))
+
+
+# --- Map Routes ---
+
+@app.route('/map')
+def view_map():
+    """
+    View map points.
+    """
+    # Call the logic function to get all map points
+    result = logic.get_map_points_logic()
+    
+    if result['status'] == 'success':
+        map_points = result.get('data', [])
+        return render_template('view_map.html', map_points=map_points)
     else:
-        flash(f"Error loading received requests: {received_result['message']}", "error")
+        flash(result['message'], result['status'])
+        return render_template('view_map.html', map_points=[])
 
-    if sent_result['status'] == 'success':
-        sent_requests = sent_result['data']
+@app.route('/map/add', methods=['GET', 'POST'])
+@login_required
+def add_map_point():
+    """
+    Add a new map point if the user has the special permission code.
+    """
+    entity_id = session.get('user_id') or session.get('org_id')
+    entity_type = session.get('entity_type')
+    
+    if not entity_id or not entity_type:
+        flash("Could not identify your session.", "error")
+        return redirect(url_for('view_map'))
+    
+    if request.method == 'POST':
+        # Get form data
+        permission_code = request.form.get('permission_code')
+        name = request.form.get('name')
+        latitude = request.form.get('latitude')
+        longitude = request.form.get('longitude')
+        point_type = request.form.get('point_type')
+        description = request.form.get('description')
+        
+        # Validate required fields
+        if not all([permission_code, name, latitude, longitude, point_type]):
+            flash("All required fields must be filled.", "error")
+            return redirect(url_for('add_map_point'))
+        
+        # Convert latitude and longitude to float
+        try:
+            latitude = float(latitude)
+            longitude = float(longitude)
+        except ValueError:
+            flash("Latitude and longitude must be valid numbers.", "error")
+            return redirect(url_for('add_map_point'))
+        
+        # Call the logic function
+        result = logic.add_map_point_logic(
+            entity_id, entity_type, permission_code, name, 
+            latitude, longitude, point_type, description
+        )
+        
+        flash(result['message'], result['status'])
+        if result['status'] == 'success':
+            return redirect(url_for('view_map'))
     else:
-         flash(f"Error loading sent requests: {sent_result['message']}", "error")
+            return redirect(url_for('add_map_point'))
+    
+    # GET request: render the form
+    return render_template('add_map_point.html')
 
-    return render_template('view_exchange_requests.html',
-                           received_requests=received_requests,
-                           sent_requests=sent_requests)
+
+# --- Challenge Routes ---
+
+@app.route('/challenges')
+@login_required
+def view_challenges():
+    """
+    View all available challenges for the logged-in entity type.
+    """
+    entity_type = session.get('entity_type')
+    
+    # Get all challenges for this entity type
+    result = logic.search_challenges_logic(entity_type)
+    
+    if result['status'] == 'success':
+        challenges = result.get('data', [])
+        
+        # Get user's active challenges if they're logged in
+        active_challenges = []
+        if 'entity_type' in session:
+            entity_id = session.get('user_id') or session.get('org_id')
+            active_result = logic.get_my_active_challenges_logic(entity_id, entity_type)
+            if active_result['status'] == 'success':
+                active_challenges = active_result.get('data', [])
+        
+        return render_template('view_challenges.html', 
+                              challenges=challenges, 
+                              active_challenges=active_challenges)
+    else:
+        flash(result['message'], result['status'])
+        return render_template('view_challenges.html', challenges=[], active_challenges=[])
+
+@app.route('/challenge/join/<int:challenge_id>', methods=['POST'])
+@login_required
+def join_challenge(challenge_id):
+    """
+    Join a challenge.
+    """
+    entity_id = session.get('user_id') or session.get('org_id')
+    entity_type = session.get('entity_type')
+    
+    if not entity_id or not entity_type:
+        flash("Could not identify your session.", "error")
+        return redirect(url_for('view_challenges'))
+    
+    # Call logic function
+    result = logic.join_challenge_logic(entity_id, entity_type, challenge_id)
+    flash(result['message'], result['status'])
+    
+    return redirect(url_for('view_challenges'))
+
+@app.route('/achievements')
+@login_required
+def view_achievements():
+    """
+    View achievements for the logged-in entity type.
+    """
+    entity_type = session.get('entity_type')
+    entity_id = session.get('user_id') or session.get('org_id')
+    
+    if not entity_id or not entity_type:
+        flash("Could not identify your session.", "error")
+        return redirect(url_for('index'))
+    
+    # Get all achievements for this entity type
+    result = logic.search_achievements_logic(entity_type)
+    
+    # Get user's unlocked achievements
+    unlocked_achievements = []
+    if entity_type == 'user':
+        user_data = logic.view_my_points_and_badges_logic(entity_id)
+        if user_data['status'] == 'success':
+            unlocked_achievements = user_data['data'].get('achievements', [])
+    
+    if result['status'] == 'success':
+        achievements = result.get('data', [])
+        return render_template('view_achievements.html', 
+                              achievements=achievements,
+                              unlocked_achievements=unlocked_achievements)
+    else:
+        flash(result['message'], result['status'])
+        return render_template('view_achievements.html', 
+                              achievements=[],
+                              unlocked_achievements=[])
+
+
+# --- Admin Routes ---
+
+def admin_required(f):
+    """Decorator to ensure admin is logged in."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if session.get('entity_type') != 'admin':
+            flash("Admin access required for this page.", "error")
+            return redirect(url_for('admin_login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    """Admin login page."""
+    # If already logged in as admin, redirect to admin dashboard
+    if session.get('entity_type') == 'admin':
+        return redirect(url_for('admin_dashboard'))
+        
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        # Call the logic function for admin authentication
+        result = logic.admin_login(username, password)
+        
+        if result['status'] == 'success':
+            # Store admin info in session
+            session.clear()
+            session['entity_type'] = 'admin'
+            session['admin_id'] = result['admin_id']
+            session['name'] = result['name']
+            
+            flash("Admin login successful!", "success")
+            return redirect(url_for('admin_dashboard'))
+        else:
+            flash(result['message'], result['status'])
+            return redirect(url_for('admin_login'))
+    
+    # GET request: show login form
+    return render_template('admin/login.html')
+
+@app.route('/admin/logout')
+def admin_logout():
+    """Admin logout."""
+    session.clear()
+    flash("Admin logged out successfully.", "success")
+    return redirect(url_for('admin_login'))
+
+@app.route('/admin')
+@admin_required
+def admin_dashboard():
+    """Admin dashboard showing system overview."""
+    # Get counts for various entities in the system
+    users_count = logic.get_users_count()
+    orgs_count = logic.get_orgs_count()
+    challenges_count = logic.get_active_challenges_count()
+    
+    # Get top organizations by points
+    top_orgs = logic.get_top_orgs_by_points()
+    
+    return render_template('admin/dashboard.html',
+                          users_count=users_count,
+                          orgs_count=orgs_count,
+                          challenges_count=challenges_count,
+                          top_orgs=top_orgs)
+
+# --- User Management ---
+@app.route('/admin/users')
+@admin_required
+def admin_users():
+    """View and manage all users."""
+    # Get filter parameters
+    query = request.args.get('q', '')
+    
+    # Get users from database using search_users
+    users = logic.search_users(query=query)
+    
+    return render_template('admin/users.html', users=users, query=query)
+
+@app.route('/admin/users/<int:user_id>/delete', methods=['POST'])
+@admin_required
+def admin_delete_user(user_id):
+    """Delete a user."""
+    admin_id = session.get('admin_id')
+    result = logic.admin_delete_user_logic(admin_id, user_id)
+    flash(result['message'], result['status'])
+    return redirect(url_for('admin_users'))
+  
+# --- Organization Management ---
+@app.route('/admin/organizations')
+@admin_required
+def admin_organizations():
+    """View and manage all organizations."""
+    # Get filter parameters
+    query = request.args.get('q', '')
+    
+    # Get organizations from database
+    result = logic.search_orgs_logic(query=query)
+    
+    if result['status'] == 'success':
+        organizations = result.get('data', [])
+        return render_template('admin/organizations.html', organizations=organizations, query=query)
+    else:
+        flash(result['message'], result['status'])
+        return render_template('admin/organizations.html', organizations=[], query=query)
+    
+@app.route('/admin/organizations/<int:org_id>/delete', methods=['POST'])
+@admin_required
+def admin_delete_organization(org_id):
+    """Delete an organization."""
+    admin_id = session.get('admin_id')
+    result = logic.admin_delete_org_logic(admin_id, org_id)
+    flash(result['message'], result['status'])
+    return redirect(url_for('admin_organizations'))
+
+# --- Event Management ---
+@app.route('/admin/events')
+@admin_required
+def admin_events():
+    """View and manage all events."""
+    # Get filter parameters
+    query = request.args.get('q', '')
+    
+    # Get events from database
+    result = logic.admin_get_events(query)
+    
+    if result['status'] == 'success':
+        events = result.get('data', [])
+        return render_template('admin/events.html', events=events, query=query)
+    else:
+        flash(result['message'], result['status'])
+        return render_template('admin/events.html', events=[], query=query)
+
+@app.route('/admin/events/<int:event_id>/delete', methods=['POST'])
+@admin_required
+def admin_delete_event(event_id):
+    """Delete an event."""
+    result = logic.admin_delete_event(event_id)
+    flash(result['message'], result['status'])
+    return redirect(url_for('admin_events'))
+
+# --- Challenge Management ---
+@app.route('/admin/challenges')
+@admin_required
+def admin_challenges():
+    """View and manage all challenges."""
+    # Get challenges from database for both users and organizations
+    user_result = logic.search_challenges_logic('user')
+    org_result = logic.search_challenges_logic('organization')
+    
+    challenges = []
+    
+    if user_result['status'] == 'success':
+        challenges.extend(user_result.get('data', []))
+        
+    if org_result['status'] == 'success':
+        challenges.extend(org_result.get('data', []))
+        
+    return render_template('admin/challenges.html', challenges=challenges)
+
+@app.route('/admin/challenges/create', methods=['GET', 'POST'])
+@admin_required
+def admin_create_challenge():
+    """Create a new challenge."""
+    if request.method == 'POST':
+        # Get form data
+        admin_id = session.get('admin_id')
+        name = request.form.get('title')
+        description = request.form.get('description')
+        points = int(request.form.get('points', 0))
+        target_entity = request.form.get('target_entity')  # 'user' or 'organization'
+        
+        # Set default values for other required parameters
+        goal_type = 'participation'  # Default goal type
+        goal_target = 1  # Default target (1 participation)
+        time_allowed = 0  # No time limit by default
+        
+        # Call logic function to create challenge
+        result = logic.admin_create_challenge_logic(
+            admin_id, name, description, goal_type, goal_target, 
+            points, time_allowed, target_entity
+        )
+        
+        flash(result['message'], result['status'])
+        if result['status'] == 'success':
+            return redirect(url_for('admin_challenges'))
+        
+    # GET request: show form
+    return render_template('admin/create_challenge.html')
+
+@app.route('/admin/challenges/<int:challenge_id>/delete', methods=['POST'])
+@admin_required
+def admin_delete_challenge(challenge_id):
+    """Delete a challenge."""
+    admin_id = session.get('admin_id')
+    target_entity = request.form.get('target_entity', 'user')  # Default to 'user' if not specified
+    result = logic.admin_delete_challenge_logic(admin_id, challenge_id, target_entity)
+    flash(result['message'], result['status'])
+    return redirect(url_for('admin_challenges'))
+
+# --- Achievement Management ---
+@app.route('/admin/achievements')
+@admin_required
+def admin_achievements():
+    """View and manage all achievements."""
+    # Get achievements from database for both users and organizations
+    user_result = logic.search_achievements_logic('user')
+    org_result = logic.search_achievements_logic('organization')
+    
+    achievements = []
+    
+    if user_result['status'] == 'success':
+        achievements.extend(user_result.get('data', []))
+        
+    if org_result['status'] == 'success':
+        achievements.extend(org_result.get('data', []))
+        
+    return render_template('admin/achievements.html', achievements=achievements)
+
+@app.route('/admin/achievements/create', methods=['GET', 'POST'])
+@admin_required
+def admin_create_achievement():
+    """Create a new achievement."""
+    if request.method == 'POST':
+        # Get form data
+        admin_id = session.get('admin_id')
+        name = request.form.get('name')
+        description = request.form.get('description')
+        target_entity = request.form.get('target_entity')  # 'user' or 'organization'
+        points_threshold = int(request.form.get('points_threshold', 0))
+        badge_icon = request.form.get('badge_icon', 'default_badge')  # Default icon if not specified
+        
+        # Call logic function to create achievement
+        result = logic.admin_create_achievement_logic(
+            admin_id, name, description, points_threshold, badge_icon, target_entity
+        )
+        
+        flash(result['message'], result['status'])
+        if result['status'] == 'success':
+            return redirect(url_for('admin_achievements'))
+        
+    # GET request: show form
+    return render_template('admin/create_achievement.html')
+
+@app.route('/admin/achievements/<int:achievement_id>/delete', methods=['POST'])
+@admin_required
+def admin_delete_achievement(achievement_id):
+    """Delete an achievement."""
+    admin_id = session.get('admin_id')
+    target_entity = request.form.get('target_entity', 'user')  # Default to 'user' if not specified
+    result = logic.admin_delete_achievement_logic(admin_id, achievement_id, target_entity)
+    flash(result['message'], result['status'])
+    return redirect(url_for('admin_achievements'))
+
+# --- System Stats ---
+@app.route('/admin/stats')
+@admin_required
+def admin_stats():
+    """View system statistics."""
+    # Get stats from database
+    stats = {
+        'total_users': logic.get_users_count(),
+        'total_orgs': logic.get_orgs_count(),
+        'top_users': logic.get_events_count(),
+        'top_orgs': logic.get_items_count()
+    }
+    
+    return render_template('admin/stats.html', stats=stats)
 
 if __name__ == '__main__':
+    # Initialize the database
+    import db_conn
+    db_conn.setup_database()
+    
+    # Update database schema for exchange requests
+    import db_operator
+    db_operator.update_exchange_requests_schema()
+    
     app.run(host='0.0.0.0', port=5000, debug=True) 

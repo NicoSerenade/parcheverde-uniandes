@@ -11,13 +11,21 @@
 
         <label for="item_type">Type:</label>
         <select id="item_type" name="item_type" required>
-            <option value="gift">Gift (Dar)</option>
-            <option value="exchange">Exchange (Intercambiar)</option>
-            {# Add other types if your logic supports them #}
+            <option value="ropa">Ropa (Clothing)</option>
+            <option value="libros">Libros (Books)</option>
+            <option value="hogar">Hogar (Home)</option>
+            <option value="otros">Otros (Others)</option>
         </select>
 
-        <label for="item_terms">Terms (e.g., condition, pickup details, what you want in exchange):</label>
-        <textarea id="item_terms" name="item_terms" rows="3" required></textarea>
+        <label for="item_terms">Terms:</label>
+        <select id="item_terms" name="item_terms" required>
+            <option value="regalo">Regalo (Gift) - Give away for free</option>
+            <option value="prestamo">Préstamo (Borrowing) - Lend temporarily</option>
+            <option value="intercambio">Intercambio (Exchange) - Trade for another item</option>
+        </select>
+
+        <label for="item_details">Additional Details (condition, restrictions, etc.):</label>
+        <textarea id="item_details" name="item_details" rows="3"></textarea>
 
         <button type="submit">Add Item</button>
     </form>

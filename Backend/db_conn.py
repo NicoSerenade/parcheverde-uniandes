@@ -92,8 +92,6 @@ def setup_database():
             )
             ''')
             
-            # Users event Participants table 
-            #If a referenced value is deleted, all rows in the current table containing that linked value will be deleted."
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS user_event_participants (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

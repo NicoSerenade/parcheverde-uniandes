@@ -1,48 +1,191 @@
-{% extends "index.html" %}
+{% extends "base.html" %}
 
 {% block content %}
-    <h2>My Profile</h2>
-    <!-- Check if session exists and has an entity_type -->
-    {% if 'entity_type' in session %}
-        <!-- Access data directly from session -->
-        <p><strong>Name:</strong> {{ session.name }}</p>
-        <p><strong>Email:</strong> {{ session.email }}</p>
-        <p><strong>Type:</strong> {{ session.entity_type }}</p>
-        <p><strong>Points:</strong> {{ session.points | default(0) }}</p> 
-        {# Assuming creation_date is stored in session, add default if not #}
-        {# <p><strong>Joined:</strong> {{ session.creation_date | default('N/A') }}</p> #} 
-
-        {# User Specific Fields #}
-        {% if session.entity_type == 'user' %}
-            <p><strong>Student Code:</strong> {{ session.student_code }}</p>
-            {# Check for career in session if stored #}
-            {# {% if session.career %}<p><strong>Career:</strong> {{ session.career }}</p>{% endif %} #}
-        {% endif %}
-
-        {# Org Specific Fields #}
-        {% if session.entity_type == 'organization' %}
-             {# Check for description in session if stored #}
-             {# <p><strong>Description:</strong> {{ session.description }}</p> #}
-        {% endif %}
-
-         {# Check for interests in session if stored #}
-         {# {% if session.interests %}<p><strong>Interests:</strong> {{ session.interests }}</p>{% endif %} #}
-
-        <h3>My Badges</h3>
-        {% if badges %}
-            <ul>
-                {% for badge in badges %}
-                    <li>{{ badge.name }} - {{ badge.description }} (Earned: {{ badge.date_earned }})</li>
-                {% endfor %}
-            </ul>
-        {% else %}
-            <p>No badges earned yet.</p>
-        {% endif %}
-
-        {# TODO: Add sections for owned items, joined events, etc. later #}
-        {# These would likely require fetching data in the app.py route and passing it #}
-
-    {% else %}
-        <p>You need to <a href="{{ url_for('login') }}">log in</a> to view your profile.</p>
-    {% endif %}
+    <div class="profile-container">
+        <div class="profile-header">
+            <h2>
+                {% if session.entity_type == 'user' %}
+                    {{ user_data.name }}'s Profile
+                {% else %}
+                    {{ org_data.name }}
+                {% endif %}
+            </h2>
+            
+            <div class="profile-actions">
+                <a href="{{ url_for('update_profile') }}" class="btn-edit">Edit Profile</a>
+            </div>
+        </div>
+        
+        <div class="profile-content">
+            {% if session.entity_type == 'user' %}
+                <div class="profile-section">
+                    <h3>User Information</h3>
+                    <div class="profile-info">
+                        <p><strong>Name:</strong> {{ user_data.name }}</p>
+                        <p><strong>Email:</strong> {{ user_data.email }}</p>
+                        <p><strong>Student Code:</strong> {{ user_data.student_code }}</p>
+                        <p><strong>Career:</strong> {{ user_data.career }}</p>
+                        <p><strong>Interests:</strong> {{ user_data.interests }}</p>
+                    </div>
+                </div>
+                
+                <div class="profile-section">
+                    <h3>Points and Badges</h3>
+                    <p><strong>Total Points:</strong> {{ points }}</p>
+                    
+                    {% if badges %}
+                        <div class="badges-container">
+                            <h4>Your Badges</h4>
+                            <div class="badges-list">
+                                {% for badge in badges %}
+                                    <div class="badge-card">
+                                        <div class="badge-icon">🏆</div>
+                                        <div class="badge-name">{{ badge.name }}</div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% else %}
+                        <p>You haven't earned any badges yet. Participate in events and challenges to earn them!</p>
+                    {% endif %}
+                </div>
+                
+                <div class="profile-section">
+                    <h3>My Organizations</h3>
+                    {% if user_orgs %}
+                        <div class="orgs-list">
+                            {% for org in user_orgs %}
+                                <div class="org-item">
+                                    <p>{{ org.name }}</p>
+                                    <a href="{{ url_for('leave_org', org_id=org.org_id) }}" class="btn-leave">Leave</a>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p>You haven't joined any organizations yet.</p>
+                        <a href="{{ url_for('search_orgs') }}" class="btn-search">Find Organizations</a>
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="profile-section">
+                    <h3>Organization Information</h3>
+                    <div class="profile-info">
+                        <p><strong>Name:</strong> {{ org_data.name }}</p>
+                        <p><strong>Email:</strong> {{ org_data.email }}</p>
+                        <p><strong>Description:</strong> {{ org_data.description }}</p>
+                        <p><strong>Interests:</strong> {{ org_data.interests }}</p>
+                    </div>
+                </div>
+                
+                <div class="profile-section">
+                    <h3>Organization Members</h3>
+                    {% if members %}
+                        <div class="members-list">
+                            {% for member in members %}
+                                <div class="member-item">
+                                    <p>{{ member.name }}</p>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p>Your organization doesn't have any members yet.</p>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <style>
+        .profile-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .profile-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .profile-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn-edit {
+            background-color: #007bff;
+            color: white;
+            text-decoration: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+        }
+        
+        .profile-section {
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .profile-info p {
+            margin: 10px 0;
+        }
+        
+        .badges-container {
+            margin-top: 15px;
+        }
+        
+        .badges-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 10px;
+        }
+        
+        .badge-card {
+            background-color: #ffffff;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            width: 100px;
+            text-align: center;
+        }
+        
+        .badge-icon {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        
+        .orgs-list, .members-list {
+            margin-top: 15px;
+        }
+        
+        .org-item, .member-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .btn-leave {
+            background-color: #dc3545;
+            color: white;
+            text-decoration: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+        
+        .btn-search {
+            background-color: #28a745;
+            color: white;
+            text-decoration: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            display: inline-block;
+            margin-top: 10px;
+        }
+    </style>
 {% endblock %} 

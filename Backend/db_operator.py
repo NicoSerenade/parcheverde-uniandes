@@ -614,7 +614,7 @@ def delete_challenge(challenge_id, user_type):
     return success
 
 #USER/ORG FUNCTIONS
-def search_orgs(query=None, interests=None, sort_by=None):
+def search_orgs(query=None, interests=None, sort_by=None, user_id=None):
     """
     Searches for organizations based on various criteria.
     
@@ -622,6 +622,7 @@ def search_orgs(query=None, interests=None, sort_by=None):
         query (str, optional): Search in name or description fields
         interests (str, optional): Filter by interests (partial match)
         sort_by (str, optional): Sort by field ('name', 'points', 'creation_date')
+        user_id (int, optional): If provided, filter to only show orgs where this user is a member
     
     Returns:
         list: List of dictionaries containing organization data
@@ -633,31 +634,62 @@ def search_orgs(query=None, interests=None, sort_by=None):
         try:
             cursor = conn.cursor()
             
-            sql_query = '''
-            SELECT org_id, user_type, creator_student_code, name, email, description, interests, points, creation_date
-            FROM organizations
-            WHERE 1=1
-            '''
-            
-            params = []
-            
-            if query:
-                sql_query += " AND (name LIKE ? OR description LIKE ?)"
-                params.extend([f"%{query}%", f"%{query}%"])
+            if user_id is not None:
+                # Query to get organizations where the user is a member
+                sql_query = '''
+                SELECT o.org_id, o.user_type, o.creator_student_code, o.name, o.email, 
+                       o.description, o.interests, o.points, o.creation_date
+                FROM organizations o
+                JOIN organization_members m ON o.org_id = m.org_id
+                WHERE m.user_id = ?
+                '''
                 
-            if interests:
-                sql_query += " AND interests LIKE ?"
-                params.append(f"%{interests}%")
+                params = [user_id]
                 
-            # Apply sorting
-            if sort_by == 'name':
-                sql_query += " ORDER BY name"
-            elif sort_by == 'points':
-                sql_query += " ORDER BY points DESC"
-            elif sort_by == 'creation_date':
-                sql_query += " ORDER BY creation_date DESC"
+                if query:
+                    sql_query += " AND (o.name LIKE ? OR o.description LIKE ?)"
+                    params.extend([f"%{query}%", f"%{query}%"])
+                    
+                if interests:
+                    sql_query += " AND o.interests LIKE ?"
+                    params.append(f"%{interests}%")
+                    
+                # Apply sorting
+                if sort_by == 'name':
+                    sql_query += " ORDER BY o.name"
+                elif sort_by == 'points':
+                    sql_query += " ORDER BY o.points DESC"
+                elif sort_by == 'creation_date':
+                    sql_query += " ORDER BY o.creation_date DESC"
+                else:
+                    sql_query += " ORDER BY o.name"  # Default sorting
             else:
-                sql_query += " ORDER BY name"  # Default sorting
+                # Original query without user filter
+                sql_query = '''
+                SELECT org_id, user_type, creator_student_code, name, email, description, interests, points, creation_date
+                FROM organizations
+                WHERE 1=1
+                '''
+                
+                params = []
+                
+                if query:
+                    sql_query += " AND (name LIKE ? OR description LIKE ?)"
+                    params.extend([f"%{query}%", f"%{query}%"])
+                    
+                if interests:
+                    sql_query += " AND interests LIKE ?"
+                    params.append(f"%{interests}%")
+                    
+                # Apply sorting
+                if sort_by == 'name':
+                    sql_query += " ORDER BY name"
+                elif sort_by == 'points':
+                    sql_query += " ORDER BY points DESC"
+                elif sort_by == 'creation_date':
+                    sql_query += " ORDER BY creation_date DESC"
+                else:
+                    sql_query += " ORDER BY name"  # Default sorting
                 
             cursor.execute(sql_query, params)
             
@@ -1074,6 +1106,13 @@ def leave_event(event_id, entity_id, user_type):
 def mark_event_attendance(event_id, entity_id, user_type):
     """
     Marks a participant as having attended an event.
+    Note: Points awarding is now handled in the logic layer, not here.
+    
+    Args:
+        event_id (int): ID of the event
+        entity_id (int): ID of the participant (user or org)
+        user_type (str): Type of entity ('user' or 'org')
+        
     Returns:
         bool: True if successful, False otherwise
     """
@@ -1103,19 +1142,6 @@ def mark_event_attendance(event_id, entity_id, user_type):
             conn.commit()
             success = cursor.rowcount > 0
             
-            if success:
-                # Retrieve event points value
-                cursor.execute('''
-                SELECT points_value FROM events
-                WHERE event_id = ?
-                ''', (event_id,))
-                
-                event_data = cursor.fetchone()
-                if event_data and event_data[0] > 0:
-                    # Award points for attendance
-                    points_awarded = event_data[0]
-                    achievement = update_entity_points(entity_id, user_type, points_awarded)
-            
         except sqlite3.Error as e:
             print(f"Error marking event attendance: {e}")
         finally:
@@ -1123,8 +1149,8 @@ def mark_event_attendance(event_id, entity_id, user_type):
             
     return success
 
-#ITEMS
 
+#ITEMS
 def get_available_items(item_type=None, item_terms=None, user_id=None):
     """
     Retrieves available items with optional filtering.
@@ -1264,47 +1290,102 @@ def update_item_status(item_id, status):
 
 # --- ITEM EXCHANGE FUNCTIONS ---
 
-def create_exchange_request(item_id, requester_id, owner_id, message=""):
+def get_item_details(item_id):
     """
-    Creates a new exchange request record in the database.
-
+    Get detailed information about an item.
+    
     Args:
-        item_id (int): The ID of the item being requested.
-        requester_id (int): The user_id of the person requesting the item.
-        owner_id (int): The user_id of the item's owner.
-        message (str, optional): A message from the requester. Defaults to "".
-
+        item_id (int): The ID of the item to retrieve.
+        
     Returns:
-        int: The exchange_id of the newly created request if successful, None otherwise.
+        dict: Item details including owner_id, name, description, status, and item_terms.
+        None if the item doesn't exist or an error occurs.
     """
-    exchange_id = None
-    conn = db_conn.create_connection()
-    if conn is None:
-        print("Error: Could not establish database connection.")
+    try:
+        conn = db_conn.create_connection()
+        if conn is not None:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT owner_id, name, description, item_type, item_terms, status
+                FROM items
+                WHERE item_id = ?
+            ''', (item_id,))
+            
+            item = cursor.fetchone()
+            conn.close()
+            
+            if item:
+                return {
+                    'owner_id': item[0],
+                    'name': item[1],
+                    'description': item[2],
+                    'item_type': item[3],
+                    'item_terms': item[4],
+                    'status': item[5]
+                }
+            else:
+                return None
+    except Exception as e:
+        print(f"Error getting item details: {e}")
         return None
 
+def create_exchange_request(requester_id, owner_id, item_id, requested_term, message=""):
+    """
+    Create a new exchange request with the specified terms.
+    
+    Args:
+        requester_id (int): The ID of the user requesting the item.
+        owner_id (int): The ID of the item owner.
+        item_id (int): The ID of the requested item.
+        requested_term (str): The requested exchange term (regalo, prestamo, intercambio).
+        message (str, optional): Optional message from requester.
+        
+    Returns:
+        int: The ID of the newly created exchange request.
+        None if creation fails or an error occurs.
+    """
     try:
-        cursor = conn.cursor()
-        current_time_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        cursor.execute('''
-            INSERT INTO exchange_requests
-                (item_id, requester_id, owner_id, message, status, request_date)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (item_id, requester_id, owner_id, message, 'pending', current_time_str))
-
-        conn.commit()
-        exchange_id = cursor.lastrowid
-        print(f"Successfully created exchange request with ID: {exchange_id}")
-
-    except sqlite3.Error as e:
+        # Check if a request already exists for this requester and item
+        conn = db_conn.create_connection()
+        if conn is not None:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT exchange_id FROM exchange_requests
+                WHERE requester_id = ? AND item_id = ? AND status = 'pending'
+            ''', (requester_id, item_id))
+            
+            existing = cursor.fetchone()
+            if existing:
+                print(f"Exchange request already exists for requester {requester_id} and item {item_id}")
+                conn.close()
+                return None
+            
+            # Insert the new exchange request with requested term
+            cursor.execute('''
+                INSERT INTO exchange_requests 
+                (requester_id, owner_id, item_id, requested_term, message, status, request_date) 
+                VALUES (?, ?, ?, ?, ?, 'pending', datetime('now'))
+            ''', (requester_id, owner_id, item_id, requested_term, message))
+            
+            # Get the ID of the new exchange request
+            exchange_id = cursor.lastrowid
+            
+            # Update item status to 'requested' (optional, depending on your app logic)
+            # cursor.execute('''
+            #     UPDATE items SET status = 'requested' WHERE item_id = ?
+            # ''', (item_id,))
+            
+            conn.commit()
+            conn.close()
+            
+            print(f"Created exchange request ID {exchange_id} with requested term '{requested_term}'")
+            return exchange_id
+    except Exception as e:
         print(f"Error creating exchange request: {e}")
         if conn:
             conn.rollback()
-    finally:
-        if conn:
             conn.close()
-
-    return exchange_id
+        return None
 
 def get_item_owner(item_id):
     """
@@ -1359,7 +1440,8 @@ def get_exchange_request(exchange_id):
     try:
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT exchange_id, item_id, requester_id, owner_id, message, status, request_date, decision_date
+            SELECT exchange_id, item_id, requester_id, owner_id, message, status, 
+                   request_date, decision_date, requested_term
             FROM exchange_requests
             WHERE exchange_id = ?
         ''', (exchange_id,))
@@ -1374,7 +1456,8 @@ def get_exchange_request(exchange_id):
                 'message': row[4],
                 'status': row[5],
                 'request_date': row[6],
-                'decision_date': row[7]
+                'decision_date': row[7],
+                'requested_term': row[8] if len(row) > 8 else 'intercambio'  # Default if column doesn't exist yet
             }
 
     except sqlite3.Error as e:
@@ -1435,6 +1518,104 @@ def update_exchange_status(exchange_id, new_status):
 
     return success
 
+def accept_exchange_request(exchange_id, requested_term):
+    """
+    Accepts an exchange request and updates the item status based on the requested term.
+    
+    Args:
+        exchange_id (int): The ID of the exchange request to accept.
+        requested_term (str): The requested term ('regalo', 'prestamo', 'intercambio').
+        
+    Returns:
+        bool: True if the exchange was successfully accepted, False otherwise.
+    """
+    success = False
+    conn = db_conn.create_connection()
+    if conn is None:
+        print("Error: Could not establish database connection.")
+        return False
+
+    try:
+        cursor = conn.cursor()
+        # Start a transaction
+        conn.execute("BEGIN TRANSACTION")
+        
+        # First, get the exchange request details to find the item
+        cursor.execute('''
+            SELECT item_id, requester_id 
+            FROM exchange_requests 
+            WHERE exchange_id = ? AND status = 'pending'
+        ''', (exchange_id,))
+        
+        row = cursor.fetchone()
+        if not row:
+            print(f"Error: Exchange request {exchange_id} not found or not in pending state")
+            conn.rollback()
+            conn.close()
+            return False
+            
+        item_id, requester_id = row
+        
+        # Update the exchange request status to accepted
+        current_time_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        cursor.execute('''
+            UPDATE exchange_requests
+            SET status = 'accepted', decision_date = ?, requested_term = ?
+            WHERE exchange_id = ?
+        ''', ('accepted', current_time_str, requested_term, exchange_id))
+        
+        # Update the item status based on the requested term
+        new_item_status = ''
+        if requested_term == 'regalo':
+            new_item_status = 'gifted'
+            # Also update the owner to the requester
+            cursor.execute('''
+                UPDATE items
+                SET status = ?, owner_id = ?
+                WHERE item_id = ?
+            ''', (new_item_status, requester_id, item_id))
+        elif requested_term == 'prestamo':
+            new_item_status = 'borrowed'
+            cursor.execute('''
+                UPDATE items
+                SET status = ?, borrower_id = ?
+                WHERE item_id = ?
+            ''', (new_item_status, requester_id, item_id))
+        elif requested_term == 'intercambio':
+            new_item_status = 'exchanged'
+            cursor.execute('''
+                UPDATE items
+                SET status = ?
+                WHERE item_id = ?
+            ''', (new_item_status, item_id))
+        else:
+            print(f"Error: Invalid requested term '{requested_term}'")
+            conn.rollback()
+            conn.close()
+            return False
+        
+        # Reject all other pending requests for this item
+        cursor.execute('''
+            UPDATE exchange_requests
+            SET status = 'rejected', decision_date = ?
+            WHERE item_id = ? AND status = 'pending' AND exchange_id != ?
+        ''', (current_time_str, item_id, exchange_id))
+        
+        conn.commit()
+        success = True
+        print(f"Successfully accepted exchange request {exchange_id} with term '{requested_term}'")
+        
+    except sqlite3.Error as e:
+        print(f"Error accepting exchange request {exchange_id}: {e}")
+        if conn:
+            conn.rollback()
+        success = False
+    finally:
+        if conn:
+            conn.close()
+            
+    return success
+
 def get_user_exchange_requests(user_id, request_type='received'):
     """
     Retrieves exchange requests associated with a user, either sent or received.
@@ -1466,7 +1647,8 @@ def get_user_exchange_requests(user_id, request_type='received'):
                 er.exchange_id, er.item_id, i.name AS item_name,
                 er.requester_id, u_req.name AS requester_name,
                 er.owner_id, u_own.name AS owner_name,
-                er.message, er.status, er.request_date, er.decision_date
+                er.message, er.status, er.request_date, er.decision_date,
+                er.requested_term, i.item_terms AS original_term
             FROM exchange_requests er
             JOIN items i ON er.item_id = i.item_id
             JOIN users u_req ON er.requester_id = u_req.user_id
@@ -1500,7 +1682,9 @@ def get_user_exchange_requests(user_id, request_type='received'):
                 'message': row[7],
                 'status': row[8],
                 'request_date': row[9],
-                'decision_date': row[10]
+                'decision_date': row[10],
+                'requested_term': row[11] if len(row) > 11 else 'intercambio',  # Default if column doesn't exist yet
+                'original_term': row[12] if len(row) > 12 else None  # Original item term
             }
             requests_list.append(request_data)
 
@@ -2011,7 +2195,7 @@ def get_user_points_and_achievements(user_id):
     Returns:
         dict: A dictionary containing 'points' (int) and 'achievements' (list of dicts),
               or None if the user is not found or an error occurs.
-              Each achievement dict contains 'achievement_id', 'name', 'description', 'badge_icon', 'date_unlocked'.
+              Each achievement dict contains 'achievement_id', 'name', 'description', 'badge_icon'.
     """
     user_data = None
     conn = db_conn.create_connection()
@@ -2033,18 +2217,16 @@ def get_user_points_and_achievements(user_id):
 
         current_points = points_result[0]
 
-        # 2. Get user's unlocked achievements
+        # 2. Get user's unlocked achievements - removing date_unlocked which doesn't exist
         cursor.execute('''
             SELECT
                 ua.achievement_id,
                 a.name,
                 a.description,
-                a.badge_icon,
-                ua.date_unlocked
+                a.badge_icon
             FROM user_achievements ua
             JOIN achievements_for_users a ON ua.achievement_id = a.achievement_id
             WHERE ua.user_id = ?
-            ORDER BY ua.date_unlocked DESC
         ''', (user_id,))
 
         achievements_list = []
@@ -2053,8 +2235,7 @@ def get_user_points_and_achievements(user_id):
                 'achievement_id': row[0],
                 'name': row[1],
                 'description': row[2],
-                'badge_icon': row[3],
-                'date_unlocked': row[4]
+                'badge_icon': row[3]
             }
             achievements_list.append(achievement)
 
@@ -2136,6 +2317,57 @@ def search_users(query=None, career=None, interests=None):
             
     return users
 
+def get_top_users_by_points(limit=10):
+    """
+    Retrieves users sorted by points in descending order.
+    
+    Args:
+        limit (int, optional): Maximum number of users to return. Defaults to 10.
+    
+    Returns:
+        list: List of dictionaries containing user data, sorted by points.
+    """
+    users = []
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            
+            # Query to get users sorted by points in descending order
+            sql_query = '''
+            SELECT user_id, student_code, name, email, career, interests, points, creation_date
+            FROM users
+            WHERE user_type != 'admin'
+            ORDER BY points DESC
+            '''
+            
+            if limit:
+                sql_query += f" LIMIT {limit}"
+            
+            cursor.execute(sql_query)
+            
+            for row in cursor.fetchall():
+                user = {
+                    'user_id': row[0],
+                    'student_code': row[1],
+                    'name': row[2],
+                    'email': row[3],
+                    'career': row[4],
+                    'interests': row[5],
+                    'points': row[6],
+                    'creation_date': row[7]
+                }
+                users.append(user)
+                
+        except sqlite3.Error as e:
+            print(f"Error retrieving top users by points: {e}")
+            return None
+        finally:
+            conn.close()
+            
+    return users
+
 #MAP FUNCTIONS
 def add_map_point(user_id, permission_code, name, description, point_type, latitude, longitude, address=None):
     """
@@ -2143,10 +2375,6 @@ def add_map_point(user_id, permission_code, name, description, point_type, latit
     Returns:
         int: The point_id of the newly created map point if successful, None otherwise.
     """
-
-    if permission_code != "admin2000":
-        print(f"Permission Denied: User type '{permission_code}' cannot add map points.")
-        return None
 
     point_id = None
     conn = db_conn.create_connection()
@@ -2291,3 +2519,100 @@ def get_map_points(point_type=None):
 
     return map_points_list
 
+def update_exchange_requests_schema():
+    """
+    Updates the exchange_requests table schema.
+    Warning: This function requires careful invocation.
+    """
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            
+            # Check if the column exists already
+            cursor.execute("PRAGMA table_info(exchange_requests)")
+            columns = cursor.fetchall()
+            column_names = [column[1] for column in columns]
+            
+            if 'requested_term' not in column_names:
+                cursor.execute("ALTER TABLE exchange_requests ADD COLUMN requested_term TEXT")
+                conn.commit()
+                print("Added 'requested_term' column to exchange_requests table.")
+            else:
+                print("Column 'requested_term' already exists in exchange_requests table.")
+        
+        except sqlite3.Error as e:
+            print(f"Error updating schema: {e}")
+        finally:
+            conn.close()
+
+# --- Statistics Functions ---
+
+def get_users_count():
+    """Returns the total number of registered users."""
+    conn = db_conn.create_connection()
+    count = 0
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM users WHERE user_type != 'admin'")
+            count = cursor.fetchone()[0]
+        except sqlite3.Error as e:
+            print(f"Error getting users count: {e}")
+        finally:
+            conn.close()
+    
+    return count
+
+def get_orgs_count():
+    """Returns the total number of registered organizations."""
+    conn = db_conn.create_connection()
+    count = 0
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM organizations")
+            count = cursor.fetchone()[0]
+        except sqlite3.Error as e:
+            print(f"Error getting organizations count: {e}")
+        finally:
+            conn.close()
+    
+    return count
+
+def get_events_count():
+    """Returns the total number of events."""
+    conn = db_conn.create_connection()
+    count = 0
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM events")
+            count = cursor.fetchone()[0]
+        except sqlite3.Error as e:
+            print(f"Error getting events count: {e}")
+        finally:
+            conn.close()
+    
+    return count
+
+def get_items_count():
+    """Returns the total number of exchange items."""
+    conn = db_conn.create_connection()
+    count = 0
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM exchange_items")
+            count = cursor.fetchone()[0]
+        except sqlite3.Error as e:
+            print(f"Error getting items count: {e}")
+        finally:
+            conn.close()
+    
+    return count
