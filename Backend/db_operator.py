@@ -1,94 +1,40 @@
 '''Data base modifications'''
-import bcrypt # bcrypt is a hashing algorithm
 import sqlite3
 import datetime
 #CUSTOM MODULES
 import db_conn
 
-# datetime format ISO 8601 YYYY-MM-DD HH:MM:SS
+
 
 #USER REGISTRATION
-def check_user_exists(conn, email, student_code):
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM users WHERE email = ? OR student_code = ?", (email, student_code))
-    existing_user = cursor.fetchone()
-    return existing_user is not None
+def check_user_exists(email, student_code):
+    conn = db_conn.create_connection()
+    if conn is None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT user_id FROM users WHERE email = ? OR student_code = ?", (email, student_code))
+            existing_user = cursor.fetchone()
+            return existing_user is not None #not None is used for clarity
+        except sqlite3.Error as e:
+            print(f"Error checking user existence: {e}")
+            return False
 
-def register_user(student_code, password, name, email, career=None, interests=None):
+def register_user(user_type, student_code, password, name, email, career=None, interests=None):
     user_id = None
-    user_type = "user"
-
-    if student_code == "admin":
-        user_type = "admin"
-
-    # 1. Validate Email Domain for non admin users
-    elif not isinstance(email, str) or not email.endswith("@uniandes.edu.co"):
-        print(f"Error: Email must end with {"@uniandes.edu.co"}")
-        return None
-    
     try:
         conn = db_conn.create_connection()
-        
-        if check_user_exists(conn, email, student_code):
-             print(f"Error: User with email '{email}' or student code '{student_code}' already exists.")
-             return None
-
-        password_bytes = password.encode('utf-8') #ebcode the password so that bcrypt module can handle it.
-        salt = bcrypt.gensalt()  # Generates random salt; value that get combined with the password before hashing
-        hashed_password = bcrypt.hashpw(password_bytes, salt) #hash the password
-
         cursor = conn.cursor()
         cursor.execute('''
         INSERT INTO users (user_type, student_code, password, name, email, career, interests)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (user_type, student_code, hashed_password, name, email, career, interests)) 
+        ''', (user_type, student_code, password, name, email, career, interests)) 
         conn.commit()
-        user_id = cursor.lastrowid #returns the id of the last manipulated row
-
+        user_id = cursor.lastrowid #returns the id of the last manipulated row 
     except sqlite3.Error as e:
         print(f"Error registering user: {e}")
     finally:
-        conn.close()
-        
-    return user_id
-
-def authenticate_user(student_code, password):
-    """
-    Authenticates a user based on student code and password.
-    Returns a dict with user data if successful, None otherwise.
-    """
-    user_data = None
-    conn = db_conn.create_connection()
-    if conn is not None:
-        try:
-            cursor = conn.cursor() #The order of fields in the SELECT statement determines the order in the tuple
-            cursor.execute('''
-            SELECT user_id, user_type, student_code, name, email, password, career, interests, points, creation_date
-            FROM users
-            WHERE student_code = ?
-            ''', (student_code,)) #the comma is crusial so it is consider a tuple
-            
-            user = cursor.fetchone()
-            if user:
-                password_bytes = password.encode('utf-8')
-                stored_password = user[5]
-                if bcrypt.checkpw(password_bytes, stored_password): #Extracts the salt from the hashed password, embed it into the login password, and compare them.
-                    user_data = {
-                        'user_id': user[0],
-                        'user_type': user[1],
-                        'student_code': user[2],
-                        'name': user[3],
-                        'email': user[4],
-                        'career': user[6],
-                        'interests': user[7],
-                        'points': user[8],
-                        'creation_date': user[9]
-                    }
-        except sqlite3.Error as e:
-            print(f"Error authenticating user: {e}")
-        finally:
-            conn.close()
-    return user_data
+        conn.close() 
+    return user_id is not None
 
 def update_user_profile(user_id, student_code=None, password=None, name=None, email=None, career=None, interests=None):
     """
@@ -96,11 +42,6 @@ def update_user_profile(user_id, student_code=None, password=None, name=None, em
     Returns True if successful, False otherwise.
     """
     success = False
-
-    if not isinstance(email, str) or not email.endswith("@uniandes.edu.co"):
-        print(f"Error: Email must end with {"@uniandes.edu.co"}")
-        return None
-
     conn = db_conn.create_connection()
     if conn is not None:
         try:
@@ -113,11 +54,8 @@ def update_user_profile(user_id, student_code=None, password=None, name=None, em
                 params.append(student_code)
 
             if password:
-                password_bytes = password.encode('utf-8')
-                salt = bcrypt.gensalt()
-                hashed_password = bcrypt.hashpw(password_bytes, salt)
                 updates.append("password = ?")
-                params.append(hashed_password)
+                params.append(password)
             
             if name:
                 updates.append("name = ?")
@@ -146,120 +84,44 @@ def update_user_profile(user_id, student_code=None, password=None, name=None, em
             conn.close()
     return success
 
-def delete_my_user(student_code, password):
-    """Deletes a user after verifying their student_code and password securely
-
-    Returns:
-        True if the user was successfully found, password verified, and deleted.
-        False otherwiswe"""
-    
+def delete_my_user(student_code):
     success = False
-    try:
-        conn = db_conn.create_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT password FROM users WHERE student_code = ?", (student_code,))
-        stored_password = cursor.fetchone()
-
-        if stored_password:
-            stored_password = stored_password[0]
-            password_bytes = password.encode('utf-8')
-
-            if bcrypt.checkpw(password_bytes, stored_password):
-                cursor.execute("DELETE FROM users WHERE student_code = ?", (student_code,))
-                conn.commit()
-
-                if cursor.rowcount > 0:
-                    print(f"User successfully deleted.")
-                    success = True
-
-    except sqlite3.Error as e:
-        print(f"Database error during user deletion: {e}")
-
-    finally:
-        conn.close() 
-    return success
-
-#ORG REGISTRATION
-def register_org(creator_student_code, password, name, email, description=None, interests=None):
-    """
-    Registers a new organization, but FIRST checks if the creator_student_code
-    exists in the 'users' table.
-    Returns:
-        int or None: The ID of the newly registered organization if the creator exists
-                     and registration is successful, otherwise None.
-    """
-    user_type = "org"
-    org_id = None
-
     conn = db_conn.create_connection()
     if conn is not None:
         try:
-            password_bytes = password.encode('utf-8')
-            salt = bcrypt.gensalt()
-            hashed_password = bcrypt.hashpw(password_bytes, salt) 
-
             cursor = conn.cursor()
-            cursor.execute("SELECT user_id FROM users WHERE student_code = ?", (creator_student_code,))
-            creator_user = cursor.fetchone()
-
-            if creator_user:
-                cursor.execute('''
-                INSERT INTO organizations (user_type, creator_student_code, password, name, email, description, interests)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                ''', (user_type, creator_student_code, hashed_password, name, email, description, interests)) 
-                conn.commit()
-                org_id = cursor.lastrowid
+            cursor.execute("DELETE FROM users WHERE student_code = ?", (student_code,))
+            conn.commit()
+            if cursor.rowcount > 0:
+                print(f"User successfully deleted.")
+                success = True
         except sqlite3.Error as e:
-            print(f"Error registering organization: {e}")
+            print(f"Database error during user deletion: {e}")
         finally:
-            conn.close()
-    return org_id
+            conn.close() 
+    return success
 
-def authenticate_org(name, password):
-    """
-    Authenticates an organization based on name and password.
-    Returns a dict with organization data if successful, None otherwise.
-    """
-    org_data = None
+#ORG REGISTRATION
+def register_org(user_type, creator_student_code, password, name, email, description=None, interests=None):
+    org_id = None
     conn = db_conn.create_connection()
     if conn is not None:
         try:
             cursor = conn.cursor()
             cursor.execute('''
-            SELECT org_id, user_type, creator_student_code, name, email, password, description, interests, points, creation_date
-            FROM organizations
-            WHERE name = ?
-            ''', (name,))
-            
-            org = cursor.fetchone()
-            if org:
-                password_bytes = password.encode('utf-8')
-                stored_password = org[5]
-                if bcrypt.checkpw(password_bytes, stored_password):
-                    org_data = {
-                        'org_id': org[0],
-                        'user_type': org[1],
-                        'creator_student_code': org[2],
-                        'name': org[3],
-                        'email': org[4],
-                        'description': org[6],
-                        'interests': org[7],
-                        'points': org[8],
-                        'creation_date': org[9]
-                    }
+            INSERT INTO organizations (user_type, creator_student_code, password, name, email, description, interests)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (user_type, creator_student_code, password, name, email, description, interests)) 
+            conn.commit()
+            org_id = cursor.lastrowid
         except sqlite3.Error as e:
-            print(f"Error authenticating organization: {e}")
+            print(f"Error registering organization: {e}")
         finally:
             conn.close()
-    return org_data
+    return org_id is not None
 
 def update_org_profile(org_id, creator_student_code=None, password=None, name=None, email=None, description=None, interests=None):
     success = False
-
-    if not isinstance(email, str) or not email.endswith("@uniandes.edu.co"):
-        print(f"Error: Email must end with {"@uniandes.edu.co"}")
-        return None
-
     conn = db_conn.create_connection()
     if conn is not None:
         try:
@@ -270,21 +132,23 @@ def update_org_profile(org_id, creator_student_code=None, password=None, name=No
             if creator_student_code:
                 updates.append("creator_student_code = ?")
                 params.append(creator_student_code)
+                
             if password:
-                password_bytes = password.encode('utf-8')
-                salt = bcrypt.gensalt()
-                hashed_password = bcrypt.hashpw(password_bytes, salt)
                 updates.append("password = ?")
-                params.append(hashed_password)
+                params.append(password)
+                
             if name:
                 updates.append("name = ?")
                 params.append(name)
+                
             if email:
                 updates.append("email = ?")
                 params.append(email)
+                
             if description:
                 updates.append("description = ?")
                 params.append(description)
+                
             if interests:
                 updates.append("interests = ?")
                 params.append(interests)
@@ -302,44 +166,29 @@ def update_org_profile(org_id, creator_student_code=None, password=None, name=No
             conn.close()
     return success
 
-def delete_my_org(creator_student_code, password):
-    """Deletes a or after verifying their creator_student_code and password securely
-
-    Returns:
-        True if the user was successfully found, password verified, and deleted.
-        False otherwiswe"""
-    
+def delete_my_org(creator_student_code):
     success = False
-    try:
-        conn = db_conn.create_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT password FROM organizations WHERE creator_student_code = ?", (creator_student_code,))
-        stored_password = cursor.fetchone()
+    conn = db_conn.create_connection()
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM organizations WHERE creator_student_code = ?", (creator_student_code,))
+            conn.commit()
+            if cursor.rowcount > 0:
+                print(f"Organization successfully deleted.")
+                success = True
+        except sqlite3.Error as e:
+            print(f"Database error during org deletion: {e}")
 
-        if stored_password:
-            stored_password = stored_password[0]
-            password_bytes = password.encode('utf-8')
-
-            if bcrypt.checkpw(password_bytes, stored_password):
-                cursor.execute("DELETE FROM organizations WHERE creator_student_code = ?", (creator_student_code,))
-                conn.commit()
-
-                if cursor.rowcount > 0:
-                    print(f"Organization successfully deleted.")
-                    success = True
-
-    except sqlite3.Error as e:
-        print(f"Database error during org deletion: {e}")
-
-    finally:
-        conn.close() 
+        finally:
+            conn.close() 
     return success
 
 #ADMIN FUNCTIONS
 def get_user_by_id(user_id):
     """
     Retrieves user information by user ID.
-    Returns user data if found, None otherwise.
+    Returns dict with user data if found, None otherwise.
     """
     user_data = None
     conn = db_conn.create_connection()
@@ -612,6 +461,80 @@ def delete_challenge(challenge_id, user_type):
             conn.close()
             
     return success
+
+
+#HELPER FUNCTIONS
+def get_user_by_student_code(student_code):
+    """
+    Retrieves user information by student code.
+    Returns user data if found, None otherwise.
+    """
+    user_data = None
+    conn = db_conn.create_connection()
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+            SELECT user_id, user_type, student_code, name, email, password, career, interests, points, creation_date
+            FROM users
+            WHERE student_code = ?
+            ''', (student_code,))
+            user = cursor.fetchone()
+            if user:
+                user_data = {
+                    'user_id': user[0],
+                    'user_type': user[1],
+                    'student_code': user[2],
+                    'name': user[3],
+                    'email': user[4],
+                    'password': user[5],
+                    'career': user[6],
+                    'interests': user[7],
+                    'points': user[8],
+                    'creation_date': user[9]
+                }
+        except sqlite3.Error as e:
+            print(f"Error retrieving user by student code: {e}")
+        finally:
+            conn.close()
+    return user_data
+
+def get_org_by_name(name):
+    """
+    Retrieves organization information by name.
+    Returns organization data if found, None otherwise.
+    """
+    org_data = None
+    conn = db_conn.create_connection()
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+            SELECT org_id, user_type, creator_student_code, name, email, password, description, interests, points, creation_date
+            FROM organizations
+            WHERE name = ?
+            ''', (name,))
+            
+            org = cursor.fetchone()
+            if org:
+                org_data = {
+                    'org_id': org[0],
+                    'user_type': org[1],
+                    'creator_student_code': org[2],
+                    'name': org[3],
+                    'email': org[4],
+                    'password': org[5],
+                    'description': org[6],
+                    'interests': org[7],
+                    'points': org[8],
+                    'creation_date': org[9]
+                }
+        except sqlite3.Error as e:
+            print(f"Error retrieving organization by name: {e}")
+        finally:
+            conn.close()
+    return org_data
+
 
 #USER/ORG FUNCTIONS
 def search_orgs(query=None, interests=None, sort_by=None, user_id=None):
@@ -1106,7 +1029,6 @@ def leave_event(event_id, entity_id, user_type):
 def mark_event_attendance(event_id, entity_id, user_type):
     """
     Marks a participant as having attended an event.
-    Note: Points awarding is now handled in the logic layer, not here.
     
     Args:
         event_id (int): ID of the event
@@ -2155,7 +2077,8 @@ def update_entity_points(entity_id, user_type, points_to_add):
             WHERE {id_col} = ?
         ''', (entity_id,))
         
-        existing_achievements = [row[0] for row in cursor.fetchall()]
+
+        existing_achievements = [row[0] for row in cursor.fetchall()] #list of achievement ids
         
         # Find the highest achievement not yet unlocked
         for achievement in possible_achievements:
@@ -2367,40 +2290,29 @@ def get_top_users_by_points(limit=10):
     return users
 
 #MAP FUNCTIONS
-def add_map_point(user_id, permission_code, name, description, point_type, latitude, longitude, address=None):
-    """
-    Adds a new map point if the user has the permission code for doing so. (admin2000)
-    Returns:
-        int: The point_id of the newly created map point if successful, None otherwise.
-    """
-
-    point_id = None
+def add_map_point(user_id, name, description, point_type, latitude, longitude, address=None):
+    success = None
     conn = db_conn.create_connection()
 
-    if conn is None:
-        print("Error: Could not establish database connection.")
-        return None
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO map_points (creator_id, name, description, point_type, latitude, longitude, address)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ''', (user_id, name, description, point_type, latitude, longitude, address))
+            conn.commit()
+            success = cursor.rowcount > 0
 
-    try:
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO map_points (creator_id, name, description, point_type, latitude, longitude, address)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (user_id, name, description, point_type, latitude, longitude, address))
+        except sqlite3.Error as e:
+            print(f"Error adding map point: {e}")
+            if conn:
+                conn.rollback() # Rollback on error
+        finally:
+            if conn:
+                conn.close()
 
-        conn.commit()
-        point_id = cursor.lastrowid
-        print(f"Successfully added map point '{name}' with ID: {point_id} by user ID: {user_id}")
-
-    except sqlite3.Error as e:
-        print(f"Error adding map point: {e}")
-        if conn:
-            conn.rollback() # Rollback on error
-    finally:
-        if conn:
-            conn.close()
-
-    return point_id
+    return success is not None
 
 def delete_map_point(user_id, user_type, point_id):
     """
@@ -2701,3 +2613,4 @@ def orgs_view():
             conn.close()
     
     return orgs_list
+

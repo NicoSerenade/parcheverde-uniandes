@@ -7,7 +7,7 @@ status: active, completed
 item_type: --ropa, 
 item_terms: --regalo, prestamo, intercambio (NO SE PUEDEN VENDER)
 item_status: --available, borrowed, unavailable
-
+datetime format ISO 8601 YYYY-MM-DD HH:MM:SS
 '''
 
 import sqlite3

@@ -1,6 +1,8 @@
 import db_operator # Database operations
 import db_conn # Used occasionally for direct DB access
 import sqlite3 # For error handling
+import bcrypt  # bcrypt is a hashing algorithm
+
 
 
 """
@@ -37,20 +39,39 @@ The points system encourages participation and community engagement.
 
 
 # --- Authentication Functions ---
-
 def register_user(name, email, student_code, password, interests=None, career=None):
     """
     Registers a new user in the system.
     Returns a status message indicating success or failure.
     """
+    user_type = "user"
 
-    result_id = db_operator.register_user(student_code, password, name, email, career, interests)
-    if result_id:
+    if student_code == "admin":
+        user_type = "admin"
+
+    # 1. Validate Email Domain for non admin users
+    elif not isinstance(email, str) or not email.endswith("@uniandes.edu.co"):
+        print(f"status: error, message: Email must end with {"@uniandes.edu.co"}")
+        return None
+    
+    if not db_operator.check_user_exists(email, student_code):
+        return {"status": "error", "message": " Email or student code might exist."}
+
+    # Hash password before sending to db_operator
+    hashed_password = None
+    if password:
+        password_bytes = password.encode('utf-8') #encode the password so that bcrypt module can handle it.
+        salt = bcrypt.gensalt()  # Generates random salt; value that get combined with the password before hashing
+        hashed_password = bcrypt.hashpw(password_bytes, 
+        salt) #hash the password
+
+    success = db_operator.register_user(user_type, student_code, hashed_password, name, email, career, interests)
+    if success:
         return {"status": "success", "message": f"User '{name}' registered successfully."}
     else:
-        return {"status": "error", "message": "User registration failed. Email, student code might exist, or email domain is invalid."}
+        return {"status": "error", "message": "Database error."}
 
-def register_organization(creator_student_code, name, email, description, password, interests=None):
+def register_organization(creator_email, creator_student_code, name, email, description, password, interests=None):
     """
     Registers a new organization.
     Requires the student code of the creating user.
@@ -64,98 +85,83 @@ def register_organization(creator_student_code, name, email, description, passwo
         password (str): Organization password.
         interests (str, optional): Organization interests.
     """
-    # Removed check for global current_logged_in_entity
-    # The check if the creator is a standard user should now happen in app.py before calling this.
-    print(f"Logic: User with student code {creator_student_code} attempting to register org '{name}'")
-    result_id = db_operator.register_org(creator_student_code, password, name, email, description, interests)
-    if result_id:
+
+    if not db_operator.check_user_exists(creator_email, creator_student_code):
+        return {"status": "error", "message": "Email or student code might exist."}
+
+    user_type = "org"
+    hashed_password = None
+    if password:
+        password_bytes = password.encode('utf-8')
+        salt = bcrypt.gensalt()
+        hashed_password = bcrypt.hashpw(password_bytes, salt)
+        
+    success = db_operator.register_org(user_type, creator_student_code, hashed_password, name, email, description, interests)
+    if success:
         return {"status": "success", "message": f"Organization '{name}' registered successfully."}
     else:
         return {"status": "error", "message": "Organization registration failed. Email might already exist."}
 
 def login(identifier, password):
     """
-    Authenticates a user (using student_code) or an organization (using name).
+    Authenticates a user or admin (using student_code) or an organization (using name).
     Returns a dictionary containing status and entity data on success,
     or status and error message on failure.
     It no longer manages global session state.
     """
-    # Removed global current_logged_in_entity management
-    user_data = db_operator.authenticate_user(identifier, password)
-    if user_data:
-         # Check if this is an admin user
-         if user_data.get('user_type') == 'admin':
-             print(f"Logic: Admin user '{user_data.get('name')}' authenticated.")
-             return {
+    # First try to authenticate as a user
+    user = db_operator.get_user_by_student_code(identifier)
+    if user:
+        password_bytes = password.encode('utf-8')
+        stored_password = user['password']
+        if bcrypt.checkpw(password_bytes, stored_password):
+            if user.get('user_type') == 'admin':
+                print(f"Logic: Admin user '{user.get('name')}' authenticated.")
+                return {
+                    "status": "success",
+                    "entity_type": "admin",
+                    "user_id": user.get('user_id'),
+                    "name": user.get('name'),
+                    "email": user.get('email')
+                }
+                
+            # Return data needed for Flask session setup
+            return {
                 "status": "success",
-                "entity_type": "admin",
-                "user_id": user_data.get('user_id'),
-                "name": user_data.get('name'),
-                "email": user_data.get('email')
-             }
-             
-         # Return data needed for Flask session setup
-         return {
-             "status": "success",
-             "entity_type": "user", # Consistent type name
-             "user_id": user_data.get('user_id'),
-             "student_code": user_data.get('student_code'), # Keep student_code
-             "name": user_data.get('name'),
-             "email": user_data.get('email'),
-             "points": user_data.get('points'),
-             "interests": user_data.get('interests'),
-             "career": user_data.get('career'),
-             "creation_date": user_data.get("creation_date")
-             # Add other necessary fields if needed for session
-         }
+                "entity_type": "user",
+                "user_id": user.get('user_id'),
+                "student_code": user.get('student_code'),
+                "name": user.get('name'),
+                "email": user.get('email'),
+                "points": user.get('points'),
+                "interests": user.get('interests'),
+                "career": user.get('career'),
+                "creation_date": user.get("creation_date")
+            }
 
-    org_data = db_operator.authenticate_org(identifier, password)
-    if org_data:
-        # Return data needed for Flask session setup
-        print(f"Logic: Organization '{org_data.get('name')}' authenticated.")
-        return {
-            "status": "success",
-            "entity_type": "organization", # Consistent type name
-            "org_id": org_data.get('org_id'),
-            "name": org_data.get('name'),
-            "email": org_data.get('email'),
-            "description": org_data.get('description'),
-            "points": org_data.get('points'),
-            "interests": org_data.get('interests'),
-            "creation_date": org_data.get("creation_date")
-            # Add other necessary fields if needed for session
-         }
-
+    # Then try to authenticate as an organization
+    org = db_operator.get_org_by_name(identifier)
+    if org and 'password' in org:
+        password_bytes = password.encode('utf-8')
+        stored_password = org['password']
+        if bcrypt.checkpw(password_bytes, stored_password):
+            print(f"Logic: Organization '{org.get('name')}' authenticated.")
+            return {
+                "status": "success",
+                "entity_type": "organization",
+                "org_id": org.get('org_id'),
+                "name": org.get('name'),
+                "email": org.get('email'),
+                "description": org.get('description'),
+                "points": org.get('points'),
+                "interests": org.get('interests'),
+                "creation_date": org.get("creation_date")
+            }
     # If both fail
     print(f"Logic: Login failed for identifier '{identifier}'")
     return {"status": "error", "message": "Invalid credentials or entity not found."}
 
-def logout():
-    """
-    This function is now a placeholder.
-    Actual logout (clearing the Flask session) should be handled in app.py.
-    """
-    # Removed global current_logged_in_entity management
-    print("Logic: Logout called (Session clearing happens in app.py).")
-    return {"status": "success", "message": "Logout processed (session cleared by Flask)."}
 
-def admin_login(username, password):
-    """
-    Authenticates an admin user.
-    Returns a dictionary containing status and admin data on success,
-    or status and error message on failure.
-    """
-    # Use the regular authentication method but verify admin type
-    user_data = db_operator.authenticate_user(username, password)
-    
-    if user_data and user_data.get('user_type') == 'admin':
-        print(f"Logic: Admin '{user_data.get('name')}' authenticated via admin login.")
-        return {
-            "status": "success",
-            "admin_id": user_data.get('user_id'),
-            "name": user_data.get('name'),
-            "email": user_data.get('email')
-        }
     
     # Authentication failed or not an admin
     print(f"Logic: Admin login failed for username '{username}'")
@@ -164,60 +170,80 @@ def admin_login(username, password):
 # --- Profile Functions ---
 def update_my_profile_logic(entity_id, entity_type, new_data):
     """
-    Updates the profile of the specified user or organization.
-    Input `new_data` should be a dictionary of fields to update.
-    Returns a status message.
-
+    Updates a user or organization profile based on entity_type.
+    
     Args:
-        entity_id (int): The ID of the user or organization to update.
-        entity_type (str): 'user' or 'organization'.
-        new_data (dict): Dictionary of fields to update.
+        entity_id (int): ID of the user or organization
+        entity_type (str): Either 'user' or 'organization'
+        new_data (dict): New data to update the profile
+    
+    Returns:
+        dict: Status and result message
     """
-    # Removed _get_session_details call
-    if not entity_id or not entity_type:
-        return {"status": "error", "message": "Entity ID and type are required."}
 
-    allowed_user_fields = {'student_code', 'name', 'email', 'career', 'interests'} # Removed password update here
-    allowed_org_fields = {'name', 'email', 'description', 'interests'} # Removed password update here
-    # Password updates should likely have a separate, dedicated function/route for security.
+    # Validate email format
+    if 'email' in new_data and new_data['email']:
+        if not isinstance(new_data['email'], str) or not new_data['email'].endswith("@uniandes.edu.co"):
+            return {"status": "error", "message": "Invalid email format. Must end with @uniandes.edu.co"}
 
-    update_payload = {}
-    result = False # Initialize result
-
-    if entity_type == 'user':
-        for key, value in new_data.items():
-            if key in allowed_user_fields:
-                update_payload[key] = value
-        if update_payload: # Only call DB if there's something to update
-            print(f"Logic: Updating profile for User ID {entity_id} with data: {update_payload}")
-            result = db_operator.update_user_profile(entity_id, **update_payload)
+    valid_fields = []
+    
+    # Handle password change with verification
+    if 'password' in new_data and new_data['password']:
+        # Check if old_password is provided
+        if 'old_password' not in new_data or not new_data['old_password']:
+            return {"status": "error", "message": "Old password is required to change password"}
+        
+        # Get current user/org data to verify old password
+        if entity_type == 'user' or entity_type == 'admin':
+            entity_data = db_operator.get_user_by_id(entity_id)
+        elif entity_type == 'organization':
+            entity_data = db_operator.get_org_by_id(entity_id)
         else:
-             return {"status": "info", "message": "No valid fields provided for update."}
-
+            return {"status": "error", "message": f"Invalid entity type: {entity_type}"}
+        # Verify old password
+        old_password_bytes = new_data['old_password'].encode('utf-8')
+        stored_password = entity_data['password']
+        
+        if not bcrypt.checkpw(old_password_bytes, stored_password):
+            return {"status": "error", "message": "Current password is incorrect"}
+        
+        # Hash the new password
+        password_bytes = new_data['password'].encode('utf-8')
+        salt = bcrypt.gensalt()
+        new_data['password'] = bcrypt.hashpw(password_bytes, salt)
+        
+        del new_data['old_password']
+    
+    if entity_type == 'user' or entity_type == 'admin':
+        valid_fields = ['name', 'email', 'student_code', 'password', 'career', 'interests']
+        
+        # Create a clean dict with only valid fields
+        update_payload = {k: v for k, v in new_data.items() if k in valid_fields and v}
+        
+        # Call db_operator function
+        if update_payload:
+            success = db_operator.update_user_profile(entity_id, **update_payload)
+            if success:
+                return {"status": "success", "message": "Profile updated successfully."}
+    
     elif entity_type == 'organization':
-         for key, value in new_data.items():
-            if key in allowed_org_fields:
-                update_payload[key] = value
-         if update_payload: # Only call DB if there's something to update
-             print(f"Logic: Updating profile for Org ID {entity_id} with data: {update_payload}")
-             # Ensure db_operator.update_org_profile uses org_id correctly
-             result = db_operator.update_org_profile(entity_id, **update_payload)
-         else:
-             return {"status": "info", "message": "No valid fields provided for update."}
+        # Valid fields for organization profile update
+        valid_fields = ['name', 'email', 'creator_student_code', 'password', 'description', 'interests']
+        
+        # Create a clean dict with only valid fields
+        update_payload = {k: v for k, v in new_data.items() if k in valid_fields and v}
+        
+        # Call db_operator function
+        if update_payload:
+            success = db_operator.update_org_profile(entity_id, **update_payload)
+            if success:
+                return {"status": "success", "message": "Organization profile updated successfully."}
+    
     else:
-         return {"status": "error", "message": f"Unknown entity type: {entity_type}"}
-
-    if result:
-        # Removed update of local session cache (current_logged_in_entity)
-        # Flask session needs to be updated in app.py if critical info changes
-        return {"status": "success", "message": "Profile updated successfully."}
-    else:
-        # db_operator might return False even if payload was empty, check logic
-        if not update_payload:
-             # This case should have been caught above, but as a safeguard:
-             return {"status": "info", "message": "No valid fields provided for update."}
-        else:
-             return {"status": "error", "message": "Failed to update profile. Check data or if email/name constraints violated."}
+        return {"status": "error", "message": f"Invalid entity type: {entity_type}"}
+    
+    return {"status": "error", "message": "Failed to update profile. Please check your data."}
 
 def update_org_points_from_members_logic(org_id=None, user_id=None):
     """
@@ -238,7 +264,7 @@ def update_org_points_from_members_logic(org_id=None, user_id=None):
     
     if user_id:
         # Get all organizations this user is a member of
-        user_orgs = db_operator.search_orgs(user_id=user_id)
+        user_orgs = db_operator.search_orgs(user_id)
         if user_orgs:
             for org in user_orgs:
                 update_result = update_single_org_points(org['org_id'])
@@ -261,8 +287,7 @@ def update_org_points_from_members_logic(org_id=None, user_id=None):
     if updated_orgs:
         return {
             "status": "success", 
-            "message": f"Updated points for {len(updated_orgs)} organizations",
-            "updated_orgs": updated_orgs
+            "message": f"Updated points for {len(updated_orgs)} organizations"
         }
     else:
         return {"status": "info", "message": "No organizations were updated"}
@@ -277,7 +302,6 @@ def update_single_org_points(org_id):
     Returns:
         dict or None: Information about the updated organization or None if update failed
     """
-    # Get all members of the organization
     members = db_operator.get_org_members(org_id)
     
     if not members:
@@ -285,18 +309,11 @@ def update_single_org_points(org_id):
     
     # Calculate the sum of all members' points
     total_points = 0
-    member_points = []
     
     for member in members:
         # Get user details including points
         user_data = db_operator.get_user_by_id(member['user_id'])
-        if user_data and 'points' in user_data:
-            member_points.append({
-                'user_id': member['user_id'],
-                'name': user_data.get('name', 'Unknown'),
-                'points': user_data.get('points', 0)
-            })
-            total_points += user_data.get('points', 0)
+        total_points += user_data.get('points', 0)
     
     # Get current organization points
     org_data = db_operator.get_org_by_id(org_id)
@@ -305,28 +322,20 @@ def update_single_org_points(org_id):
     
     current_points = org_data.get('points', 0)
     
-    # If the calculated points are different, update the organization
     if total_points != current_points:
-        # Use the update_entity_points function to set the points directly
-        # Calculate the difference to add to the current points
         points_diff = total_points - current_points
         
-        # Only update if there's a difference
-        if points_diff != 0:
-            # We need to directly set the new points, not just add the difference
-            # For now, we'll use the update_entity_points function, which adds points
-            db_operator.update_entity_points(org_id, 'org', points_diff)
-            
-            print(f"Logic: Updated organization ID {org_id} points from {current_points} to {total_points}")
-            
-            return {
-                'org_id': org_id,
-                'name': org_data.get('name', 'Unknown'),
-                'previous_points': current_points,
-                'new_points': total_points,
-                'members_count': len(members),
-                'member_points': member_points
-            }
+        db_operator.update_entity_points(org_id, 'org', points_diff)
+        
+        print(f"Logic: Updated organization ID {org_id} points from {current_points} to {total_points}")
+        
+        return {
+            'org_id': org_id,
+            'name': org_data.get('name', 'Unknown'),
+            'previous_points': current_points,
+            'new_points': total_points,
+            'members_count': len(members)
+        }
     
     return None
 
@@ -369,8 +378,7 @@ def award_points_logic(entity_id, points, reason="", entity_type="user"):
      
      print(f"Logic: Awarding {points} points to {db_entity_type} ID {entity_id} for: {reason}")
 
-     # db_operator.update_entity_points expects 'user' or 'org' type
-     # It returns the name of a newly unlocked achievement or None, or False on error
+     
      achievement_unlocked = db_operator.update_entity_points(entity_id, db_entity_type, points)
 
      response = {"status": "success"}
@@ -401,16 +409,11 @@ def view_my_points_and_badges_logic(user_id):
      Args:
          user_id (int): The ID of the user whose details to fetch.
      """
-     # Removed _get_session_details call
-     # Type check ('user') should happen in app.py
      if not user_id:
         return {"status": "error", "message": "User ID is required."}
-
-     print(f"Logic: Fetching points and badges for user ID {user_id}")
      user_profile_data = db_operator.get_user_points_and_achievements(user_id)
 
-     if user_profile_data is not None: # Check for None, which might indicate DB error
-         # user_profile_data should be like {'points': X, 'achievements': [...]}
+     if user_profile_data is not None:
          return {"status": "success", "data": user_profile_data}
      else:
          # Handle case where user exists but fetching failed, or user not found
@@ -418,55 +421,37 @@ def view_my_points_and_badges_logic(user_id):
 
 def delete_my_account_logic(entity_id, entity_type, password):
     """
-    Allows the specified user or organization to delete their own account after verifying password.
+    Allows the specified user, admin or organization to delete their own account after verifying password.
     Returns a status message dictionary.
 
     Args:
         entity_id (int): The ID of the user or organization to delete.
-        entity_type (str): 'user' or 'organization'.
+        entity_type (str): 'user', 'admin' or 'organization'.
         password (str): The password of the account for verification.
     """
-    # Removed _get_session_details call
-    if not entity_id or not entity_type:
-        return {"status": "error", "message": "Entity ID and type are required."}
-
     success = False
-    print(f"Logic: {entity_type.capitalize()} ID {entity_id} attempting account deletion.")
-
-    if entity_type == 'user':
-        # db_operator.delete_my_user needs user_id and password
-        # TODO: Confirm db_operator.delete_my_user signature and existence. Assuming it takes (user_id, password)
-        # Need to fetch student_code first to call the assumed delete_my_user(student_code, password)
+    if entity_type == 'user' or entity_type == 'admin':
         user_data = db_operator.get_user_by_id(entity_id)
-        if user_data and user_data.get('student_code'):
-             student_code = user_data['student_code']
-             # Now call delete_my_user which likely handles password verification
-             success = db_operator.delete_my_user(student_code, password)
+        if user_data:
+             password_bytes = password.encode('utf-8')
+             stored_password = user_data['password']
+             if bcrypt.checkpw(password_bytes, stored_password):
+                student_code = user_data['student_code']
+                success = db_operator.delete_my_user(student_code)
         else:
              print(f"Logic Error: Could not find student code for user {entity_id} to attempt deletion.")
              return {"status": "error", "message": "Account details not found for deletion."}
 
     elif entity_type == 'organization':
-        # db_operator.delete_my_org needs org_id and password
-        # TODO: Confirm db_operator.delete_my_org signature and existence. Assuming it takes (org_id, password)
-        # Need to fetch creator_student_code first based on current db_operator structure?
-        # Refactoring db_operator.delete_my_org to take org_id and password would be cleaner.
-        # Assuming for now delete_my_org can work with org_id and password directly (needs db_op change).
-        # success = db_operator.delete_my_org(entity_id, password) # Idealized call
-
-        # Workaround based on likely current db_operator.delete_my_org(creator_student_code, password):
         org_data = db_operator.get_org_by_id(entity_id)
-        if org_data and org_data.get('creator_student_code'):
-             creator_code = org_data['creator_student_code']
-             success = db_operator.delete_my_org(creator_code, password) # This feels wrong, it should verify org's password
-             # MAJOR REFACTOR NEEDED: delete_my_org should take org_id and password, authenticate org, then delete.
-             # This current workaround is insecure if creator leaves Uniandes.
-             print("Logic WARNING: Org deletion logic using creator_student_code is potentially insecure and needs refactoring.")
+        if org_data:
+             password_bytes = password.encode('utf-8')
+             stored_password = org_data['password']
+             if bcrypt.checkpw(password_bytes, stored_password):
+                creator_code = org_data['creator_student_code']
+                success = db_operator.delete_my_org(creator_code)
         else:
-             print(f"Logic Error: Could not find org details for org {entity_id} to attempt deletion.")
              return {"status": "error", "message": "Account details not found for deletion."}
-
-
     else:
          return {"status": "error", "message": f"Unknown entity type: {entity_type}"}
 
@@ -474,7 +459,6 @@ def delete_my_account_logic(entity_id, entity_type, password):
         # Logout should be triggered in app.py after this returns success
         return {"status": "success", "message": "Account deleted successfully."}
     else:
-        # Failure reasons: wrong password, DB error
         return {"status": "error", "message": "Failed to delete account. Please check your password."}
 
 
@@ -813,8 +797,7 @@ def mark_event_attendance_logic(marker_id, marker_type, event_id, participant_id
                     organizer_id, organizer_type = event_data
                     # Check if marker is the organizer
                     if (organizer_id == marker_id and 
-                        ((organizer_type == db_marker_type) or 
-                         (organizer_type == 'org' and db_marker_type == 'organization'))):
+                        (organizer_type == db_marker_type)):
                         authorized = True
                 
             except sqlite3.Error as e:
@@ -1299,24 +1282,16 @@ def add_map_point_logic(adder_id, adder_type, permission_code, name, latitude, l
         point_type (str): Type of map point.
         description (str): Point description.
     """
-    if permission_code != "admin2000":
-        print(f"Permission Denied: User type '{permission_code}' cannot add map points.")
-        result_id = None
-    # Removed _get_session_details call
-    if not adder_id or not adder_type:
-        return {"status": "error", "message": "Adder ID and type are required."}
+    if adder_type != "admin":
+        if permission_code != "admin2000":
+            return {"status": "error", "message": "invalid permission code."}
+    
+    success = db_operator.add_map_point(adder_id, name, description, point_type, latitude, longitude)
 
-    # Basic permission check (could be more complex)
-    # TODO: Move permission check logic here or confirm db_operator handles it
-    # For now, assuming db_operator handles the permission check
-    print(f"Logic: {adder_type.capitalize()} ID {adder_id} attempting to add map point '{name}'")
-    result_id = db_operator.add_map_point(adder_id, permission_code, name, description, point_type, latitude, longitude)
-
-    if result_id:
+    if success:
         return {"status": "success", "message": f"Map point '{name}' added successfully."}
     else:
-        # Provide more specific feedback if possible
-        return {"status": "error", "message": "Failed to add map point. Check permissions, data, or if the point already exists."}
+        return {"status": "error", "message": "Failed to add map point. The point might already exists."}
 
 def delete_map_point_logic(deleter_id, deleter_type, point_id):
     """
@@ -1479,7 +1454,7 @@ def admin_create_achievement_logic(admin_id, name, description, points_required,
         name (str): Achievement name.
         description (str): Achievement description.
         points_required (int): Points needed to unlock.
-        badge_icon (str): Icon identifier/URL.
+        badge_icon (str): Icon identifier/URL. (text like reference to the real icon stored in images folder(not created yet))
         achievement_user_type (str): 'user' or 'org'.
     """
     # Admin check MUST happen in app.py route before calling this

@@ -171,8 +171,6 @@ def login():
 
 @app.route('/logout')
 def logout():
-    # logic.logout() is now just a placeholder
-    # Clear the Flask session
     session.clear()
     flash("You have been successfully logged out.", 'success')
     return redirect(url_for('index'))
