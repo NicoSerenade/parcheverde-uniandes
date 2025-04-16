@@ -138,8 +138,7 @@ def login():
             session['entity_type'] = result['entity_type']
             session['name'] = result['name']
             session['email'] = result['email']
-            session['points'] = result.get('points', 0) # Default points to 0 if missing
-            
+            session['points'] = result.get('points', 0)
             # If admin user, redirect to admin dashboard
             if result['entity_type'] == 'admin':
                 session['admin_id'] = result['user_id']
@@ -153,7 +152,8 @@ def login():
                 # Store additional profile data
                 session['career'] = result.get('career', '')
                 session['interests'] = result.get('interests', '')
-            elif result['entity_type'] == 'organization':
+
+            elif result['entity_type'] == 'org':
                 session['org_id'] = result['org_id']
                 session['description'] = result.get('description', '')
                 session['interests'] = result.get('interests', '')
@@ -185,7 +185,6 @@ def profile():
     """
     entity_id = None
     entity_type = session.get('entity_type')
-    
     if entity_type == 'user':
         entity_id = session.get('user_id')
         
@@ -200,8 +199,7 @@ def profile():
         }
         
         # Get full user data from database for accurate information
-        import db_operator
-        fresh_user_data = db_operator.get_user_by_id(entity_id)
+        fresh_user_data = logic.get_entity_by_id(entity_id, entity_type)
         if fresh_user_data:
             # Update any missing fields with fresh data
             if not user_data['career'] or user_data['career'] == 'None':
@@ -219,15 +217,9 @@ def profile():
         user_orgs = []
         
         # Get achievements if available
-        result = logic.view_my_points_and_badges_logic(entity_id)
+        result = logic.get_entity_achievements(entity_id, entity_type)
         if result['status'] == 'success':
-            badges = result['data'].get('achievements', [])
-            # Update points in session if needed
-            fresh_points = result['data'].get('points', 0)
-            if session.get('points') != fresh_points:
-                session['points'] = fresh_points
-                user_data['points'] = fresh_points
-                session.modified = True
+            badges = result['data']
         
         # Get user organizations
         orgs_result = logic.get_user_orgs_logic(entity_id)
@@ -240,7 +232,7 @@ def profile():
                               badges=badges,
                               user_orgs=user_orgs)
     
-    elif entity_type == 'organization':
+    elif entity_type == 'orgganization':
         entity_id = session.get('org_id')
         
         # Create org_data from session information

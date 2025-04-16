@@ -1855,12 +1855,9 @@ def search_achievements(user_type):
 
     return achievements
 
-def get_entity_achievements(entity_type, entity_id):
+def get_entity_achievements(entity_id, entity_type):
     """
     Retrieves achievements for a user or organization.
-    Args:
-        entity_type (str): Either 'user' or 'org'.
-        entity_id (int): The ID of the user or organization.
     Returns:
         list: A list of dictionaries with entitiy's achievement data. None on error.
     """
@@ -1880,7 +1877,9 @@ def get_entity_achievements(entity_type, entity_id):
                 table_name = "org_achievements"
                 achievement_table = "achievements_for_orgs"
                 id_column = "org_id"
-
+            else:
+                print(f"Error: Invalid entity_type '{entity_type}' specified")
+                return None  # Return None on invalid entity type
             cursor.execute(f'''
                 SELECT a.achievement_id, a.name, a.description, 
                        a.points_required, a.badge_icon, ua.date_earned
