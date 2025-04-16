@@ -1,12 +1,14 @@
 '''Initializing db, creating tables and connection'''
 ''' ABSTRACT COLUMNS FORMAT-separated by ", "
 BOOLEANS: False = 0, True = 1
-interests: --siembra, reciclaje, caridad, enseñanza,
-goal_type: --siembra, reciclaje, caridad, enseñanza,
-status: active, completed
-item_type: --ropa, 
-item_terms: --regalo, prestamo, intercambio (NO SE PUEDEN VENDER)
+interests: --siembra, reciclaje, caridad, enseñanza, software
+goal_type: --siembra, reciclaje, caridad, enseñanza, software
+event_status: active, completed
+exchange_status: pending, accepted, rejected
+item_type: --ropa, libros, hogar, otros
+item_terms: --gift, loan, exchange (NO SE PUEDEN VENDER)
 item_status: --available, borrowed, unavailable
+challenge_status: active, completed
 datetime format ISO 8601 YYYY-MM-DD HH:MM:SS
 '''
 
@@ -33,13 +35,13 @@ def setup_database():
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 user_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_type TEXT NOT NULL,
+                user_type TEXT NOT NULL, --user
                 student_code TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
                 name TEXT NOT NULL,
                 email TEXT UNIQUE NOT NULL,
                 career TEXT,
-                interests TEXT, --siembra, reciclaje, caridad, enseñanza,
+                interests TEXT, --siembra, reciclaje, caridad, enseñanza, software
                 points INTEGER DEFAULT 0,
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP
             )
@@ -49,13 +51,13 @@ def setup_database():
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS organizations (
                 org_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_type TEXT NOT NULL,
+                user_type TEXT NOT NULL, --org
                 creator_student_code INTEGER,
                 password TEXT NOT NULL,
                 name TEXT UNIQUE NOT NULL,
                 email TEXT UNIQUE NOT NULL,
                 description TEXT,
-                interests TEXT, --siembra, reciclaje, caridad, enseñanza,
+                interests TEXT, --siembra, reciclaje, caridad, enseñanza, software
                 points INTEGER DEFAULT 0,
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP
             )
@@ -86,7 +88,7 @@ def setup_database():
                 event_type TEXT NOT NULL,
                 location TEXT NOT NULL,
                 event_datetime TEXT NOT NULL,
-                status TEXT DEFAULT 'active', --active, completed
+                event_status TEXT DEFAULT 'active', --active, completed
                 points_value INTEGER DEFAULT 0, --poits it gives to creators and participants
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP
             )
@@ -126,8 +128,8 @@ def setup_database():
                 user_id INTEGER,
                 name TEXT NOT NULL,
                 description TEXT NOT NULL,
-                item_type TEXT NOT NULL, --ropa, libros, hogar, otros
-                item_terms TEXT NOT NULL, --regalo, prestamo, intercambio (NO SE PUEDEN VENDER)
+                item_type TEXT NOT NULL, -- ropa, libros, hogar, otros
+                item_terms TEXT NOT NULL, --gift, loan, exchange (CAN'T BE SOLD)
                 item_status TEXT DEFAULT 'available', --available, borrowed, unavailable
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
@@ -143,7 +145,7 @@ def setup_database():
                 requester_id INTEGER NOT NULL,
                 owner_id INTEGER NOT NULL, -- The user_id of the item's owner
                 message TEXT,
-                status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'accepted', 'rejected', 'cancelled'
+                exchange_status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'accepted', 'rejected'
                 request_date TEXT NOT NULL, -- ISO 8601 format: YYYY-MM-DD HH:MM:SS
                 decision_date TEXT, -- ISO 8601 format, filled when accepted/rejected
                 FOREIGN KEY (item_id) REFERENCES items (item_id) ON DELETE CASCADE,
@@ -159,7 +161,7 @@ def setup_database():
                 name TEXT UNIQUE NOT NULL,
                 description TEXT NOT NULL,
                 points_required INTEGER,
-                badge_icon TEXT
+                badge_icon TEXT --this is a unique identifier for badge icons stored in the images folder
             )
             ''')
 
@@ -205,9 +207,9 @@ def setup_database():
                 challenge_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,  
                 description TEXT NOT NULL,          
-                goal_type TEXT NOT NULL, --siembra, reciclaje, caridad, enseñanza,
-                goal_target INTEGER NOT NULL,       -- The numeric target for the goal_type (e.g., 5, 100)
-                points_reward INTEGER DEFAULT 0,    -- Points awarded upon successful completion
+                goal_type TEXT NOT NULL, --siembra, reciclaje, caridad, enseñanza, software
+                goal_target INTEGER DEFAULT 0,       -- The numeric target for the goal_type (e.g., 5, 100)
+                points_reward INTEGER NOT NULL DEFAULT 0,    -- Points awarded upon successful completion
                 time_allowed INTEGER DEFAULT NULL -- Time allowed in seconds (NULL = no limit)
             )
             ''')
@@ -218,8 +220,8 @@ def setup_database():
                 challenge_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL UNIQUE,
                 description TEXT NOT NULL,
-                goal_type TEXT NOT NULL, --siembra, reciclaje, caridad, enseñanza,
-                goal_target INTEGER NOT NULL,
+                goal_type TEXT NOT NULL, --siembra, reciclaje, caridad, enseñanza, software
+                goal_target INTEGER DEFAULT 0,
                 points_reward INTEGER DEFAULT 0,
                 time_allowed INTEGER DEFAULT NULL
             )
@@ -232,7 +234,7 @@ def setup_database():
                 user_id INTEGER NOT NULL,           
                 challenge_id INTEGER NOT NULL,     
                 goal_progress INTEGER DEFAULT 0, 
-                status TEXT NOT NULL DEFAULT 'active', --active, completed
+                challenge_status TEXT NOT NULL DEFAULT 'active', --active, completed
                 start_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 deadline TEXT DEFAULT NULL,
                 date_completed TEXT DEFAULT NULL,
@@ -250,7 +252,7 @@ def setup_database():
                 org_id INTEGER NOT NULL,  
                 challenge_id INTEGER NOT NULL,    
                 goal_progress INTEGER DEFAULT 0,
-                status TEXT NOT NULL DEFAULT 'active', --active, completed
+                challenge_status TEXT NOT NULL DEFAULT 'active', --active, completed
                 start_time TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 deadline TEXT DEFAULT NULL,
                 date_completed TEXT DEFAULT NULL,

@@ -37,10 +37,6 @@ def register_user(user_type, student_code, password, name, email, career=None, i
     return user_id is not None
 
 def update_user_profile(user_id, student_code=None, password=None, name=None, email=None, career=None, interests=None):
-    """
-    Updates a user's profile information.
-    Returns True if successful, False otherwise.
-    """
     success = False
     conn = db_conn.create_connection()
     if conn is not None:
@@ -185,6 +181,181 @@ def delete_my_org(creator_student_code):
     return success
 
 #ADMIN FUNCTIONS
+
+def create_achievement(name, description, points_required, badge_icon, user_type):
+    """
+    Creates a new achievement for users or organizations.
+    
+    Args:
+        name (str): Name of the achievement
+        description (str): Description of the achievement
+        points_required (int): Points required to unlock the achievement
+        badge_icon (str): Path or identifier for the badge icon
+        user_type (str): Either 'user' or 'org' to determine which table to use
+    
+    Returns:
+        int: ID of the created achievement if successful, None otherwise
+    """
+    achievement_id = None
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            
+            if user_type == "user":
+                table = "achievements_for_users"
+            elif user_type == "org":
+                table = "achievements_for_orgs"
+            else:
+                print(f"Error: Invalid user_type: {user_type}")
+                return None
+                
+            cursor.execute(f'''
+            INSERT INTO {table} (name, description, points_required, badge_icon)
+            VALUES (?, ?, ?, ?)
+            ''', (name, description, points_required, badge_icon))
+            
+            conn.commit()
+            achievement_id = cursor.lastrowid
+            
+        except sqlite3.Error as e:
+            print(f"Error creating achievement: {e}")
+        finally:
+            conn.close()
+            
+    return achievement_id
+
+def delete_achievement(achievement_id, user_type):
+    """
+    Deletes an achievement.
+    
+    Args:
+        achievement_id (int): ID of the achievement
+        user_type (str): Either 'user' or 'org' to determine which table to use
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    success = False
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            
+            if user_type == "user":
+                table = "achievements_for_users"
+            elif user_type == "org":
+                table = "achievements_for_orgs"
+            else:
+                print(f"Error: Invalid user_type: {user_type}")
+                return False
+                
+            cursor.execute(f'''
+            DELETE FROM {table}
+            WHERE achievement_id = ?
+            ''', (achievement_id,))
+            
+            conn.commit()
+            success = cursor.rowcount > 0
+            
+        except sqlite3.Error as e:
+            print(f"Error deleting achievement: {e}")
+        finally:
+            conn.close()
+            
+    return success
+
+def create_challenge(name, description, goal_type, goal_target, points_reward, time_allowed, user_type):
+    """
+    Creates a new challenge for users or organizations.
+    
+    Args:
+        name (str): Name of the challenge
+        description (str): Description of the challenge
+        goal_type (str): Type of goal (e.g., 'siembra', 'reciclaje', 'caridad', 'enseñanza', 'software')
+        goal_target (int): Numeric target for the goal
+        points_reward (int): Points awarded upon completion
+        time_allowed (int): Time allowed in seconds (None for no limit)
+        user_type (str): Either 'user' or 'org' to determine which table to use
+    
+    Returns:
+        int: ID of the created challenge if successful, None otherwise
+    """
+    challenge_id = None
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            
+            if user_type == "user":
+                table = "challenges_for_users"
+            elif user_type == "org":
+                table = "challenges_for_orgs"
+            else:
+                print(f"Error: Invalid user_type: {user_type}")
+                return None
+                
+            cursor.execute(f'''
+            INSERT INTO {table} (name, description, goal_type, goal_target, points_reward, time_allowed)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ''', (name, description, goal_type, goal_target, points_reward, time_allowed))
+            
+            conn.commit()
+            challenge_id = cursor.lastrowid
+            
+        except sqlite3.Error as e:
+            print(f"Error creating challenge: {e}")
+        finally:
+            conn.close()
+            
+    return challenge_id
+
+def delete_challenge(challenge_id, user_type):
+    """
+    Deletes a challenge.
+    
+    Args:
+        challenge_id (int): ID of the challenge
+        user_type (str): Either 'user' or 'org' to determine which table to use
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    success = False
+    conn = db_conn.create_connection()
+    
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            
+            if user_type == "user":
+                table = "challenges_for_users"
+            elif user_type == "org":
+                table = "challenges_for_orgs"
+            else:
+                print(f"Error: Invalid user_type: {user_type}")
+                return False
+                
+            cursor.execute(f'''
+            DELETE FROM {table}
+            WHERE challenge_id = ?
+            ''', (challenge_id,))
+            
+            conn.commit()
+            success = cursor.rowcount > 0
+            
+        except sqlite3.Error as e:
+            print(f"Error deleting challenge: {e}")
+        finally:
+            conn.close()
+            
+    return success
+
+
+#HELPER FUNCTIONS
 def get_user_by_id(user_id):
     """
     Retrieves user information by user ID.
@@ -290,180 +461,6 @@ def delete_org_by_id(org_id):
             conn.close()
     return success
 
-def create_achievement(name, description, points_required, badge_icon, user_type):
-    """
-    Creates a new achievement for users or organizations.
-    
-    Args:
-        name (str): Name of the achievement
-        description (str): Description of the achievement
-        points_required (int): Points required to unlock the achievement
-        badge_icon (str): Path or identifier for the badge icon
-        user_type (str): Either 'user' or 'org' to determine which table to use
-    
-    Returns:
-        int: ID of the created achievement if successful, None otherwise
-    """
-    achievement_id = None
-    conn = db_conn.create_connection()
-    
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            
-            if user_type == "user":
-                table = "achievements_for_users"
-            elif user_type == "org":
-                table = "achievements_for_orgs"
-            else:
-                print(f"Error: Invalid user_type: {user_type}")
-                return None
-                
-            cursor.execute(f'''
-            INSERT INTO {table} (name, description, points_required, badge_icon)
-            VALUES (?, ?, ?, ?)
-            ''', (name, description, points_required, badge_icon))
-            
-            conn.commit()
-            achievement_id = cursor.lastrowid
-            
-        except sqlite3.Error as e:
-            print(f"Error creating achievement: {e}")
-        finally:
-            conn.close()
-            
-    return achievement_id
-
-def delete_achievement(achievement_id, user_type):
-    """
-    Deletes an achievement.
-    
-    Args:
-        achievement_id (int): ID of the achievement
-        user_type (str): Either 'user' or 'org' to determine which table to use
-    
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    success = False
-    conn = db_conn.create_connection()
-    
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            
-            if user_type == "user":
-                table = "achievements_for_users"
-            elif user_type == "org":
-                table = "achievements_for_orgs"
-            else:
-                print(f"Error: Invalid user_type: {user_type}")
-                return False
-                
-            cursor.execute(f'''
-            DELETE FROM {table}
-            WHERE achievement_id = ?
-            ''', (achievement_id,))
-            
-            conn.commit()
-            success = cursor.rowcount > 0
-            
-        except sqlite3.Error as e:
-            print(f"Error deleting achievement: {e}")
-        finally:
-            conn.close()
-            
-    return success
-
-def create_challenge(name, description, goal_type, goal_target, points_reward, time_allowed, user_type):
-    """
-    Creates a new challenge for users or organizations.
-    
-    Args:
-        name (str): Name of the challenge
-        description (str): Description of the challenge
-        goal_type (str): Type of goal (e.g., 'events_attended', 'points_earned')
-        goal_target (int): Numeric target for the goal
-        points_reward (int): Points awarded upon completion
-        time_allowed (int): Time allowed in seconds (None for no limit)
-        user_type (str): Either 'user' or 'org' to determine which table to use
-    
-    Returns:
-        int: ID of the created challenge if successful, None otherwise
-    """
-    challenge_id = None
-    conn = db_conn.create_connection()
-    
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            
-            if user_type == "user":
-                table = "challenges_for_users"
-            elif user_type == "org":
-                table = "challenges_for_orgs"
-            else:
-                print(f"Error: Invalid user_type: {user_type}")
-                return None
-                
-            cursor.execute(f'''
-            INSERT INTO {table} (name, description, goal_type, goal_target, points_reward, time_allowed)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ''', (name, description, goal_type, goal_target, points_reward, time_allowed))
-            
-            conn.commit()
-            challenge_id = cursor.lastrowid
-            
-        except sqlite3.Error as e:
-            print(f"Error creating challenge: {e}")
-        finally:
-            conn.close()
-            
-    return challenge_id
-
-def delete_challenge(challenge_id, user_type):
-    """
-    Deletes a challenge.
-    
-    Args:
-        challenge_id (int): ID of the challenge
-        user_type (str): Either 'user' or 'org' to determine which table to use
-    
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    success = False
-    conn = db_conn.create_connection()
-    
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            
-            if user_type == "user":
-                table = "challenges_for_users"
-            elif user_type == "org":
-                table = "challenges_for_orgs"
-            else:
-                print(f"Error: Invalid user_type: {user_type}")
-                return False
-                
-            cursor.execute(f'''
-            DELETE FROM {table}
-            WHERE challenge_id = ?
-            ''', (challenge_id,))
-            
-            conn.commit()
-            success = cursor.rowcount > 0
-            
-        except sqlite3.Error as e:
-            print(f"Error deleting challenge: {e}")
-        finally:
-            conn.close()
-            
-    return success
-
-
-#HELPER FUNCTIONS
 def get_user_by_student_code(student_code):
     """
     Retrieves user information by student code.
@@ -534,7 +531,6 @@ def get_org_by_name(name):
         finally:
             conn.close()
     return org_data
-
 
 #USER/ORG FUNCTIONS
 def search_orgs(query=None, interests=None, sort_by=None, user_id=None):
@@ -1178,16 +1174,6 @@ def create_item(user_id, name, description, item_type, item_terms):
     return item_id
 
 def update_item_status(item_id, status):
-    """
-    Updates the status of an item.
-    
-    Args:
-        item_id (int): ID of the item
-        status (str): New status --available, borrowed, unavailable
-    
-    Returns:
-        bool: True if successful, False otherwise
-    """
     success = False
     conn = db_conn.create_connection()
     
@@ -1196,7 +1182,7 @@ def update_item_status(item_id, status):
             cursor = conn.cursor()
             cursor.execute('''
             UPDATE items
-            SET status = ?
+            SET item_status = ?
             WHERE item_id = ?
             ''', (status, item_id))
             
@@ -1348,38 +1334,35 @@ def get_exchange_request(exchange_id):
     """
     request_details = None
     conn = db_conn.create_connection()
-    if conn is None:
-        print("Error: Could not establish database connection.")
-        return None
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT exchange_id, item_id, requester_id, owner_id, message, exchange_status, 
+                    request_date, decision_date, requested_term
+                FROM exchange_requests
+                WHERE exchange_id = ?
+            ''', (exchange_id,))
+            row = cursor.fetchone()
 
-    try:
-        cursor = conn.cursor()
-        cursor.execute('''
-            SELECT exchange_id, item_id, requester_id, owner_id, message, status, 
-                   request_date, decision_date, requested_term
-            FROM exchange_requests
-            WHERE exchange_id = ?
-        ''', (exchange_id,))
-        row = cursor.fetchone()
+            if row:
+                request_details = {
+                    'exchange_id': row[0],
+                    'item_id': row[1],
+                    'requester_id': row[2],
+                    'owner_id': row[3],
+                    'message': row[4],
+                    'exchange_status': row[5],
+                    'request_date': row[6],
+                    'decision_date': row[7],
+                    'requested_term': row[8] if len(row) > 8 else 'intercambio'  # Default if column doesn't exist yet
+                }
 
-        if row:
-            request_details = {
-                'exchange_id': row[0],
-                'item_id': row[1],
-                'requester_id': row[2],
-                'owner_id': row[3],
-                'message': row[4],
-                'status': row[5],
-                'request_date': row[6],
-                'decision_date': row[7],
-                'requested_term': row[8] if len(row) > 8 else 'intercambio'  # Default if column doesn't exist yet
-            }
-
-    except sqlite3.Error as e:
-        print(f"Error retrieving exchange request ID {exchange_id}: {e}")
-    finally:
-        if conn:
-            conn.close()
+        except sqlite3.Error as e:
+            print(f"Error retrieving exchange request ID {exchange_id}: {e}")
+        finally:
+            if conn:
+                conn.close()
 
     return request_details
 
@@ -1393,229 +1376,161 @@ def get_user_exchange_requests(user_id, request_type='received'):
                            'sent' (requests made by the user). Defaults to 'received'.
 
     Returns:
-        list: A list of dictionaries, each representing an exchange request with
-              details about the item and the other party involved. 
+    list: A list of dictionaries, each representing an exchange request with
+            details about the item and the other party involved. 
                 received: Finds requests made by other users for items owned by the specified user_id.
-                sent: Finds requests made by the specified user_id for items owned by other users.
-              
-              Returns an empty list if no requests are found, or None if an error occurs.
+                sent: Finds requests made by the specified user_id for items owned by other users.              
+            Returns an empty list if no requests are found, or None if an error occurs.
 
     """
     requests_list = []
     conn = db_conn.create_connection()
-    if conn is None:
-        print("Error: Could not establish database connection.")
-        return None # Indicate error
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            sql_query = '''
+                SELECT
+                    er.exchange_id, er.item_id, i.name AS item_name,
+                    er.requester_id, u_req.name AS requester_name,
+                    er.owner_id, u_own.name AS owner_name,
+                    er.message, er.exchange_status, er.request_date, er.decision_date,
+                    er.requested_term, i.item_terms AS original_term
+                FROM exchange_requests er
+                JOIN items i ON er.item_id = i.item_id
+                JOIN users u_req ON er.requester_id = u_req.user_id
+                JOIN users u_own ON er.owner_id = u_own.user_id
+            '''
+            params = (user_id,)
 
-    try:
-        cursor = conn.cursor()
-        sql_query = '''
-            SELECT
-                er.exchange_id, er.item_id, i.name AS item_name,
-                er.requester_id, u_req.name AS requester_name,
-                er.owner_id, u_own.name AS owner_name,
-                er.message, er.status, er.request_date, er.decision_date,
-                er.requested_term, i.item_terms AS original_term
-            FROM exchange_requests er
-            JOIN items i ON er.item_id = i.item_id
-            JOIN users u_req ON er.requester_id = u_req.user_id
-            JOIN users u_own ON er.owner_id = u_own.user_id
-        '''
-        params = (user_id,)
+            if request_type == 'received':
+                sql_query += " WHERE er.owner_id = ?"
+            elif request_type == 'sent':
+                sql_query += " WHERE er.requester_id = ?"
+            else:
+                print(f"Error: Invalid request_type '{request_type}' specified.")
+                if conn: conn.close()
+                return None
 
-        if request_type == 'received':
-            sql_query += " WHERE er.owner_id = ?"
-        elif request_type == 'sent':
-            sql_query += " WHERE er.requester_id = ?"
-        else:
-            print(f"Error: Invalid request_type '{request_type}' specified.")
-            if conn: conn.close()
-            return None
+            sql_query += " ORDER BY er.request_date DESC" # Show newest first
 
-        sql_query += " ORDER BY er.request_date DESC" # Show newest first
+            cursor.execute(sql_query, params)
+            rows = cursor.fetchall()
 
-        cursor.execute(sql_query, params)
-        rows = cursor.fetchall()
+            for row in rows:
+                request_data = {
+                    'exchange_id': row[0],
+                    'item_id': row[1],
+                    'item_name': row[2],
+                    'requester_id': row[3],
+                    'requester_name': row[4],
+                    'owner_id': row[5],
+                    'owner_name': row[6],
+                    'message': row[7],
+                    'exchange_status': row[8],
+                    'request_date': row[9],
+                    'decision_date': row[10],
+                    'requested_term': row[11] if len(row) > 11 else 'intercambio',  # Default if column doesn't exist yet
+                    'original_term': row[12] if len(row) > 12 else None  # Original item term
+                }
+                requests_list.append(request_data)
 
-        for row in rows:
-            request_data = {
-                'exchange_id': row[0],
-                'item_id': row[1],
-                'item_name': row[2],
-                'requester_id': row[3],
-                'requester_name': row[4],
-                'owner_id': row[5],
-                'owner_name': row[6],
-                'message': row[7],
-                'status': row[8],
-                'request_date': row[9],
-                'decision_date': row[10],
-                'requested_term': row[11] if len(row) > 11 else 'intercambio',  # Default if column doesn't exist yet
-                'original_term': row[12] if len(row) > 12 else None  # Original item term
-            }
-            requests_list.append(request_data)
-
-    except sqlite3.Error as e:
-        print(f"Error retrieving {request_type} exchange requests for user ID {user_id}: {e}")
-        requests_list = None
-    finally:
-        if conn:
-            conn.close()
-
-    # Return the list (possibly empty) or None if there was an error
+        except sqlite3.Error as e:
+            print(f"Error retrieving {request_type} exchange requests for user ID {user_id}: {e}")
+            requests_list = None
+        finally:
+            if conn:
+                conn.close()
     return requests_list if requests_list is not None else []
 
 def update_exchange_status(exchange_id, new_status):
-    """
-    Updates the status (and decision_date) of an exchange request.
-
-    Args:
-        exchange_id (int): The ID of the exchange request to update.
-        new_status (str): The new status ('accepted', 'rejected', 'cancelled').
-
-    Returns:
-        bool: True if the update was successful, False otherwise.
-    """
     success = False
     conn = db_conn.create_connection()
-    if conn is None:
-        print("Error: Could not establish database connection.")
-        return False
-
-    valid_statuses = ['accepted', 'rejected', 'cancelled', 'pending']
-    if new_status not in valid_statuses:
-        print(f"Error: Invalid status '{new_status}' provided.")
-        return False
-
-    try:
-        cursor = conn.cursor()
-        current_time_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-        if new_status in ['accepted', 'rejected', 'cancelled']:
-             cursor.execute('''
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            current_time_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            cursor.execute('''
                 UPDATE exchange_requests
-                SET status = ?, decision_date = ?
+                SET exchange_status = ?, decision_date = ?
                 WHERE exchange_id = ?
             ''', (new_status, current_time_str, exchange_id))
 
-        conn.commit()
-        if cursor.rowcount > 0:
-             print(f"Successfully updated exchange request ID {exchange_id} to status '{new_status}'.")
-             success = True
-        else:
-             print(f"Warning: No rows updated for exchange request ID {exchange_id}. It might not exist or was not in a state to be updated to '{new_status}'.")
+            conn.commit()
+            if cursor.rowcount > 0:
+                print(f"Successfully updated exchange request ID {exchange_id} to status '{new_status}'.")
+                success = True
+            else:
+                print(f"Warning: No rows updated for exchange request ID {exchange_id}. It might not exist or was not in a state to be updated to '{new_status}'.")
 
-    except sqlite3.Error as e:
-        print(f"Error updating status for exchange request ID {exchange_id}: {e}")
-        if conn:
-            conn.rollback()
-    finally:
-        if conn:
-            conn.close()
+        except sqlite3.Error as e:
+            print(f"Error updating status for exchange request ID {exchange_id}: {e}")
+            if conn:
+                conn.rollback()
+        finally:
+            if conn:
+                conn.close()
 
     return success
 
-def accept_exchange_request(exchange_id, requested_term):
-    """
-    Accepts an exchange request and updates the item status based on the requested term.
-    
-    Args:
-        exchange_id (int): The ID of the exchange request to accept.
-        requested_term (str): The requested term ('regalo', 'prestamo', 'intercambio').
-        
-    Returns:
-        bool: True if the exchange was successfully accepted, False otherwise.
-    """
+def accept_exchange_request(exchange_id):
     success = False
     conn = db_conn.create_connection()
-    if conn is None:
-        print("Error: Could not establish database connection.")
-        return False
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            conn.execute("BEGIN TRANSACTION")
+            
+            # First, get the exchange request details to find the item
+            cursor.execute('''
+                SELECT item_id, requester_id 
+                FROM exchange_requests 
+                WHERE exchange_id = ? AND exchange_status = 'pending'
+            ''', (exchange_id,))
+            row = cursor.fetchone()
+            
+            if not row:
+                print(f"Error: Exchange request {exchange_id} not found or not in pending state")
+                conn.rollback()
+                conn.close()
+                return False
+                
+            item_id, requester_id = row
+            
+            # Update the exchange request status to accepted
+            current_time_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            cursor.execute('''
+                UPDATE exchange_requests
+                SET exchange_status = 'accepted', decision_date = ?
+                WHERE exchange_id = ?
+            ''', (current_time_str, exchange_id))
+            
+            # Update the item status to unavailable
+            cursor.execute('''
+                UPDATE items
+                SET item_status = 'unavailable'
+                WHERE item_id = ?
+            ''', (item_id))
 
-    try:
-        cursor = conn.cursor()
-        # Start a transaction
-        conn.execute("BEGIN TRANSACTION")
-        
-        # First, get the exchange request details to find the item
-        cursor.execute('''
-            SELECT item_id, requester_id 
-            FROM exchange_requests 
-            WHERE exchange_id = ? AND status = 'pending'
-        ''', (exchange_id,))
-        
-        row = cursor.fetchone()
-        if not row:
-            print(f"Error: Exchange request {exchange_id} not found or not in pending state")
-            conn.rollback()
-            conn.close()
-            return False
-            
-        item_id, requester_id = row
-        
-        # Update the exchange request status to accepted
-        current_time_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        cursor.execute('''
-            UPDATE exchange_requests
-            SET status = 'accepted', decision_date = ?
-            WHERE exchange_id = ?
-        ''', (current_time_str, exchange_id))
-        
-        # Update the item status based on the requested term
-        new_item_status = ''
-        if requested_term == 'regalo':
-            new_item_status = 'gifted'
-            # Also update the owner to the requester
+            # Reject all other pending requests for this item
             cursor.execute('''
-                UPDATE items
-                SET item_status = ?, user_id = ?
-                WHERE item_id = ?
-            ''', (new_item_status, requester_id, item_id))
-        elif requested_term == 'prestamo':
-            new_item_status = 'borrowed'
-            # We can't set borrower_id because it doesn't exist in the schema
-            # Instead, we'll just update the status
-            cursor.execute('''
-                UPDATE items
-                SET item_status = ?
-                WHERE item_id = ?
-            ''', (new_item_status, item_id))
+                UPDATE exchange_requests
+                SET exchange_status = 'rejected', decision_date = ?
+                WHERE item_id = ? AND exchange_status = 'pending' AND exchange_id != ?
+            ''', (current_time_str, item_id, exchange_id))
             
-            # Consider adding a record in a separate borrowers table if needed
-            # or extending the schema to add a borrower_id column
-        elif requested_term == 'intercambio':
-            new_item_status = 'exchanged'
-            cursor.execute('''
-                UPDATE items
-                SET item_status = ?
-                WHERE item_id = ?
-            ''', (new_item_status, item_id))
-        else:
-            print(f"Error: Invalid requested term '{requested_term}'")
-            conn.rollback()
-            conn.close()
-            return False
-        
-        # Reject all other pending requests for this item
-        cursor.execute('''
-            UPDATE exchange_requests
-            SET status = 'rejected', decision_date = ?
-            WHERE item_id = ? AND status = 'pending' AND exchange_id != ?
-        ''', (current_time_str, item_id, exchange_id))
-        
-        conn.commit()
-        success = True
-        print(f"Successfully accepted exchange request {exchange_id} with term '{requested_term}'")
-        
-    except sqlite3.Error as e:
-        print(f"Error accepting exchange request {exchange_id}: {e}")
-        if conn:
-            conn.rollback()
-        success = False
-    finally:
-        if conn:
-            conn.close()
+            conn.commit()
+            success = True
+            print(f"Successfully accepted exchange request {exchange_id}'")
             
+        except sqlite3.Error as e:
+            print(f"Error accepting exchange request {exchange_id}: {e}")
+            if conn:
+                conn.rollback()
+            success = False
+        finally:
+            if conn:
+                conn.close()
+                
     return success
 
 
@@ -1837,128 +1752,57 @@ def join_challenge(entity_id, user_type, challenge_id):
 
     return success
 
-def update_challenges_progress(entity_id, user_type, challenge_id, progress_increment):
-    """
-    Updates an entity's progress on an active challenge. If the goal is met,
-    marks the challenge as completed, awards points using update_entity_points,
-    and records the completion date.
-
-    Args:
-        entity_id (int): The ID of the user or organization.
-        user_type (str): Either 'user' or 'org'.
-        challenge_id (int): The ID of the challenge to update progress for.
-        progress_increment (int): The amount of progress made in this update.
-
-    Returns:
-        bool: True if the progress was successfully updated (and potentially completed),
-              False otherwise (e.g., challenge not active, DB error).
-    """
-    success = False
+def update_challenges_progress(entity_id, user_type, challenge_id, new_progress, status=None, completion_date=None):
+    success = None
     conn = db_conn.create_connection()
-
-    if conn is None:
-        print("Error: Could not establish database connection.")
-        return False
-
-    try:
-        cursor = conn.cursor()
-
-        if user_type == "user":
-            progress_table = "user_challenges"
-            challenge_table = "challenges_for_users"
-            id_column = "user_id"
-            active_status = "active"
-            completed_status = "completed"
-        elif user_type == "org":
-            progress_table = "org_challenges"
-            challenge_table = "challenges_for_orgs"
-            id_column = "org_id"
-            active_status = "in_progress"
-            completed_status = "completed" # Assuming 'completed' is the final status for both
-        else:
-            print(f"Error: Invalid user_type specified: {user_type}")
-            return False
-
-        # 1. Get current progress, status, challenge goal, and reward
-        sql_query = f'''
-        SELECT
-            p.goal_progress, p.status,
-            c.goal_target, c.points_reward
-        FROM {progress_table} p
-        JOIN {challenge_table} c ON p.challenge_id = c.challenge_id
-        WHERE p.{id_column} = ? AND p.challenge_id = ?
-        '''
-        cursor.execute(sql_query, (entity_id, challenge_id))
-        progress_info = cursor.fetchone()
-
-        if not progress_info:
-            print(f"Error: No active challenge found for {user_type} ID {entity_id} and challenge ID {challenge_id}.")
-            return False
-
-        current_progress, current_status, goal_target, points_reward = progress_info
-
-        # 2. Check if challenge is active/in_progress
-        if current_status != active_status:
-            print(f"Error: Challenge ID {challenge_id} is not currently active ({current_status}) for {user_type} ID {entity_id}.")
-            return False
-
-        # 3. Calculate new progress
-        new_progress = current_progress + progress_increment
-
-        # 4. Check for completion
-        if new_progress >= goal_target:
-            # Challenge Completed!
-            completion_time_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            final_progress = goal_target # Cap progress at the target
-
-            sql_update = f'''
-            UPDATE {progress_table}
-            SET goal_progress = ?,
-                status = ?,
-                date_completed = ?
-            WHERE {id_column} = ? AND challenge_id = ?
-            '''
-            cursor.execute(sql_update, (final_progress, completed_status, completion_time_str, entity_id, challenge_id))
-
-            if cursor.rowcount > 0:
-                print(f"Challenge ID {challenge_id} completed by {user_type} ID {entity_id}!")
-                # Award points and check for achievements
-                if points_reward > 0:
-                    print(f"Awarding {points_reward} points...")
-                    achievement_unlocked = update_entity_points(entity_id, user_type, points_reward)
-                    if achievement_unlocked:
-                         print(f"Congratulations! Unlocked achievement: {achievement_unlocked}")
-                success = True
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            
+            if user_type == "user":
+                progress_table = "user_challenges"
+                challenge_table = "challenges_for_users"
+                id_column = "user_id"
+            elif user_type == "org":
+                progress_table = "org_challenges"
+                challenge_table = "challenges_for_orgs"
+                id_column = "org_id"
             else:
-                 print(f"Error updating challenge status to completed for {user_type} ID {entity_id}.")
+                print(f"Error: Invalid user_type specified: {user_type}")
+                return None
 
-
-        else:
-            # Challenge still in progress, just update progress
-            sql_update = f'''
-            UPDATE {progress_table}
-            SET goal_progress = ?
-            WHERE {id_column} = ? AND challenge_id = ?
-            '''
-            cursor.execute(sql_update, (new_progress, entity_id, challenge_id))
-            if cursor.rowcount > 0:
-                 print(f"Updated progress for challenge ID {challenge_id} for {user_type} ID {entity_id} to {new_progress}.")
-                 success = True
+            # Update the challenge progress in the database
+            if status is None:
+                # Only update progress
+                sql_update = f'''
+                UPDATE {progress_table}
+                SET goal_progress = ?
+                WHERE {id_column} = ? AND challenge_id = ?
+                '''
+                cursor.execute(sql_update, (new_progress, entity_id, challenge_id))
             else:
-                 print(f"Error updating challenge progress for {user_type} ID {entity_id}.")
+                # Update progress and status
+                sql_update = f'''
+                UPDATE {progress_table}
+                SET goal_progress = ?,
+                    challenge_status = ?,
+                    date_completed = ?
+                WHERE {id_column} = ? AND challenge_id = ?
+                '''
+                cursor.execute(sql_update, (new_progress, status, completion_date, entity_id, challenge_id))
 
+            conn.commit()
+            success = True
+            
+        except sqlite3.Error as e:
+            print(f"Database error: {e}")
+            if conn:
+                conn.rollback()
+        finally:
+            if conn:
+                conn.close()
 
-        conn.commit()
-
-    except sqlite3.Error as e:
-        print(f"Error updating challenge progress for {user_type} ID {entity_id}: {e}")
-        if conn:
-             conn.rollback()
-    finally:
-        if conn:
-            conn.close()
-
-    return success
+    return success is not None
 
 #ACHIVEMENTS
 def search_achievements(user_type):
@@ -1966,7 +1810,7 @@ def search_achievements(user_type):
     Retrieves all achievements for "user" or "org" entities, depending on the user_type.
 
     Args:
-        user_type (str): Either 'user' or 'org' to specify which achievements to retrieve.
+        user_type (str)
 
     Returns:
         list: A list of dictionaries, each containing achievement data (id, name, description, points, icon).
@@ -1975,67 +1819,53 @@ def search_achievements(user_type):
     achievements = []
     conn = db_conn.create_connection()
 
-    if conn is None:
-        print("Error: Could not establish database connection.")
-        return achievements
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
 
-    try:
-        cursor = conn.cursor()
+            if user_type == "user":
+                table_name = "achievements_for_users"
+            elif user_type == "org":
+                table_name = "achievements_for_orgs"
+            else:
+                print(f"Error: Invalid user_type specified: {user_type}")
+                return achievements
 
-        if user_type == "user":
-            table_name = "achievements_for_users"
-        elif user_type == "org":
-            table_name = "achievements_for_orgs"
-        else:
-            print(f"Error: Invalid user_type specified: {user_type}")
-            return achievements
+            # Select all relevant columns from the appropriate achievements table
+            cursor.execute(f'''
+            SELECT achievement_id, name, description, points_required, badge_icon
+            FROM {table_name}
+            ORDER BY points_required  -- Optional: order by points or name
+            ''')
 
-        # Select all relevant columns from the appropriate achievements table
-        cursor.execute(f'''
-        SELECT achievement_id, name, description, points_required, badge_icon
-        FROM {table_name}
-        ORDER BY points_required  -- Optional: order by points or name
-        ''')
+            rows = cursor.fetchall()
+            for row in rows:
+                achievement_data = {
+                    'achievement_id': row[0],
+                    'name': row[1],
+                    'description': row[2],
+                    'points_required': row[3],
+                    'badge_icon': row[4]
+                }
+                achievements.append(achievement_data)
 
-        rows = cursor.fetchall()
-        for row in rows:
-            achievement_data = {
-                'achievement_id': row[0],
-                'name': row[1],
-                'description': row[2],
-                'points_required': row[3],
-                'badge_icon': row[4]
-            }
-            achievements.append(achievement_data)
-
-    except sqlite3.Error as e:
-        print(f"Error retrieving achievements for {user_type}: {e}")
-    finally:
-        conn.close()
+        except sqlite3.Error as e:
+            print(f"Error retrieving achievements for {user_type}: {e}")
+        finally:
+            conn.close()
 
     return achievements
 
-def update_entity_points(entity_id, user_type, points_to_add):
-    """
-    Awards points to a user or organization and checks for achievement unlocks.
-    Returns:
-        The name of the highest newly unlocked achievement (str), otherwise None.
-    """
-    old_points = None
-    new_total_points = None
-    achievement_unlocked = None
+def update_entity_points(entity_id, user_type, new_points):
+    success = None
 
     # Determine table and id column based on user_type
     if user_type == "user":
         table_name = "users"
         id_col = "user_id"
-        achievements_table = "achievements_for_users"
-        user_achievements_table = "user_achievements"
     elif user_type == "org":
         table_name = "organizations"
         id_col = "org_id"
-        achievements_table = "achievements_for_orgs"
-        user_achievements_table = "org_achievements"
     else:
         print(f"Error: Invalid user_type: {user_type}")
         return None
@@ -2043,57 +1873,11 @@ def update_entity_points(entity_id, user_type, points_to_add):
     try:
         conn = db_conn.create_connection()
         cursor = conn.cursor()
-        cursor.execute(f"SELECT points FROM {table_name} WHERE {id_col} = ?", (entity_id,))
-        result = cursor.fetchone()
-        
-        if not result:
-            print(f"Error: {user_type} with ID {entity_id} not found")
-            return None
-            
-        old_points = result[0]
-        new_total_points = old_points + points_to_add
-
-        # Update points
         cursor.execute(f'''
             UPDATE {table_name}
             SET points = ?
             WHERE {id_col} = ?
-        ''', (new_total_points, entity_id))
-        
-        # Check for new achievements based on points
-        cursor.execute(f'''
-            SELECT achievement_id, name, points_required 
-            FROM {achievements_table}
-            WHERE points_required <= ?
-            ORDER BY points_required DESC
-        ''', (new_total_points,))
-        
-        possible_achievements = cursor.fetchall()
-        
-        # Get user's existing achievements
-        cursor.execute(f'''
-            SELECT achievement_id 
-            FROM {user_achievements_table}
-            WHERE {id_col} = ?
-        ''', (entity_id,))
-        
-
-        existing_achievements = [row[0] for row in cursor.fetchall()] #list of achievement ids
-        
-        # Find the highest achievement not yet unlocked
-        for achievement in possible_achievements:
-            ach_id, ach_name, ach_points = achievement
-            
-            if ach_id not in existing_achievements and ach_points > old_points:
-                # Award the new achievement
-                cursor.execute(f'''
-                    INSERT INTO {user_achievements_table} ({id_col}, achievement_id)
-                    VALUES (?, ?)
-                ''', (entity_id, ach_id))
-                
-                achievement_unlocked = ach_name
-                break
-        
+        ''', (new_points, entity_id))
         conn.commit()
 
     except sqlite3.Error as e:
@@ -2104,74 +1888,37 @@ def update_entity_points(entity_id, user_type, points_to_add):
         if conn:
             conn.close()
     
-    return achievement_unlocked
+    return success
 
-def get_user_points_and_achievements(user_id):
-    """
-    Retrieves the current points and unlocked achievements for a specific user.
-
-    Args:
-        user_id (int): The ID of the user.
-
-    Returns:
-        dict: A dictionary containing 'points' (int) and 'achievements' (list of dicts),
-              or None if the user is not found or an error occurs.
-              Each achievement dict contains 'achievement_id', 'name', 'description', 'badge_icon'.
-    """
-    user_data = None
-    conn = db_conn.create_connection()
-
-    if conn is None:
-        print("Error: Could not establish database connection.")
-        return None
-
+def update_entity_achievements(entity_id, user_type, achievement_id):
+    success = None
     try:
+        conn = db_conn.create_connection()
         cursor = conn.cursor()
 
-        # 1. Get user's current points
-        cursor.execute("SELECT points FROM users WHERE user_id = ?", (user_id,))
-        points_result = cursor.fetchone()
-
-        if not points_result:
-            print(f"Error: User with ID {user_id} not found.")
+        # Determine table and id column based on user_type
+        if user_type == "user":
+            table_name = "user_achievements"
+        elif user_type == "org":
+            table_name = "org_achievements"
+        else:
+            print(f"Error: Invalid user_type: {user_type}")
             return None
+        
+        cursor.execute(f'''
+            INSERT INTO {table_name} (entity_id, achievement_id)
+            VALUES (?, ?)
+        ''', (entity_id, achievement_id))
 
-        current_points = points_result[0]
-
-        # 2. Get user's unlocked achievements - removing date_unlocked which doesn't exist
-        cursor.execute('''
-            SELECT
-                ua.achievement_id,
-                a.name,
-                a.description,
-                a.badge_icon
-            FROM user_achievements ua
-            JOIN achievements_for_users a ON ua.achievement_id = a.achievement_id
-            WHERE ua.user_id = ?
-        ''', (user_id,))
-
-        achievements_list = []
-        for row in cursor.fetchall():
-            achievement = {
-                'achievement_id': row[0],
-                'name': row[1],
-                'description': row[2],
-                'badge_icon': row[3]
-            }
-            achievements_list.append(achievement)
-
-        user_data = {
-            'points': current_points,
-            'achievements': achievements_list
-        }
-
+        success = True
+        conn.commit()
     except sqlite3.Error as e:
-        print(f"Error retrieving points and achievements for user ID {user_id}: {e}")
+        print(f"Error: {e}")
     finally:
         if conn:
             conn.close()
 
-    return user_data
+    return success is not None
 
 #USER TO USER FUNCTIONS
 def search_users(query=None, career=None, interests=None):

@@ -2,9 +2,7 @@ import db_operator # Database operations
 import db_conn # Used occasionally for direct DB access
 import sqlite3 # For error handling
 import bcrypt  # bcrypt is a hashing algorithm
-
-
-
+import datetime # For datetime operations
 """
 Main business logic module for the Comunidad Verde application.
 
@@ -37,12 +35,11 @@ Achievements:
 The points system encourages participation and community engagement.
 """
 
-
 # --- Authentication Functions ---
 def register_user(name, email, student_code, password, interests=None, career=None):
     """
     Registers a new user in the system.
-    Returns a status message indicating success or failure.
+    Returns a status message.
     """
     user_type = "user"
 
@@ -339,67 +336,74 @@ def update_single_org_points(org_id):
     
     return None
 
-def award_points_logic(entity_id, points, reason="", entity_type="user"):
-     """
-     Awards points to a specific user or organization and checks for achievement unlocks.
-     
-     Points System:
-     - Events:
-       * Users: 5 points when their attendance is confirmed
-       * Event Organizers: 
-         - 10 points when the first participant is confirmed (event is happening)
-         - 2 points for each confirmed participant
-       * Organizations: 20 points when at least 5 members have confirmed attendance at an event
-     
-     - Items:
-       * Users: 2 points for confirmed exchanged items, 4 points for borrowed items and 10 points for gave items
-     
-     - Challenges:
-       * Points are awarded based on the challenge's difficulty (admins add challenges in the system)
-     
-     - Achievements:
-       * Are prizes based on the entity's points (users or organizations)
-     
-     Args:
-        entity_id (int): The ID of the user or organization
-        points (int): Number of points to award
-        reason (str): Description of why points are being awarded
-        entity_type (str): 'user' or 'org' or 'organization'
-        
-     Returns:
-        dict: Status message and any unlocked achievements
-     """
-     if not entity_id:
-          print("Logic Error: award_points called without entity_id")
-          return {"status": "error", "message": "Entity ID is required to award points."}
+def award_points_logic(entity_id, points_to_add, entity_type="user"):
+    """
+    Awards points to a specific user or organization and checks for achievement unlocks.
+    
+    Points System:
+    - Events:
+    * Users: 5 points when their attendance is confirmed
+    * Event Organizers: 
+        - 10 points when the first participant is confirmed (event is happening)
+        - 2 points for each confirmed participant
+    * Organizations: 20 points when at least 5 members have confirmed attendance at an event
+    
+    - Items:
+    * Users: 2 points for confirmed exchanged items, 4 points for borrowed items and 10 points for gave items
+    
+    - Challenges:
+    * Points are awarded based on the challenge's difficulty (admins add challenges in the system)
+    
+    - Achievements:
+    * Are prizes based on the entity's points (users or organizations)
+    
+    Args:
+    entity_id (int): The ID of the user or organization
+    points (int): Number of points to award
+    entity_type (str): 'user' or 'org' or 'organization'
+    
+    Returns:
+    dict: Status message, new total points and any unlocked achievements
+    """
+    response = None
+    achievement_unlocked = None
+    if entity_type == "user":
+        user_data = db_operator.get_user_by_id(entity_id)
+        old_points = user_data.get('points', 0)
+        new_points = old_points + points_to_add
+    elif entity_type == "org":
+        org_data = db_operator.get_org_by_id(entity_id)
+        old_points = org_data.get('points', 0)
+        new_points = old_points + points_to_add
 
-     # Map entity_type 'organization' to 'org' for db_operator
-     db_entity_type = 'org' if entity_type == 'organization' else entity_type
-     
-     print(f"Logic: Awarding {points} points to {db_entity_type} ID {entity_id} for: {reason}")
 
-     
-     achievement_unlocked = db_operator.update_entity_points(entity_id, db_entity_type, points)
+    # Check for achievements logic
+    achievements = db_operator.search_achievements(entity_type)
+    if achievements:
+        for ach in achievements:
+            # Check if the new points exceed the any new achievement threshold 
+            if old_points < ach['points'] and new_points >= ach['points']:
+                # Unlock the achievement
+                achievement_unlocked = ach['name']
+                db_operator.update_entity_achievements(entity_id, entity_type, ach['achievement_id'])
+                break
+        db_operator.update_entity_points(entity_id, entity_type, new_points)
+        response = {
+            "status": "success",
+            "message": f"New total points: {new_points}",
+            "achievement_unlocked": achievement_unlocked
+        }
+               
+    else:
+        response = {
+            "status": "error",
+            "message": "There are no achivements in the system."
+        }
 
-     response = {"status": "success"}
-     if achievement_unlocked is False: # Check for explicit failure from db_operator
-         print(f"Logic Error: Failed to award points to {db_entity_type} {entity_id}.")
-         response = {"status": "error", "message": "Failed to update points in database."}
-     else:
-          # --- Format response message ---
-          if isinstance(achievement_unlocked, str): # Achievement name string returned
-               print(f"Logic: Awarded {points} points to {db_entity_type} {entity_id}. Unlocked: {achievement_unlocked}")
-               response["message"] = f"Awarded {points} points. Unlocked: {achievement_unlocked}"
-               response["unlocked_achievement"] = achievement_unlocked
-          else: # Success (achievement_unlocked is None), no new achievement
-               print(f"Logic: Awarded {points} points to {db_entity_type} {entity_id}. No new achievement.")
-               response["message"] = f"Awarded {points} points."
-          
-          # If this is a user, update points for all organizations they belong to
-          if db_entity_type == 'user':
-               update_org_points_from_members_logic(user_id=entity_id)
+    if entity_type == 'user':
+        update_org_points_from_members_logic(entity_id)
      
-     return response
+    return response
 
 def view_my_points_and_badges_logic(user_id):
      """
@@ -1398,17 +1402,52 @@ def search_achievements_logic(entity_type):
 
      Args:
         entity_type (str): 'user' or 'organization'.
+    Returns:
+        dict: Status message and list of dictionaries, each containing achievement data (id, name, description, points, icon).
     """
-    if entity_type not in ['user', 'organization']:
-         return {"status": "error", "message": "Invalid entity type for achievements."}
-    db_type = 'org' if entity_type == 'organization' else 'user'
-
-    print(f"Logic: Searching all achievements for {entity_type}s")
-    achievements = db_operator.search_achievements(user_type=db_type)
-    if achievements is None: # DB error
-        return {"status": "error", "message": f"Could not retrieve achievements for {entity_type}s."}
+    if entity_type == 'user':
+        db_type = 'user'
+    elif entity_type == 'organization':
+        db_type = 'org'
+    else:
+        return {"status": "error", "message": "Invalid entity type for achievements."}
+    achievements = db_operator.search_achievements(db_type)
+    if achievements is None:
+        return {"status": "error", "message": f"There are no achievements for {entity_type}s."}
     else:
         return {"status": "success", "data": achievements}
+
+def update_challenge_progress_logic(entity_id, entity_type, challenge_id, progress_increment):
+    """
+    Updates the progress of a challenge for a given entity.
+    Args:
+        entity_id (int): ID of the user/org.
+        entity_type (str): 'user' or 'organization'.
+        challenge_id (int): ID of the challenge.
+        progress_increment (int): Amount to increment the challenge progress by.
+        
+    Returns:
+        dict: Status and message with details about the operation.
+    """
+    current_progress = None
+    active_challenges = db_operator.get_active_challenges(entity_id, entity_type)
+    for challenge in active_challenges:
+        if challenge['challenge_id'] == challenge_id:
+            challenge_data = challenge
+            break
+
+    current_progress = challenge_data['current_progress']
+    new_progress = current_progress + progress_increment
+
+
+    db_result = db_operator.update_challenges_progress(
+        entity_id, 
+        entity_type, 
+        challenge_id,
+        new_progress,
+        challenge_status=None,
+        completion_time=None
+    )
 
 
 # --- Admin Functions ---
