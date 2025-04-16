@@ -242,187 +242,6 @@ def update_my_profile_logic(entity_id, entity_type, new_data):
     
     return {"status": "error", "message": "Failed to update profile. Please check your data."}
 
-def update_org_points_from_members_logic(org_id=None, user_id=None):
-    """
-    Updates organization points based on the sum of its members' points.
-    
-    If org_id is provided, only that organization's points are updated.
-    If user_id is provided, all organizations that the user is a member of will be updated.
-    If neither is provided, all organizations will be updated.
-    
-    Args:
-        org_id (int, optional): The ID of a specific organization to update
-        user_id (int, optional): The ID of a user whose organizations should be updated
-        
-    Returns:
-        dict: Status message and list of updated organizations
-    """
-    updated_orgs = []
-    
-    if user_id:
-        # Get all organizations this user is a member of
-        user_orgs = db_operator.search_orgs(user_id)
-        if user_orgs:
-            for org in user_orgs:
-                update_result = update_single_org_points(org['org_id'])
-                if update_result:
-                    updated_orgs.append(update_result)
-    elif org_id:
-        # Update a specific organization
-        update_result = update_single_org_points(org_id)
-        if update_result:
-            updated_orgs.append(update_result)
-    else:
-        # Update all organizations
-        all_orgs = db_operator.search_orgs()
-        if all_orgs:
-            for org in all_orgs:
-                update_result = update_single_org_points(org['org_id'])
-                if update_result:
-                    updated_orgs.append(update_result)
-    
-    if updated_orgs:
-        return {
-            "status": "success", 
-            "message": f"Updated points for {len(updated_orgs)} organizations"
-        }
-    else:
-        return {"status": "info", "message": "No organizations were updated"}
-
-def update_single_org_points(org_id):
-    """
-    Helper function to update a single organization's points.
-    
-    Args:
-        org_id (int): The ID of the organization to update
-        
-    Returns:
-        dict or None: Information about the updated organization or None if update failed
-    """
-    members = db_operator.get_org_members(org_id)
-    
-    if not members:
-        return None
-    
-    # Calculate the sum of all members' points
-    total_points = 0
-    
-    for member in members:
-        # Get user details including points
-        user_data = db_operator.get_user_by_id(member['user_id'])
-        total_points += user_data.get('points', 0)
-    
-    # Get current organization points
-    org_data = db_operator.get_org_by_id(org_id)
-    if not org_data:
-        return None
-    
-    current_points = org_data.get('points', 0)
-    
-    if total_points != current_points:
-        points_diff = total_points - current_points
-        
-        db_operator.update_entity_points(org_id, 'org', points_diff)
-        
-        print(f"Logic: Updated organization ID {org_id} points from {current_points} to {total_points}")
-        
-        return {
-            'org_id': org_id,
-            'name': org_data.get('name', 'Unknown'),
-            'previous_points': current_points,
-            'new_points': total_points,
-            'members_count': len(members)
-        }
-    
-    return None
-
-def award_points_logic(entity_id, points_to_add, entity_type):
-    """
-    Awards points to a specific user or organization and checks for achievement unlocks.
-    
-    Points System:
-    - Events:
-    * Users: 5 points when their attendance is confirmed
-    * Event Organizers: 
-        - 10 points when the first participant is confirmed (event is happening)
-        - 2 points for each confirmed participant
-    * Organizations: 20 points when at least 5 members have confirmed attendance at an event
-    
-    - Items:
-    * Users: 2 points for confirmed exchanged items, 4 points for borrowed items and 10 points for gave items
-    
-    - Challenges:
-    * Points are awarded based on the challenge's difficulty (admins add challenges in the system)
-    
-    - Achievements:
-    * Are prizes based on the entity's points (users or organizations)
-    
-    Args:
-    entity_id (int): The ID of the user or organization
-    points (int): Number of points to award
-    entity_type (str): 'user' or 'org' or 'organization'
-    
-    Returns:
-    dict: Status message, new total points and any unlocked achievements
-    """
-    response = None
-    achievement_unlocked = None
-    if entity_type == "user":
-        user_data = db_operator.get_user_by_id(entity_id)
-        old_points = user_data.get('points', 0)
-        new_points = old_points + points_to_add
-    elif entity_type == "org":
-        org_data = db_operator.get_org_by_id(entity_id)
-        old_points = org_data.get('points', 0)
-        new_points = old_points + points_to_add
-
-
-    # Check for achievements logic
-    achievements = db_operator.search_achievements(entity_type)
-    if achievements:
-        for ach in achievements:
-            # Check if the new points exceed the any new achievement threshold 
-            if old_points < ach['points'] and new_points >= ach['points']:
-                # Unlock the achievement
-                achievement_unlocked = ach['name']
-                db_operator.update_entity_achievements(entity_id, entity_type, ach['achievement_id'])
-                break
-        db_operator.update_entity_points(entity_id, entity_type, new_points)
-        response = {
-            "status": "success",
-            "Total points": f"New total points: {new_points}",
-            "achievement_unlocked": achievement_unlocked
-        }
-               
-    else:
-        response = {
-            "status": "error",
-            "message": "There are no achivements in the system."
-        }
-
-    if entity_type == 'user':
-        update_org_points_from_members_logic(entity_id)
-     
-    return response
-
-def view_my_points_and_badges_logic(user_id):
-     """
-     Retrieves the points and unlocked achievements (badges) for the specified user.
-     Returns a dictionary with status and data, or status and error message.
-
-     Args:
-         user_id (int): The ID of the user whose details to fetch.
-     """
-     if not user_id:
-        return {"status": "error", "message": "User ID is required."}
-     user_profile_data = db_operator.get_user_points_and_achievements(user_id)
-
-     if user_profile_data is not None:
-         return {"status": "success", "data": user_profile_data}
-     else:
-         # Handle case where user exists but fetching failed, or user not found
-         return {"status": "error", "message": "Could not retrieve points and badges for the user."}
-
 def delete_my_account_logic(entity_id, entity_type, password):
     """
     Allows the specified user, admin or organization to delete their own account after verifying password.
@@ -641,14 +460,14 @@ def delete_event_logic(entity_id, entity_type, event_id):
         return {"status": "error", "message": "Entity ID and type are required."}
 
     # Map session type ('organization') to db type ('org') if necessary
-    db_entity_type = 'org' if entity_type == 'organization' else entity_type
-    if db_entity_type not in ['user', 'org']:
+    entity_type = 'org' if entity_type == 'organization' else entity_type
+    if entity_type not in ['user', 'org']:
          return {"status": "error", "message": f"Invalid entity type: {entity_type}"}
 
 
     print(f"Logic: {entity_type.capitalize()} ID {entity_id} attempting to delete event ID {event_id}")
     # db_operator.delete_event handles the check if the entity is the organizer
-    success = db_operator.delete_event(event_id, entity_id, db_entity_type)
+    success = db_operator.delete_event(event_id, entity_id, entity_type)
 
     if success:
         return {"status": "success", "message": "Event deleted successfully."}
@@ -726,13 +545,13 @@ def leave_event_logic(entity_id, entity_type, event_id):
         return {"status": "error", "message": "Entity ID and type are required."}
 
     # Map session type ('organization') to db type ('org') if necessary
-    db_entity_type = 'org' if entity_type == 'organization' else entity_type
-    if db_entity_type not in ['user', 'org']:
+    entity_type = 'org' if entity_type == 'organization' else entity_type
+    if entity_type not in ['user', 'org']:
          return {"status": "error", "message": f"Invalid entity type: {entity_type}"}
 
 
     print(f"Logic: {entity_type.capitalize()} ID {entity_id} attempting to leave event ID {event_id}")
-    success = db_operator.leave_event(event_id, entity_id, db_entity_type)
+    success = db_operator.leave_event(event_id, entity_id, entity_type)
 
     if success:
         return {"status": "success", "message": "Successfully left the event."}
@@ -1378,21 +1197,15 @@ def join_challenge_logic(entity_id, entity_type, challenge_id):
 def get_my_active_challenges_logic(entity_id, entity_type):
     """
     Retrieves the active challenges for the specified user or organization.
-
-     Args:
-        entity_id (int): ID of the user/org.
-        entity_type (str): 'user' or 'organization'.
+    Returns a status message and a dict with the active challenges.
     """
-    if not entity_id or not entity_type:
-        return {"status": "error", "message": "Entity ID and type are required."}
-    db_type = 'org' if entity_type == 'organization' else 'user'
-    if db_type not in ['user', 'org']:
-         return {"status": "error", "message": f"Invalid entity type: {entity_type}"}
+    active_challenges = db_operator.get_active_challenges(entity_id, entity_type)
+    if active_challenges is None: 
+        return {"status": "error", "message": "database error."}
 
-    print(f"Logic: Fetching active challenges for {entity_type.capitalize()} ID {entity_id}")
-    active_challenges = db_operator.get_active_challenges(entity_id, db_type)
-    if active_challenges is None: # DB error
-        return {"status": "error", "message": "Could not retrieve active challenges."}
+    elif not active_challenges:
+        return {"status": "success", "data": []}
+
     else:
         return {"status": "success", "data": active_challenges}
 
@@ -1474,6 +1287,186 @@ def update_challenge_progress_logic(entity_id, entity_type, challenge_id, progre
     else:
         return {"status": "error", "message": "Failed to update challenge progress."}
 
+# --- Points Functions ---
+def update_org_points_from_members_logic(org_id=None, user_id=None):
+    """
+    Updates organization points based on the sum of its members' points.
+    
+    If org_id is provided, only that organization's points are updated.
+    If user_id is provided, all organizations that the user is a member of will be updated.
+    If neither is provided, all organizations will be updated.
+    
+    Args:
+        org_id (int, optional): The ID of a specific organization to update
+        user_id (int, optional): The ID of a user whose organizations should be updated
+        
+    Returns:
+        dict: Status message and list of updated organizations
+    """
+    updated_orgs = []
+    
+    if user_id:
+        # Get all organizations this user is a member of
+        user_orgs = db_operator.search_orgs(user_id)
+        if user_orgs:
+            for org in user_orgs:
+                update_result = update_single_org_points(org['org_id'])
+                if update_result:
+                    updated_orgs.append(update_result)
+    elif org_id:
+        # Update a specific organization
+        update_result = update_single_org_points(org_id)
+        if update_result:
+            updated_orgs.append(update_result)
+    else:
+        # Update all organizations
+        all_orgs = db_operator.search_orgs()
+        if all_orgs:
+            for org in all_orgs:
+                update_result = update_single_org_points(org['org_id'])
+                if update_result:
+                    updated_orgs.append(update_result)
+    
+    if updated_orgs:
+        return {
+            "status": "success", 
+            "message": f"Updated points for {len(updated_orgs)} organizations"
+        }
+    else:
+        return {"status": "info", "message": "No organizations were updated"}
+
+def update_single_org_points(org_id):
+    """
+    Helper function to update a single organization's points.
+    
+    Args:
+        org_id (int): The ID of the organization to update
+        
+    Returns:
+        dict or None: Information about the updated organization or None if update failed
+    """
+    members = db_operator.get_org_members(org_id)
+    
+    if not members:
+        return None
+    
+    # Calculate the sum of all members' points
+    total_points = 0
+    
+    for member in members:
+        # Get user details including points
+        user_data = db_operator.get_user_by_id(member['user_id'])
+        total_points += user_data.get('points', 0)
+    
+    # Get current organization points
+    org_data = db_operator.get_org_by_id(org_id)
+    if not org_data:
+        return None
+    
+    current_points = org_data.get('points', 0)
+    
+    if total_points != current_points:
+        points_diff = total_points - current_points
+        
+        db_operator.update_entity_points(org_id, 'org', points_diff)
+        
+        print(f"Logic: Updated organization ID {org_id} points from {current_points} to {total_points}")
+        
+        return {
+            'org_id': org_id,
+            'name': org_data.get('name', 'Unknown'),
+            'previous_points': current_points,
+            'new_points': total_points,
+            'members_count': len(members)
+        }
+    
+    return None
+
+def award_points_logic(entity_id, points_to_add, entity_type):
+    """
+    Awards points to a specific user or organization and checks for achievement unlocks.
+    
+    Points System:
+    - Events:
+    * Users: 5 points when their attendance is confirmed
+    * Event Organizers: 
+        - 10 points when the first participant is confirmed (event is happening)
+        - 2 points for each confirmed participant
+    * Organizations: 20 points when at least 5 members have confirmed attendance at an event
+    
+    - Items:
+    * Users: 2 points for confirmed exchanged items, 4 points for borrowed items and 10 points for gave items
+    
+    - Challenges:
+    * Points are awarded based on the challenge's difficulty (admins add challenges in the system)
+    
+    - Achievements:
+    * Are prizes based on the entity's points (users or organizations)
+    
+    Args:
+    entity_id (int): The ID of the user or organization
+    points (int): Number of points to award
+    entity_type (str): 'user' or 'org' or 'organization'
+    
+    Returns:
+    dict: Status message, new total points and any unlocked achievements
+    """
+    response = None
+    achievement_unlocked = None
+    if entity_type == "user":
+        user_data = db_operator.get_user_by_id(entity_id)
+        old_points = user_data.get('points', 0)
+        new_points = old_points + points_to_add
+    elif entity_type == "org":
+        org_data = db_operator.get_org_by_id(entity_id)
+        old_points = org_data.get('points', 0)
+        new_points = old_points + points_to_add
+
+
+    # Check for achievements logic
+    achievements = db_operator.search_achievements(entity_type)
+    if achievements:
+        for ach in achievements:
+            # Check if the new points exceed the any new achievement threshold 
+            if old_points < ach['points'] and new_points >= ach['points']:
+                # Unlock the achievement
+                achievement_unlocked = ach['name']
+                db_operator.update_entity_achievements(entity_id, entity_type, ach['achievement_id'])
+                break
+        db_operator.update_entity_points(entity_id, entity_type, new_points)
+        response = {
+            "status": "success",
+            "Total points": f"New total points: {new_points}",
+            "achievement_unlocked": achievement_unlocked
+        }
+               
+    else:
+        response = {
+            "status": "error",
+            "message": "There are no achivements in the system."
+        }
+
+    if entity_type == 'user':
+        update_org_points_from_members_logic(entity_id)
+     
+    return response
+
+def get_entity_achievements(entity_id, entity_type):
+    '''
+    Retrieves the points and achievements info for the specified user.
+    Returns a dictionary with status message and achievements data.
+    '''
+    response = db_operator.get_entity_achievements(entity_id, entity_type)
+    if response is None:
+        return {
+            "status": "error",
+            "message": "Failed to retrieve achievements."
+        }
+    return {
+        "status": "success",
+        "data": response
+    }
+    
 
 # --- Admin Functions ---
 

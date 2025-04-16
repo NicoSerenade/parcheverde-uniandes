@@ -1602,17 +1602,12 @@ def get_active_challenges(entity_id, user_type):
 
     Returns:
         list: A list of dictionaries, each containing details of an active challenge
-              including the entity's progress. Returns an empty list on error or
-              if no active challenges are found.
+              including the entity's progress. Returns None on error or
+              an empty list if no active challenges are found.
     """
     active_challenges = []
-    conn = db_conn.create_connection()
-
-    if conn is None:
-        print("Error: Could not establish database connection.")
-        return active_challenges
-
     try:
+        conn = db_conn.create_connection()
         cursor = conn.cursor()
 
         if user_type == "user":
@@ -1626,8 +1621,7 @@ def get_active_challenges(entity_id, user_type):
             id_column = "org_id"
             active_status = "in_progress" # Status used in org_challenges
         else:
-            print(f"Error: Invalid user_type specified: {user_type}")
-            return active_challenges
+            return None
 
         # Join the progress table with the main challenge table
         # Filter by entity_id and active status
@@ -1663,6 +1657,7 @@ def get_active_challenges(entity_id, user_type):
 
     except sqlite3.Error as e:
         print(f"Error retrieving active challenges for {user_type} ID {entity_id}: {e}")
+        return None
     finally:
         if conn:
             conn.close()
@@ -1855,6 +1850,61 @@ def search_achievements(user_type):
 
         except sqlite3.Error as e:
             print(f"Error retrieving achievements for {user_type}: {e}")
+        finally:
+            conn.close()
+
+    return achievements
+
+def get_entity_achievements(entity_type, entity_id):
+    """
+    Retrieves achievements for a user or organization.
+    Args:
+        entity_type (str): Either 'user' or 'org'.
+        entity_id (int): The ID of the user or organization.
+    Returns:
+        list: A list of dictionaries with entitiy's achievement data. None on error.
+    """
+    achievements = []
+    conn = db_conn.create_connection()
+
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+
+            # Use the appropriate tables based on entity type
+            if entity_type == "user":
+                table_name = "user_achievements"
+                achievement_table = "achievements_for_users"
+                id_column = "user_id"
+            elif entity_type == "org":
+                table_name = "org_achievements"
+                achievement_table = "achievements_for_orgs"
+                id_column = "org_id"
+
+            cursor.execute(f'''
+                SELECT a.achievement_id, a.name, a.description, 
+                       a.points_required, a.badge_icon, ua.date_earned
+                FROM {table_name} ua
+                JOIN {achievement_table} a ON ua.achievement_id = a.achievement_id
+                WHERE ua.{id_column} = ?
+                ORDER BY a.points_required
+            ''', (entity_id,))
+
+            rows = cursor.fetchall()
+            for row in rows:
+                achievement_data = {
+                    'achievement_id': row[0],
+                    'name': row[1],
+                    'description': row[2],
+                    'points_required': row[3],
+                    'badge_icon': row[4],
+                    'date_earned': row[5]
+                }
+                achievements.append(achievement_data)
+
+        except sqlite3.Error as e:
+            print(f"Error retrieving achievements: {e}")
+            return None
         finally:
             conn.close()
 

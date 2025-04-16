@@ -263,6 +263,8 @@ def setup_database():
             )
             ''')
 
+
+
             # Map Points table
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS map_points (
