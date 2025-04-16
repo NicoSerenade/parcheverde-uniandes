@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS users (
                 name TEXT NOT NULL,
                 email TEXT UNIQUE NOT NULL,
                 career TEXT,
-                interests TEXT, --siembra, reciclaje, caridad, enseñanza,
+                interests TEXT, --siembra, reciclaje, caridad, enseñanza, software
                 points INTEGER DEFAULT 0,
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP
                 
@@ -37,6 +37,6 @@ It means we have a mini database named users with the following information abou
                 name,
                 email,
                 career,
-                interests, --siembra, reciclaje, caridad, enseñanza,
+                interests, (with this valid interests: siembra, reciclaje, caridad, enseñanza, software)
                 points,
                 creation_date
