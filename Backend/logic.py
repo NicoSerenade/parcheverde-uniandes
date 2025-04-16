@@ -336,7 +336,7 @@ def update_single_org_points(org_id):
     
     return None
 
-def award_points_logic(entity_id, points_to_add, entity_type="user"):
+def award_points_logic(entity_id, points_to_add, entity_type):
     """
     Awards points to a specific user or organization and checks for achievement unlocks.
     
@@ -390,7 +390,7 @@ def award_points_logic(entity_id, points_to_add, entity_type="user"):
         db_operator.update_entity_points(entity_id, entity_type, new_points)
         response = {
             "status": "success",
-            "message": f"New total points: {new_points}",
+            "Total points": f"New total points: {new_points}",
             "achievement_unlocked": achievement_unlocked
         }
                
@@ -1429,7 +1429,6 @@ def update_challenge_progress_logic(entity_id, entity_type, challenge_id, progre
     Returns:
         dict: Status and message with details about the operation.
     """
-    current_progress = None
     active_challenges = db_operator.get_active_challenges(entity_id, entity_type)
     for challenge in active_challenges:
         if challenge['challenge_id'] == challenge_id:
@@ -1437,17 +1436,43 @@ def update_challenge_progress_logic(entity_id, entity_type, challenge_id, progre
             break
 
     current_progress = challenge_data['current_progress']
+    goal_target = challenge_data['goal_target']
     new_progress = current_progress + progress_increment
 
+    # Check if the challenge is completed
+    if new_progress >= goal_target:
+        new_progress = goal_target
+        challenge_status = 'completed'
+        completion_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Award points for completion
+        points_awarded = challenge_data['points_reward']
+        status = award_points_logic(entity_id, points_awarded, entity_type)
+        if status['status'] == 'error':
+            return {"status": "error", "message": "Failed to award points for challenge completion."}
+
+    else:
+        challenge_status = None
+        completion_time = None
+        status = None
 
     db_result = db_operator.update_challenges_progress(
         entity_id, 
         entity_type, 
         challenge_id,
         new_progress,
-        challenge_status=None,
-        completion_time=None
+        challenge_status,
+        completion_time
     )
+
+    if db_result and status:
+        return {"status": "success", "message": "Challenge completed", "points awarded": f"{points_awarded}."}
+
+    elif db_result:
+        return {"status": "success", "message": f"Challenge progress updated to {new_progress}."}
+    
+    else:
+        return {"status": "error", "message": "Failed to update challenge progress."}
 
 
 # --- Admin Functions ---

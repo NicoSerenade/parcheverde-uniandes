@@ -1752,7 +1752,13 @@ def join_challenge(entity_id, user_type, challenge_id):
 
     return success
 
-def update_challenges_progress(entity_id, user_type, challenge_id, new_progress, status=None, completion_date=None):
+def update_challenges_progress(entity_id, user_type, challenge_id, new_progress, challenge_status=None, completion_date=None):
+    '''
+    updates the progress of a challenge for a user or organization.
+    if challenge_status is None, only the progress is updated.
+    returns boolean indicating success.
+    '''
+
     success = None
     conn = db_conn.create_connection()
     if conn is not None:
@@ -1761,18 +1767,16 @@ def update_challenges_progress(entity_id, user_type, challenge_id, new_progress,
             
             if user_type == "user":
                 progress_table = "user_challenges"
-                challenge_table = "challenges_for_users"
                 id_column = "user_id"
             elif user_type == "org":
                 progress_table = "org_challenges"
-                challenge_table = "challenges_for_orgs"
                 id_column = "org_id"
             else:
                 print(f"Error: Invalid user_type specified: {user_type}")
                 return None
 
             # Update the challenge progress in the database
-            if status is None:
+            if challenge_status is None:
                 # Only update progress
                 sql_update = f'''
                 UPDATE {progress_table}
@@ -1789,7 +1793,7 @@ def update_challenges_progress(entity_id, user_type, challenge_id, new_progress,
                     date_completed = ?
                 WHERE {id_column} = ? AND challenge_id = ?
                 '''
-                cursor.execute(sql_update, (new_progress, status, completion_date, entity_id, challenge_id))
+                cursor.execute(sql_update, (new_progress, challenge_status, completion_date, entity_id, challenge_id))
 
             conn.commit()
             success = True
