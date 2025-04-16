@@ -1,4 +1,4 @@
-# Project Backend
+# Projec workflow
 
 This folder contains the backend code for the project.
 
