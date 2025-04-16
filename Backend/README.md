@@ -15,7 +15,7 @@ Please note that Nico will be doing minor improvments in logic and fixing broken
 
 Nico will add in the coments of each new commitment the info about the changes that where made, so that it is easy for you to keep track of them on a single sight. 
 
-To get a better idea of which information we have in the database, open but NOT CHANGE the db_conn.py file, where there are the names of each table(mini database) and the columns with the information we have about them.
+To get a better idea of which information do we have in the database, open but NOT CHANGE the db_conn.py file, where there are the names of each table(mini database) and the columns with the information we have about them.
 For example, if you see this code:             
 CREATE TABLE IF NOT EXISTS users (
                 user_id INTEGER PRIMARY KEY AUTOINCREMENT,
