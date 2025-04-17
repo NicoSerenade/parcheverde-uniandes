@@ -1,0 +1,124 @@
+{% extends "index.html" %}
+
+{% block content %}
+    <h2>Items for Exchange/Gift</h2>
+    
+    <div class="filter-section">
+        <h3>Filter by Terms:</h3>
+        <div class="filter-buttons">
+            <a href="{{ url_for('view_items') }}" class="filter-btn {% if not current_filter %}active{% endif %}">All Items</a>
+            <a href="{{ url_for('view_items', terms='regalo') }}" class="filter-btn {% if current_filter == 'regalo' %}active{% endif %}">Gifts (Regalo)</a>
+            <a href="{{ url_for('view_items', terms='prestamo') }}" class="filter-btn {% if current_filter == 'prestamo' %}active{% endif %}">Borrowing (Préstamo)</a>
+            <a href="{{ url_for('view_items', terms='intercambio') }}" class="filter-btn {% if current_filter == 'intercambio' %}active{% endif %}">Exchange (Intercambio)</a>
+        </div>
+    </div>
+    
+    {% if items %}
+        <ul>
+            {% for item in items %}
+                <li>
+                    <strong>{{ item.name }}</strong> (Type: {{ item.item_type }})<br>
+                    Owner: {{ item.user_name }}<br>
+                    Description: {{ item.description }}<br>
+                    Terms: 
+                    {% if item.item_terms == 'regalo' %}
+                        <span class="terms-badge regalo">Gift (Regalo)</span>
+                    {% elif item.item_terms == 'prestamo' %}
+                        <span class="terms-badge prestamo">Borrowing (Préstamo)</span>
+                    {% elif item.item_terms == 'intercambio' %}
+                        <span class="terms-badge intercambio">Exchange (Intercambio)</span>
+                    {% else %}
+                        {{ item.item_terms }}
+                    {% endif %}
+                    <br>
+                    Listed on: {{ item.creation_date }}
+                    
+                    {# Add button to request exchange if logged in as a different user #}
+                    {% if session.get('entity_type') == 'user' and session.get('user_id') != item.user_id %}
+                        <form action="{{ url_for('request_item', item_id=item.item_id) }}" method="post" style="display: inline; margin-left: 10px;">
+                            <!-- Show the terms offered by the owner -->
+                            <div class="form-group">
+                                <p class="form-text">
+                                    <strong>Terms offered by the owner:</strong> 
+                                    {% if item.item_terms == 'regalo' %}
+                                        <span class="terms-badge regalo">Gift (Regalo)</span>
+                                    {% elif item.item_terms == 'prestamo' %}
+                                        <span class="terms-badge prestamo">Borrowing (Préstamo)</span>
+                                    {% elif item.item_terms == 'intercambio' %}
+                                        <span class="terms-badge intercambio">Exchange (Intercambio)</span>
+                                    {% endif %}
+                                    <br>
+                                    <small class="text-muted">
+                                        By requesting this item, you agree to the terms offered by the owner.
+                                    </small>
+                                </p>
+                            </div>
+
+                            <!-- Message field -->
+                            <div class="form-group">
+                                <label for="message">Message to the owner (optional):</label>
+                                <textarea id="message" name="message" class="form-control" rows="3"></textarea>
+                            </div>
+
+                            <button type="submit">Request Item</button>
+                        </form>
+                    {% endif %}
+
+                    {# Add button to delete if logged in as the owner #}
+                     {% if session.get('entity_type') == 'user' and session.get('user_id') == item.user_id %}
+                        <form action="{{ url_for('delete_my_item', item_id=item.item_id) }}" method="post" style="display: inline; margin-left: 10px;">
+                            <button type="submit" style="background-color: #dc3545;">Delete My Item</button>
+                        </form>
+                    {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No items found.</p>
+    {% endif %}
+    
+    <style>
+        .filter-section {
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .filter-btn {
+            padding: 5px 10px;
+            text-decoration: none;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            color: #333;
+        }
+        .filter-btn.active {
+            background-color: #007bff;
+            color: white;
+        }
+        .terms-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+        .terms-badge.regalo {
+            background-color: #28a745;
+            color: white;
+        }
+        .terms-badge.prestamo {
+            background-color: #fd7e14;
+            color: white;
+        }
+        .terms-badge.intercambio {
+            background-color: #17a2b8;
+            color: white;
+        }
+    </style>
+{% endblock %}
+
+{# Note: Need to implement the 'request_item' and 'delete_my_item' routes in app.py #} 

@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <div class="org-header-section">
+        <h2>{{ org.name }} - Members</h2>
+        <div class="org-stats">
+            <span class="badge points-badge">{{ org.points }} points</span>
+            <span class="badge members-badge">{{ members|length }} members</span>
+        </div>
+    </div>
+    
+    <div class="org-details-box">
+        <div class="org-info">
+            <p><strong>Description:</strong> {{ org.description }}</p>
+            {% if org.interests %}
+                <p><strong>Interests:</strong> {{ org.interests }}</p>
+            {% endif %}
+            <p><strong>Contact:</strong> {{ org.email }}</p>
+        </div>
+        
+        <div class="org-actions">
+            {% if session.get('entity_type') == 'user' %}
+                {% if is_member %}
+                    <form action="{{ url_for('leave_org', org_id=org.org_id) }}" method="post">
+                        <button type="submit" class="btn-leave">Leave Organization</button>
+                    </form>
+                {% else %}
+                    <form action="{{ url_for('join_org', org_id=org.org_id) }}" method="post">
+                        <button type="submit" class="btn-join">Join Organization</button>
+                    </form>
+                {% endif %}
+            {% endif %}
+            <a href="{{ url_for('view_organizations') }}" class="btn-back">Back to Organizations</a>
+        </div>
+    </div>
+    
+    <h3>Members</h3>
+    {% if members %}
+        <ul class="members-list">
+            {% for member in members %}
+                <li class="member-item">
+                    <div class="member-info">
+                        <h4>{{ member.name }}</h4>
+                        {% if member.career %}
+                            <p><strong>Career:</strong> {{ member.career }}</p>
+                        {% endif %}
+                        {% if member.interests %}
+                            <p><strong>Interests:</strong> {{ member.interests }}</p>
+                        {% endif %}
+                        <p><strong>Joined on:</strong> {{ member.join_date }}</p>
+                    </div>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>This organization doesn't have any members yet.</p>
+    {% endif %}
+    
+    <style>
+        .org-header-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .org-stats {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .points-badge {
+            background-color: #28a745;
+        }
+        
+        .members-badge {
+            background-color: #17a2b8;
+        }
+        
+        .org-details-box {
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .org-info {
+            flex: 2;
+        }
+        
+        .org-actions {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: flex-end;
+        }
+        
+        .btn-join, .btn-leave, .btn-back {
+            padding: 8px 15px;
+            border-radius: 4px;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .btn-join {
+            background-color: #007bff;
+            color: white;
+            border: none;
+        }
+        
+        .btn-leave {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+        }
+        
+        .btn-back {
+            background-color: #6c757d;
+            color: white;
+        }
+        
+        .members-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+        }
+        
+        .member-item {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+        }
+        
+        .member-info h4 {
+            margin-top: 0;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 8px;
+        }
+    </style>
+{% endblock %} 
