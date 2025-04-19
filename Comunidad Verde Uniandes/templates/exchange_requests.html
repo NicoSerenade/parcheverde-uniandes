@@ -1,0 +1,216 @@
+{% extends "index.html" %}
+
+{% block content %}
+    <h2>My Exchange Requests</h2>
+    
+    <div class="tab-navigation">
+        <a href="{{ url_for('view_my_requests', type='received') }}" class="tab-btn {% if request_type == 'received' %}active{% endif %}">Received Requests</a>
+        <a href="{{ url_for('view_my_requests', type='sent') }}" class="tab-btn {% if request_type == 'sent' %}active{% endif %}">Sent Requests</a>
+    </div>
+    
+    {% if requests %}
+        <div class="requests-list">
+            {% for request in requests %}
+                <div class="request-card">
+                    <div class="request-header">
+                        <h3>{{ request.item_name }}</h3>
+                        <span class="status-badge {{ request.status }}">{{ request.status|capitalize }}</span>
+                    </div>
+                    
+                    <div class="request-details">
+                        {% if request_type == 'received' %}
+                            <p><strong>Requested by:</strong> {{ request.requester_name }}</p>
+                        {% else %}
+                            <p><strong>Owned by:</strong> {{ request.owner_name }}</p>
+                        {% endif %}
+                        
+                        <div class="terms-info">
+                            <p class="terms-detail">
+                                <strong>Original offer:</strong> 
+                                <span class="terms-badge {{ request.original_term }}">
+                                    {% if request.original_term == 'regalo' %}
+                                        Gift (Regalo)
+                                    {% elif request.original_term == 'prestamo' %}
+                                        Loan (Préstamo)
+                                    {% elif request.original_term == 'intercambio' %}
+                                        Exchange (Intercambio)
+                                    {% else %}
+                                        {{ request.original_term }}
+                                    {% endif %}
+                                </span>
+                            </p>
+                            
+                            <p class="terms-detail">
+                                <strong>Requested as:</strong>
+                                <span class="terms-badge {{ request.requested_term }}">
+                                    {% if request.requested_term == 'regalo' %}
+                                        Gift (Regalo)
+                                    {% elif request.requested_term == 'prestamo' %}
+                                        Loan (Préstamo)
+                                    {% elif request.requested_term == 'intercambio' %}
+                                        Exchange (Intercambio)
+                                    {% else %}
+                                        {{ request.requested_term }}
+                                    {% endif %}
+                                </span>
+                            </p>
+                        </div>
+                        
+                        {% if request.message %}
+                            <div class="message-box">
+                                <p><strong>Message:</strong> {{ request.message }}</p>
+                            </div>
+                        {% endif %}
+                        
+                        <p><strong>Requested on:</strong> {{ request.request_date }}</p>
+                        {% if request.decision_date %}
+                            <p><strong>Decision made on:</strong> {{ request.decision_date }}</p>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="request-actions">
+                        {% if request_type == 'received' and request.status == 'pending' %}
+                            <form action="{{ url_for('accept_exchange', exchange_id=request.exchange_id) }}" method="post">
+                                <button type="submit" class="btn-accept">Accept Request</button>
+                            </form>
+                            <form action="{{ url_for('reject_exchange', exchange_id=request.exchange_id) }}" method="post">
+                                <button type="submit" class="btn-reject">Reject Request</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <p class="no-data">No {{ request_type }} requests found.</p>
+    {% endif %}
+    
+    <style>
+        .tab-navigation {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        .tab-btn {
+            padding: 10px 15px;
+            text-decoration: none;
+            color: #555;
+            border-radius: 4px 4px 0 0;
+            margin-right: 10px;
+        }
+        .tab-btn:hover {
+            background-color: #f5f5f5;
+        }
+        .tab-btn.active {
+            background-color: #007bff;
+            color: white;
+        }
+        .requests-list {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        .request-card {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .request-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .request-header h3 {
+            margin: 0;
+        }
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .status-badge.pending {
+            background-color: #ffc107;
+            color: #000;
+        }
+        .status-badge.accepted {
+            background-color: #28a745;
+            color: white;
+        }
+        .status-badge.rejected {
+            background-color: #dc3545;
+            color: white;
+        }
+        .terms-info {
+            background-color: #f9f9f9;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .terms-detail {
+            margin: 5px 0;
+        }
+        .terms-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: bold;
+            margin-left: 5px;
+        }
+        .terms-badge.regalo {
+            background-color: #28a745;
+            color: white;
+        }
+        .terms-badge.prestamo {
+            background-color: #fd7e14;
+            color: white;
+        }
+        .terms-badge.intercambio {
+            background-color: #17a2b8;
+            color: white;
+        }
+        .message-box {
+            background-color: #f0f7ff;
+            border-left: 3px solid #007bff;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        .request-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+        }
+        .btn-accept {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-reject {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .no-data {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+    </style>
+{% endblock %} 

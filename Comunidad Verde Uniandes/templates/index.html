@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+
+{% block content %}
+    <h2>Welcome!</h2>
+    <p>Use the navigation links above to test different features.</p>
+    {% if 'entity_type' not in session %}
+        <p>Please log in or register to access more features.</p>
+    {% endif %}
+{% endblock %} 

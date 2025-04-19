@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if 'name' in session %}{{ session.name }} - {% endif %}Parche Verde Uniandes</title>
+    <link href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    {% block styles %}{% endblock %}
+</head>
+<body data-logged-in="{% if 'entity_type' in session %}true{% else %}false{% endif %}">
+    <div id="background-container"></div>
+    <nav>
+        <a href="{{ url_for('index') }}">Home</a>
+        {% if 'entity_type' in session %}
+            <span class="user-info">
+                Logged in as: <strong>{{ session.name }}</strong> ({{ session.entity_type }}) |
+                Points: {{ session.points | default('N/A') }} |
+                <a href="{{ url_for('logout') }}">Logout</a>
+            </span>
+            <a href="{{ url_for('profile') }}">My Profile</a>
+            <a href="{{ url_for('view_events') }}">Events</a>
+            <a href="{{ url_for('view_items') }}">Items</a>
+            <a href="{{ url_for('view_organizations') }}">Organizations</a>
+            <a href="{{ url_for('view_map') }}">Map</a>
+            {% if session.entity_type == 'user' %}
+                <a href="{{ url_for('add_item') }}">Add Item</a>
+                <a href="{{ url_for('register_org') }}">Register Org</a>
+            {% endif %}
+            <a href="{{ url_for('create_event') }}">Create Event</a>
+        {% else %}
+            <span class="user-info">Not logged in</span>
+            <a href="{{ url_for('login') }}">Login</a>
+            <a href="{{ url_for('register_user') }}">Register User</a>
+        {% endif %}
+    </nav>
+
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+    
+    {% block scripts %}{% endblock %}
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block styles %}
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        #map-container {
+            height: 500px;
+            margin-bottom: 20px;
+        }
+        .map-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .map-point-list {
+            margin-top: 30px;
+        }
+        .map-point-item {
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .map-point-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .map-point-type {
+            background-color: #17a2b8;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 0.8em;
+        }
+        .map-point-details p {
+            margin: 5px 0;
+        }
+        .add-point-btn {
+            background-color: #28a745;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <h2>Community Map</h2>
+    
+    <div class="map-controls">
+        <div>
+            <h3>Map Points ({{ map_points|length }})</h3>
+        </div>
+        {% if session.get('entity_type') %}
+            <a href="{{ url_for('add_map_point') }}" class="add-point-btn">+ Add Map Point</a>
+        {% endif %}
+    </div>
+    
+    <div id="map-container"></div>
+    
+    {% if map_points %}
+        <div class="map-point-list">
+            <h3>All Map Points</h3>
+            <ul>
+                {% for point in map_points %}
+                    <li class="map-point-item" data-lat="{{ point.latitude }}" data-lng="{{ point.longitude }}">
+                        <div class="map-point-header">
+                            <h4>{{ point.name }}</h4>
+                            <span class="map-point-type">{{ point.point_type }}</span>
+                        </div>
+                        <div class="map-point-details">
+                            <p>{{ point.description }}</p>
+                            <p><small>Coordinates: {{ point.latitude }}, {{ point.longitude }}</small></p>
+                            {% if point.added_by %}
+                                <p><small>Added by: {{ point.added_by }}</small></p>
+                            {% endif %}
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+    {% else %}
+        <p>No map points found. {% if session.get('entity_type') %}Be the first to add one!{% endif %}</p>
+    {% endif %}
+{% endblock %}
+
+{% block scripts %}
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize map
+            var map = L.map('map-container').setView([4.6097, -74.0817], 13); // Bogotá coordinates as default
+            
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+            
+            // Add markers for map points
+            var points = document.querySelectorAll('.map-point-item');
+            var markers = [];
+            
+            points.forEach(function(point) {
+                var lat = parseFloat(point.getAttribute('data-lat'));
+                var lng = parseFloat(point.getAttribute('data-lng'));
+                var name = point.querySelector('h4').textContent;
+                var description = point.querySelector('.map-point-details p').textContent;
+                
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    var marker = L.marker([lat, lng]).addTo(map);
+                    marker.bindPopup("<b>" + name + "</b><br>" + description);
+                    markers.push(marker);
+                }
+            });
+            
+            // Fit bounds to markers if we have any
+            if (markers.length > 0) {
+                var group = new L.featureGroup(markers);
+                map.fitBounds(group.getBounds().pad(0.1));
+            }
+            
+            // Click on list item to focus on map
+            points.forEach(function(point, index) {
+                point.addEventListener('click', function() {
+                    var marker = markers[index];
+                    if (marker) {
+                        map.setView(marker.getLatLng(), 15);
+                        marker.openPopup();
+                    }
+                });
+            });
+        });
+    </script>
+{% endblock %} 
