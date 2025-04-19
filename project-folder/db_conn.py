@@ -180,10 +180,10 @@ def setup_database():
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS user_achievements (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER,
+                entity_id INTEGER,
                 achievement_id INTEGER,
                 date_earned TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(user_id),
+                FOREIGN KEY (entity_id) REFERENCES users(entity_id),
                 FOREIGN KEY (achievement_id) REFERENCES achievements_for_users(achievement_id)
             )
             ''')
@@ -316,8 +316,6 @@ def drop_table():
         print("Operation cancelled. Table was not dropped.")
 
 setup_database()
-
-
 
 
 

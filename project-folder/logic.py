@@ -125,7 +125,7 @@ def login(identifier, password):
             return {
                 "status": "success",
                 "entity_type": "user",
-                "user_id": user.get('user_id'),
+                "entity_id": user.get('user_id'),
                 "student_code": user.get('student_code'),
                 "name": user.get('name'),
                 "email": user.get('email'),
@@ -145,7 +145,7 @@ def login(identifier, password):
             return {
                 "status": "success",
                 "entity_type": "organization",
-                "org_id": org.get('org_id'),
+                "entity_id": org.get('org_id'),
                 "name": org.get('name'),
                 "email": org.get('email'),
                 "description": org.get('description'),
@@ -157,11 +157,6 @@ def login(identifier, password):
     print(f"Logic: Login failed for identifier '{identifier}'")
     return {"status": "error", "message": "Invalid credentials or entity not found."}
 
-
-    
-    # Authentication failed or not an admin
-    print(f"Logic: Admin login failed for username '{username}'")
-    return {"status": "error", "message": "Invalid admin credentials."}
 
 # --- Profile Functions ---
 def update_my_profile_logic(entity_id, entity_type, new_data):
@@ -602,9 +597,9 @@ def leave_event_logic(entity_id, entity_type, event_id):
     else:
         return {"status": "error", "message": "Failed to leave event. Maybe you were not registered or the event doesn't exist."}
 
-def mark_event_attendance_logic(marker_id, marker_type, event_id, participant_id, participant_type):
+def mark_event_attendance_logic(marker_id, event_id, participant_id, participant_type):
     """
-    Allows the specified event organizer or an admin to mark attendance for a participant.
+    Allows the specified event organizer to mark attendance for a participant.
     
     Points System:
     - Users: 5 points when their attendance is confirmed
@@ -612,74 +607,22 @@ def mark_event_attendance_logic(marker_id, marker_type, event_id, participant_id
       * 10 points when the first participant is confirmed (event is happening)
       * 2 points for each confirmed participant
     - Organizations: 20 points when at least 5 members have confirmed attendance at an event
-    
-    Args:
-        marker_id (int): ID of the user/org marking attendance (must be admin or organizer).
-        marker_type (str): 'user' or 'organization' (or 'admin').
-        event_id (int): The ID of the event.
-        participant_id (int): ID of the participant whose attendance is being marked.
-        participant_type (str): 'user' or 'organization'.
-        
-    Returns:
-        dict: Status message and details.
     """
-    # Permission validation
-    if not marker_id or not marker_type:
-        return {"status": "error", "message": "Marker ID and type are required."}
-    if not participant_id or not participant_type:
-        return {"status": "error", "message": "Participant ID and type are required."}
-
-    # Map participant_type 'organization' to 'org' for db_operator
-    db_participant_type = 'org' if participant_type == 'organization' else participant_type
-    if db_participant_type not in ['user', 'org']:
-        return {"status": "error", "message": f"Invalid participant type: {participant_type}"}
-
-    # Map marker_type 'organization' to 'org' for db_operator
-    db_marker_type = 'org' if marker_type == 'organization' else marker_type
-    if db_marker_type not in ['user', 'org', 'admin']:
-        return {"status": "error", "message": f"Invalid marker type: {marker_type}"}
+    # Get event details to check if marker is the organizer
+    events = db_operator.search_events(event_id)
+    if not events or len(events) == 0:
+        return {"status": "error", "message": "Event not found."}
+        
+    event_data = events[0]
+    organizer_id = event_data['organizer_id']
+    organizer_type = event_data['organizer_type']
     
-    # Check if marker is authorized (event organizer or admin)
-    authorized = False
-    organizer_id = None
-    organizer_type = None
-    
-    # Special case for admin (admin authorization would need separate check)
-    if db_marker_type == 'admin':
-        authorized = True  # Assuming admin can mark attendance for any event
-    else:
-        # Check if marker is the event organizer
-        conn = db_conn.create_connection()
-        if conn is not None:
-            try:
-                cursor = conn.cursor()
-                cursor.execute('''
-                SELECT organizer_id, organizer_type 
-                FROM events 
-                WHERE event_id = ?
-                ''', (event_id,))
-                
-                event_data = cursor.fetchone()
-                if event_data:
-                    organizer_id, organizer_type = event_data
-                    # Check if marker is the organizer
-                    if (organizer_id == marker_id and 
-                        (organizer_type == db_marker_type)):
-                        authorized = True
-                
-            except sqlite3.Error as e:
-                print(f"Error checking event organizer: {e}")
-                return {"status": "error", "message": "Database error while checking permissions."}
-            finally:
-                conn.close()
-    
-    if not authorized:
-        return {"status": "error", "message": "You are not authorized to mark attendance for this event. Only the organizer can perform this action."}
-
-    print(f"Logic: {marker_type.capitalize()} ID {marker_id} marking attendance for {participant_type} ID {participant_id} at event ID {event_id}")
+    # Check if marker is the organizer
+    if organizer_id != marker_id:
+        return {"status": "error", "message": "Only the event organizer can mark attendance."}
 
     # Call db_operator function to mark attendance
-    success = db_operator.mark_event_attendance(event_id, participant_id, db_participant_type)
+    success = db_operator.mark_event_attendance(event_id, participant_id, participant_type)
     
     if not success:
         return {"status": "error", "message": "Failed to mark attendance. Check if participant is registered for the event."}
@@ -688,36 +631,31 @@ def mark_event_attendance_logic(marker_id, marker_type, event_id, participant_id
     messages = []
     
     # 1. Award points to participant for confirmed attendance
-    if db_participant_type == 'user':
+    if participant_type == 'user':
         # Award points to the user for participating
         participant_points = 5  # Points for attending an event
-        participant_reason = f"Attended event ID {event_id}"
-        award_participant = award_points_logic(participant_id, participant_points, participant_reason)
+        award_participant = award_points_logic(participant_id, participant_type, participant_points)
         if award_participant['status'] == 'success':
             messages.append(f"Participant earned {participant_points} points for attendance.")
     
     # 2. Award points to the event organizer if applicable
-    if organizer_id and organizer_type:
-        # Check how many confirmed participants the event has
-        participant_count = get_confirmed_participant_count(event_id)
-        
-        # Award 10 points for first confirmed participant
-        if participant_count == 1:
-            organizer_bonus_points = 10  # Points for first confirmed attendee
-            organizer_bonus_reason = f"First confirmed attendee for event ID {event_id}"
-            award_bonus = award_points_logic(organizer_id, organizer_bonus_points, organizer_bonus_reason, organizer_type)
-            if award_bonus['status'] == 'success':
-                messages.append(f"Organizer earned {organizer_bonus_points} points for first confirmed attendee.")
-        
-        # Award 2 points to organizer for each confirmed participant
-        organizer_points = 2  # Points per confirmed attendee
-        organizer_reason = f"Confirmed attendee for event ID {event_id}"
-        award_organizer = award_points_logic(organizer_id, organizer_points, organizer_reason, organizer_type)
-        if award_organizer['status'] == 'success':
-            messages.append(f"Organizer earned {organizer_points} points for confirming an attendee.")
+    participant_count = get_confirmed_participant_count(event_id=event_id)
+    
+    # Award 10 points for first confirmed participant
+    if participant_count == 1:
+        organizer_bonus_points = 10  # Points for first confirmed attendee
+        award_bonus = award_points_logic(organizer_id, organizer_type, organizer_bonus_points)
+        if award_bonus['status'] == 'success':
+            messages.append(f"Organizer earned {organizer_bonus_points} points for first confirmed attendee.")
+    
+    # Award 2 points to organizer for each confirmed participant
+    organizer_points = 2  # Points per confirmed attendee
+    award_organizer = award_points_logic(organizer_id, organizer_type, organizer_points)
+    if award_organizer['status'] == 'success':
+        messages.append(f"Organizer earned {organizer_points} points for confirming an attendee.")
     
     # 3. Check if participant belongs to an organization and if 5+ members attended
-    if db_participant_type == 'user':
+    if participant_type == 'user':
         # Get organizations that the user belongs to
         user_orgs = db_operator.search_orgs(user_id=participant_id)
         
@@ -725,13 +663,12 @@ def mark_event_attendance_logic(marker_id, marker_type, event_id, participant_id
             for org in user_orgs:
                 org_id = org['org_id']
                 # Check how many confirmed members from this org have attended
-                org_member_count = get_org_confirmed_count(event_id, org_id)
+                org_member_count = get_org_confirmed_count(event_id=event_id, org_id=org_id)
                 
                 # If exactly 5 members have been confirmed (including this one), award org points
                 if org_member_count == 5:
                     org_points = 20  # Points for having 5 confirmed members
-                    org_reason = f"5 members attended event ID {event_id}"
-                    award_org = award_points_logic(org_id, org_points, org_reason, 'org')
+                    award_org = award_points_logic(org_id, 'org', org_points)
                     if award_org['status'] == 'success':
                         messages.append(f"Organization ID {org_id} earned {org_points} points for having 5 confirmed attendees.")
     
@@ -741,6 +678,7 @@ def mark_event_attendance_logic(marker_id, marker_type, event_id, participant_id
         message += " " + " ".join(messages)
     
     return {"status": "success", "message": message}
+
 
 def get_confirmed_participant_count(event_id):
     """
@@ -819,13 +757,14 @@ def get_org_confirmed_count(event_id, org_id):
 
 
 # --- Item Functions ---
-def add_item_logic(owner_id, name, description, item_type, item_terms):
+def add_item_logic(owner_id, owner_type, name, description, item_type, item_terms):
     """
     Allows a specified user to add an item for exchange, gift or borrowing.
-    Returns a status message, potentially including points awarded.
+    Returns a status message, including points awarded.
 
     Args:
         owner_id (int): The user_id of the item owner.
+        owner_type (str): The type of the owner (user or organization).
         name (str): Item name.
         description (str): Item description.
         item_type (str): Item type (ropa, libros, hogar, otros).
@@ -841,14 +780,12 @@ def add_item_logic(owner_id, name, description, item_type, item_terms):
     if item_terms not in valid_terms:
         return {"status": "error", "message": f"Invalid item terms. Must be one of: {', '.join(valid_terms)}"}
 
-    print(f"Logic: User ID {owner_id} adding item '{name}' with terms '{item_terms}'")
     item_id = db_operator.create_item(owner_id, name, description, item_type, item_terms)
 
     if item_id:
-        # Add a small incentive for listing items, but the main points come when the exchange actually happens
+
         points_to_award = 1  # Just 1 point for listing an item
-        points_reason = f"Listed item '{name}' for {item_terms}"
-        award_result = award_points_logic(owner_id, points_to_award, points_reason)
+        award_result = award_points_logic(owner_id, owner_type, points_to_award)
         return {"status": "success", "message": f"Item '{name}' added successfully. {award_result.get('message', '')}"}
     else:
         return {"status": "error", "message": "Failed to add item."}
@@ -1008,6 +945,9 @@ def accept_exchange_logic(owner_id, exchange_id):
         owner_id (int): The user_id of the item owner accepting the request.
         exchange_id (int): The ID of the exchange request being accepted.
     """
+    owner_type = 'user'
+    requester_type = 'user'
+      # Assuming owner is always a user
     if not owner_id or not exchange_id:
         return {"status": "error", "message": "Owner ID and exchange request ID are required."}
 
@@ -1066,13 +1006,11 @@ def accept_exchange_logic(owner_id, exchange_id):
         
         # Award points to owner
         if owner_points > 0:
-            owner_points_reason = f"Accepted request for {item_name} as {item_terms}"
-            award_points_logic(owner_id, owner_points, owner_points_reason)
+            award_points_logic(owner_id, owner_type, owner_points)
         
         # Award points to requester if applicable
         if requester_points > 0:
-            requester_points_reason = f"Request for {item_name} accepted as {item_terms}"
-            award_points_logic(requester_id, requester_points, requester_points_reason)
+            award_points_logic(requester_id, requester_type, requester_points)
         
         # Create success message based on the item_terms
         term_messages = {
@@ -1304,7 +1242,7 @@ def update_challenge_progress_logic(entity_id, entity_type, challenge_id, progre
 
         # Award points for completion
         points_awarded = challenge_data['points_reward']
-        status = award_points_logic(entity_id, points_awarded, entity_type)
+        status = award_points_logic(entity_id, entity_type, points_awarded)
         if status['status'] == 'error':
             return {"status": "error", "message": "Failed to award points for challenge completion."}
 
@@ -1426,7 +1364,7 @@ def update_single_org_points(org_id):
     
     return None
 
-def award_points_logic(entity_id, points_to_add, entity_type):
+def award_points_logic(entity_id, entity_type, points_to_add):
     """
     Awards points to a specific user or organization and checks for achievement unlocks.
     
@@ -1472,7 +1410,7 @@ def award_points_logic(entity_id, points_to_add, entity_type):
     if achievements:
         for ach in achievements:
             # Check if the new points exceed the any new achievement threshold 
-            if old_points < ach['points'] and new_points >= ach['points']:
+            if old_points < ach['points_required'] and new_points >= ach['points_required']:
                 # Unlock the achievement
                 achievement_unlocked = ach['name']
                 db_operator.update_entity_achievements(entity_id, entity_type, ach['achievement_id'])
@@ -1497,7 +1435,7 @@ def award_points_logic(entity_id, points_to_add, entity_type):
 
 def get_entity_achievements(entity_id, entity_type):
     '''
-    Retrieves the points and achievements info for the specified user.
+    Retrieves the achievements info for the specified user.
     Returns a dictionary with status message and achievements data.
     '''
     response = db_operator.get_entity_achievements(entity_id, entity_type)
@@ -1555,7 +1493,7 @@ def admin_create_achievement_logic(admin_id, name, description, points_required,
         name (str): Achievement name.
         description (str): Achievement description.
         points_required (int): Points needed to unlock.
-        badge_icon (str): Icon identifier/URL. (text like reference to the real icon stored in images folder(not created yet))
+        badge_icon (str): name of the SVG icon to show
         achievement_user_type (str): 'user' or 'org'.
     """
     # Admin check MUST happen in app.py route before calling this

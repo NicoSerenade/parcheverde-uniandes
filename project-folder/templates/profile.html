@@ -33,23 +33,38 @@
                     <h3>Points and Badges</h3>
                     <p><strong>Total Points:</strong> {{ points }}</p>
                     
-                    {% if badges %}
-                        <div class="badges-container">
-                            <h4>Your Badges</h4>
-                            <div class="badges-list">
+                    <div class="badges-container">
+                        <h4>Your Badges</h4>
+                        <div class="badges-list">
+                            {% if badges %}
                                 {% for badge in badges %}
                                     <div class="badge-card">
-                                        <div class="badge-icon">🏆</div>
+                                        <div class="badge-icon">
+                                            {% if badge.badge_icon %}
+                                                <img src="{{ url_for('static', filename='badges/' + badge.badge_icon) }}" alt="{{ badge.name }}" class="badge-image">
+                                            {% else %}
+                                                🏆
+                                            {% endif %}
+                                        </div>
                                         <div class="badge-name">{{ badge.name }}</div>
                                     </div>
                                 {% endfor %}
-                            </div>
+                            {% else %}
+                                <p>No badges earned yet.</p>
+                            {% endif %}
                         </div>
-                    {% else %}
-                        <p>You haven't earned any badges yet. Participate in events and challenges to earn them!</p>
-                    {% endif %}
+                    </div>
                 </div>
-                
+                <style>
+                    /* Add this to your existing CSS */
+                    .badge-image {
+                        width: 50px;
+                        height: 50px;
+                        object-fit: contain;
+                    }
+                </style>
+
+                </div> <!-- Closing the badges-container div -->
                 <div class="profile-section">
                     <h3>My Organizations</h3>
                     {% if user_orgs %}

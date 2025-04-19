@@ -727,11 +727,12 @@ def leave_org(org_id, user_id):
     return success
 
 #EVENTS
-def search_events(query=None, event_type=None, status=None, organizer_type=None, start_date=None, end_date=None):
+def search_events(event_id=None, query=None, event_type=None, status=None, organizer_type=None, start_date=None, end_date=None):
     """
     Searches for events based on various criteria.
     
     Args:
+        event_id (int, optional): ID of the event
         query (str, optional): Search in name or description fields
         event_type (str, optional): Filter by event type
         status (str, optional): Filter by event status ('active', 'completed', etc.)
@@ -761,7 +762,11 @@ def search_events(query=None, event_type=None, status=None, organizer_type=None,
             if query:
                 sql_query += " AND (name LIKE ? OR description LIKE ?)"
                 params.extend([f"%{query}%", f"%{query}%"])
-                
+            
+            if event_id:
+                sql_query += " AND event_id = ?"
+                params.append(event_id)
+
             if event_type:
                 sql_query += " AND event_type = ?"
                 params.append(event_type)
@@ -1022,14 +1027,14 @@ def leave_event(event_id, entity_id, user_type):
             
     return success
 
-def mark_event_attendance(event_id, entity_id, user_type):
+def mark_event_attendance(event_id, entity_id, entity_type):
     """
     Marks a participant as having attended an event.
     
     Args:
         event_id (int): ID of the event
         entity_id (int): ID of the participant (user or org)
-        user_type (str): Type of entity ('user' or 'org')
+        entity_type (str): Type of entity ('user' or 'org')
         
     Returns:
         bool: True if successful, False otherwise
@@ -1041,20 +1046,20 @@ def mark_event_attendance(event_id, entity_id, user_type):
         try:
             cursor = conn.cursor()
             
-            if user_type == "user":
+            if entity_type == "user":
                 cursor.execute('''
                 UPDATE user_event_participants
                 SET attended = 1
                 WHERE event_id = ? AND user_id = ?
                 ''', (event_id, entity_id))
-            elif user_type == "org":
+            elif entity_type == "org":
                 cursor.execute('''
                 UPDATE org_event_participants
                 SET attended = 1
                 WHERE event_id = ? AND org_id = ?
                 ''', (event_id, entity_id))
             else:
-                print(f"Error: Invalid user_type: {user_type}")
+                print(f"Error: Invalid entity_type: {entity_type}")
                 return False
                 
             conn.commit()
@@ -1869,14 +1874,15 @@ def get_entity_achievements(entity_id, entity_type):
             cursor = conn.cursor()
 
             # Use the appropriate tables based on entity type
+            id_column = "entity_id"
             if entity_type == "user":
                 table_name = "user_achievements"
                 achievement_table = "achievements_for_users"
-                id_column = "user_id"
+            
             elif entity_type == "org":
                 table_name = "org_achievements"
                 achievement_table = "achievements_for_orgs"
-                id_column = "org_id"
+
             else:
                 print(f"Error: Invalid entity_type '{entity_type}' specified")
                 return None  # Return None on invalid entity type

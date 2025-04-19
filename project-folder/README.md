@@ -40,3 +40,6 @@ It means we have a mini database named users with the following information abou
                 interests, (with this valid interests: siembra, reciclaje, caridad, enseñanza, software)
                 points,
                 creation_date
+
+Test achievement:
+{'achievement_id': 4, 'name': 'Wood Rank ', 'description': 'Earned for getting points', 'points_required': 5, 'badge_icon': 'badge-wood-test.svg'}

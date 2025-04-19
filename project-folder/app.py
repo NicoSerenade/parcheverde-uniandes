@@ -135,29 +135,27 @@ def login():
             # Clear any old session data first
             session.clear()
             # Store common fields
+            session['entity_id'] = result['entity_id']
             session['entity_type'] = result['entity_type']
             session['name'] = result['name']
             session['email'] = result['email']
-            session['points'] = result.get('points', 0)
+            session['interests'] = result.get('interests', '')
+            session['description'] = result.get('description', '')
+            session['points'] = result.get('points', 0) 
+
             # If admin user, redirect to admin dashboard
             if result['entity_type'] == 'admin':
-                session['admin_id'] = result['user_id']
                 flash(f"Admin login successful for {session['name']}!", 'success')
                 return redirect(url_for('admin_dashboard'))
             
             # Store type-specific ID and data
             if result['entity_type'] == 'user':
-                session['user_id'] = result['user_id']
                 session['student_code'] = result['student_code']
-                # Store additional profile data
                 session['career'] = result.get('career', '')
-                session['interests'] = result.get('interests', '')
 
             elif result['entity_type'] == 'org':
-                session['org_id'] = result['org_id']
-                session['description'] = result.get('description', '')
-                session['interests'] = result.get('interests', '')
-
+                session['creator_student_code'] = result['creator_student_code']
+                
             flash(f"Login successful for {session['name']}!", 'success')
             return redirect(url_for('index'))
         else:
@@ -165,8 +163,6 @@ def login():
             flash(result['message'], result['status'])
             return redirect(url_for('login'))
 
-    # Show login form for GET request
-    # No longer passing current_session manually
     return render_template('login.html')
 
 @app.route('/logout')
@@ -185,8 +181,9 @@ def profile():
     """
     entity_id = None
     entity_type = session.get('entity_type')
+    
     if entity_type == 'user':
-        entity_id = session.get('user_id')
+        entity_id = session.get('entity_id')
         
         # Create initial user_data from session information
         user_data = {
@@ -211,15 +208,20 @@ def profile():
             session['interests'] = fresh_user_data.get('interests', '')
             session.modified = True
         
-        # Get badges and achievements
+
+ 
+        
+        # Get points and user orgs
         points = session.get('points', 0)
-        badges = []
         user_orgs = []
         
-        # Get achievements if available
+        # Get achievements if available and add to badges
+        badges = []
         result = logic.get_entity_achievements(entity_id, entity_type)
-        if result['status'] == 'success':
-            badges = result['data']
+        if result['status'] == 'success' and 'data' in result:
+            achievement_badges = result.get('data', [])
+            # Add any additional badges to our list
+            badges.extend(achievement_badges)
         
         # Get user organizations
         orgs_result = logic.get_user_orgs_logic(entity_id)
@@ -231,8 +233,9 @@ def profile():
                               points=points, 
                               badges=badges,
                               user_orgs=user_orgs)
-    
-    elif entity_type == 'orgganization':
+        
+
+    elif entity_type == 'organization':
         entity_id = session.get('org_id')
         
         # Create org_data from session information
@@ -265,7 +268,7 @@ def update_profile():
     """
     Allow users or organizations to update their profile information.
     """
-    entity_id = session.get('user_id') or session.get('org_id')
+    entity_id = session.get('entity_id') or session.get('org_id')
     entity_type = session.get('entity_type')
     
     if not entity_id or not entity_type:
@@ -335,7 +338,7 @@ def update_profile():
         }
         
         # Get additional data if available
-        result = logic.view_my_points_and_badges_logic(entity_id)
+        result = logic.get_entity_by_id(entity_id, entity_type)
         if result['status'] == 'success' and 'data' in result:
             # Only update fields from the database that aren't already in session
             db_data = result['data']
@@ -367,7 +370,7 @@ def delete_account():
     """
     Allow users or organizations to delete their account.
     """
-    entity_id = session.get('user_id') or session.get('org_id')
+    entity_id = session.get('entity_id') or session.get('org_id')
     entity_type = session.get('entity_type')
     
     if not entity_id or not entity_type:
@@ -402,8 +405,8 @@ def view_my_requests():
     """
     View exchange requests (both sent and received).
     """
-    user_id = session.get('user_id')
-    if not user_id:
+    entity_id = session.get('entity_id')
+    if not entity_id:
         flash("Could not identify user session.", "error")
         return redirect(url_for('login'))
     
@@ -413,7 +416,7 @@ def view_my_requests():
         request_type = 'received'
     
     # Call the logic function
-    result = logic.view_my_exchange_requests_logic(user_id, request_type)
+    result = logic.view_my_exchange_requests_logic(entity_id, request_type)
     
     if result['status'] == 'success':
         requests = result.get('data', [])
@@ -487,10 +490,10 @@ def view_org_members(org_id):
         members = result.get('data', [])
         # Check if current user is a member of this organization
         is_member = False
-        if session.get('entity_type') == 'user' and session.get('user_id'):
-            user_id = session.get('user_id')
+        if session.get('entity_type') == 'user' and session.get('entity_id'):
+            entity_id = session.get('entity_id')
             for member in members:
-                if member.get('user_id') == user_id:
+                if member.get('entity_id') == entity_id:
                     is_member = True
                     break
         
@@ -508,13 +511,13 @@ def join_org(org_id):
     """
     Allows a user to join an organization.
     """
-    user_id = session.get('user_id')
-    if not user_id:
+    entity_id = session.get('entity_id')
+    if not entity_id:
         flash("Could not identify user session.", "error")
         return redirect(url_for('login'))
     
     # Call the logic function
-    result = logic.join_org_logic(user_id, org_id)
+    result = logic.join_org_logic(entity_id, org_id)
     flash(result['message'], result['status'])
     
     return redirect(url_for('view_organizations'))
@@ -525,13 +528,13 @@ def leave_org(org_id):
     """
     Allows a user to leave an organization they've joined.
     """
-    user_id = session.get('user_id')
-    if not user_id:
+    entity_id = session.get('entity_id')
+    if not entity_id:
         flash("Could not identify user session.", "error")
         return redirect(url_for('login'))
     
     # Call the logic function
-    result = logic.leave_org_logic(user_id, org_id)
+    result = logic.leave_org_logic(entity_id, org_id)
     flash(result['message'], result['status'])
     
     return redirect(url_for('view_organizations'))
@@ -543,7 +546,7 @@ def leave_org(org_id):
 def create_event():
     # Decorator ensures login.
     # Get organizer details from session.
-    organizer_id = session.get('user_id') or session.get('org_id')
+    organizer_id = session.get('entity_id') or session.get('org_id')
     organizer_type = session.get('entity_type')
 
     if not organizer_id or not organizer_type:
@@ -577,7 +580,7 @@ def delete_event(event_id):
     """
     Delete an event. Only the organizer or an admin can delete an event.
     """
-    entity_id = session.get('user_id') or session.get('org_id')
+    entity_id = session.get('entity_id') or session.get('org_id')
     entity_type = session.get('entity_type')
     
     if not entity_id or not entity_type:
@@ -615,7 +618,7 @@ def view_event_participants(event_id):
     Show participants for an event. This route will be used for attendance marking.
     Only accessible to event organizers and admins.
     """
-    entity_id = session.get('user_id') or session.get('org_id')
+    entity_id = session.get('entity_id') or session.get('org_id')
     entity_type = session.get('entity_type')
     
     if not entity_id or not entity_type:
@@ -664,19 +667,19 @@ def view_event_participants(event_id):
 @user_login_required # Only users can register for events
 def register_for_event(event_id):
     # Decorator ensures user login.
-    user_id = session.get('user_id')
-    if not user_id:
+    entity_id = session.get('entity_id')
+    entity_type = session.get("entity_type")
+    if not entity_id:
         flash("Could not identify user session.", "error")
         return redirect(url_for('login'))
 
-    # Pass user_id to the refactored logic function
-    result = logic.register_for_event_logic(user_id, event_id)
+    result = logic.register_for_event_logic(entity_id, event_id)
     flash(result['message'], result['status'])
 
     if result['status'] == 'success':
          # --- Update points in session --- 
          # Similar to add_item, re-fetch points or increment based on logic guarantees
-         user_data = logic.view_my_points_and_badges_logic(user_id)
+         user_data = logic.get_entity_by_id(entity_id, entity_type)
          if user_data['status'] == 'success':
              session['points'] = user_data['data'].get('points', session.get('points'))
              session.modified = True
@@ -690,12 +693,12 @@ def leave_event(event_id):
     """
     Allows a user to leave an event they've registered for.
     """
-    user_id = session.get('user_id')
-    if not user_id:
+    entity_id = session.get('entity_id')
+    if not entity_id:
         flash("Could not identify user session.", "error")
         return redirect(url_for('view_events'))
     
-    result = logic.leave_event_logic(user_id, event_id)
+    result = logic.leave_event_logic(entity_id, event_id)
     flash(result['message'], result['status'])
     
     return redirect(url_for('view_events'))
@@ -707,7 +710,7 @@ def mark_attendance():
     Mark attendance for a participant.
     Only accessible to event organizers and admins.
     """
-    marker_id = session.get('user_id') or session.get('org_id')
+    marker_id = session.get('entity_id') or session.get('org_id')
     marker_type = session.get('entity_type')
     
     if not marker_id or not marker_type:
@@ -743,10 +746,8 @@ def mark_attendance():
 @user_login_required # Only users can add items
 def add_item():
     # Decorator ensures user login.
-    owner_id = session.get('user_id') # Get owner ID from session
-    if not owner_id:
-        flash("Could not identify user session.", "error")
-        return redirect(url_for('login'))
+    owner_id = session.get('entity_id')
+    owner_type = session.get('entity_type') 
 
     if request.method == 'POST':
         name = request.form.get('name')
@@ -761,7 +762,7 @@ def add_item():
             
         # Call the logic function with updated parameters
         result = logic.add_item_logic(
-            owner_id, name, description, item_type, item_terms
+            owner_id, owner_type, name, description, item_type, item_terms
         )
 
         flash(result['message'], result['status'])
@@ -769,7 +770,7 @@ def add_item():
         # Update session points if successful
         if result['status'] == 'success':
             # Re-fetch current points to ensure accuracy
-             user_data = logic.view_my_points_and_badges_logic(owner_id)
+             user_data = logic.get_entity_by_id(owner_id, owner_type)
              if user_data['status'] == 'success':
                  session['points'] = user_data['data'].get('points', session.get('points')) # Update session points
                  session.modified = True # Required when modifying mutable session objects
@@ -783,13 +784,13 @@ def add_item():
 @user_login_required # Only users can delete their items
 def delete_my_item(item_id):
     """Handles a user deleting their own item."""
-    user_id = session.get('user_id')
-    if not user_id:
+    entity_id = session.get('entity_id')
+    if not entity_id:
         flash("Could not identify user session.", "error")
         return redirect(url_for('login'))
 
     # Call the logic function to delete the item
-    result = logic.delete_my_item_logic(user_id, item_id)
+    result = logic.delete_my_item_logic(entity_id, item_id)
     flash(result['message'], result['status'])
     
     # Redirect back to the items list
@@ -815,7 +816,7 @@ def view_items():
 @app.route('/item/request/<int:item_id>', methods=['POST'])
 @user_login_required
 def request_item(item_id):
-    requester_id = session.get('user_id')
+    requester_id = session.get('entity_id')
     if not requester_id:
         flash("Could not identify user session.", "error")
         return redirect(url_for('login'))
@@ -835,13 +836,13 @@ def accept_exchange(exchange_id):
     """
     Accept an exchange request.
     """
-    user_id = session.get('user_id')
-    if not user_id:
+    entity_id = session.get('entity_id')
+    if not entity_id:
         flash("Could not identify user session.", "error")
         return redirect(url_for('login'))
 
     # Call the logic function
-    result = logic.accept_exchange_logic(user_id, exchange_id)
+    result = logic.accept_exchange_logic(entity_id, exchange_id)
     flash(result['message'], result['status'])
 
     # Redirect back to exchange requests
@@ -853,13 +854,13 @@ def reject_exchange(exchange_id):
     """
     Reject an exchange request.
     """
-    user_id = session.get('user_id')
-    if not user_id:
+    entity_id = session.get('entity_id')
+    if not entity_id:
         flash("Could not identify user session.", "error")
         return redirect(url_for('login'))
     
     # Call the logic function
-    result = logic.reject_exchange_logic(user_id, exchange_id)
+    result = logic.reject_exchange_logic(entity_id, exchange_id)
     flash(result['message'], result['status'])
     
     # Redirect back to exchange requests
@@ -889,7 +890,7 @@ def add_map_point():
     """
     Add a new map point if the user has the special permission code.
     """
-    entity_id = session.get('user_id') or session.get('org_id')
+    entity_id = session.get('entity_id') or session.get('org_id')
     entity_type = session.get('entity_type')
     
     if not entity_id or not entity_type:
@@ -953,7 +954,7 @@ def view_challenges():
         # Get user's active challenges if they're logged in
         active_challenges = []
         if 'entity_type' in session:
-            entity_id = session.get('user_id') or session.get('org_id')
+            entity_id = session.get('entity_id') or session.get('org_id')
             active_result = logic.get_my_active_challenges_logic(entity_id, entity_type)
             if active_result['status'] == 'success':
                 active_challenges = active_result.get('data', [])
@@ -971,7 +972,7 @@ def join_challenge(challenge_id):
     """
     Join a challenge.
     """
-    entity_id = session.get('user_id') or session.get('org_id')
+    entity_id = session.get('entity_id') or session.get('org_id')
     entity_type = session.get('entity_type')
     
     if not entity_id or not entity_type:
@@ -991,7 +992,7 @@ def view_achievements():
     View achievements for the logged-in entity type.
     """
     entity_type = session.get('entity_type')
-    entity_id = session.get('user_id') or session.get('org_id')
+    entity_id = session.get('entity_id') or session.get('org_id')
     
     if not entity_id or not entity_type:
         flash("Could not identify your session.", "error")
@@ -1003,7 +1004,7 @@ def view_achievements():
     # Get user's unlocked achievements
     unlocked_achievements = []
     if entity_type == 'user':
-        user_data = logic.view_my_points_and_badges_logic(entity_id)
+        user_data = logic.get_entity_by_id(entity_id, entity_type)
         if user_data['status'] == 'success':
             unlocked_achievements = user_data['data'].get('achievements', [])
     
@@ -1107,12 +1108,12 @@ def admin_users():
     
     return render_template('admin/users.html', users=users, query=query)
 
-@app.route('/admin/users/<int:user_id>/delete', methods=['POST'])
+@app.route('/admin/users/<int:entity_id>/delete', methods=['POST'])
 @admin_required
-def admin_delete_user(user_id):
+def admin_delete_user(entity_id):
     """Delete a user."""
     admin_id = session.get('admin_id')
-    result = logic.admin_delete_user_logic(admin_id, user_id)
+    result = logic.admin_delete_user_logic(admin_id, entity_id)
     flash(result['message'], result['status'])
     return redirect(url_for('admin_users'))
   
