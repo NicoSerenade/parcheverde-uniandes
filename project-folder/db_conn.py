@@ -14,10 +14,11 @@ datetime format ISO 8601 YYYY-MM-DD HH:MM:SS
 
 import sqlite3
 
-def create_connection():
+def create_connection(db_file='comunidad_verde.db'):
     conn = None
     try:
-        conn = sqlite3.connect('comunidad_verde.db')
+        conn = sqlite3.connect(db_file)
+        print(f"Connected to {db_file}")
     except sqlite3.Error as e:
         print(f"Error connecting to database: {e}")
     return conn
