@@ -328,14 +328,7 @@ def get_entity_by_id(entity_id, entity_type):
 def search_orgs_logic(query=None, interests=None, sort_by=None, user_id=None):
     """
     Searches organizations based on criteria.
-    
-    Args:
-        query (str, optional): Search in name or description fields
-        interests (str, optional): Filter by interests (partial match)
-        sort_by (str, optional): Sort by field ('name', 'points', 'creation_date')
-        user_id (int, optional): If provided, filter to only show orgs where this user is a member
     """
-    print(f"Logic: Searching orgs with query='{query}', interests='{interests}', sort_by='{sort_by}', user_id={user_id}")
     orgs = db_operator.search_orgs(query=query, interests=interests, sort_by=sort_by, user_id=user_id)
     if orgs is None:
          return {"status": "error", "message": "Error searching organizations."}
@@ -503,9 +496,6 @@ def delete_event_logic(entity_id, entity_type, event_id):
     if entity_type not in ['user', 'org']:
          return {"status": "error", "message": f"Invalid entity type: {entity_type}"}
 
-
-    print(f"Logic: {entity_type.capitalize()} ID {entity_id} attempting to delete event ID {event_id}")
-    # db_operator.delete_event handles the check if the entity is the organizer
     success = db_operator.delete_event(event_id, entity_id, entity_type)
 
     if success:
@@ -519,7 +509,6 @@ def search_events_logic(query):
     Searches for events matching the query in name or description.
     Returns a dictionary with status and data.
     """
-    print(f"Logic: Searching events for '{query}'")
     events = db_operator.search_events(query=query)
     if events is None:  # DB error
         return {"status": "error", "message": f"Failed to search events for '{query}'."}
@@ -1602,7 +1591,6 @@ def admin_delete_event(event_id):
     else:
         return {"status": "error", "message": "Failed to delete event. It might not exist."}
 
-
 # --- Stats Functions ---
 def get_users_count():
     """Returns the total number of users in the system."""
@@ -1656,3 +1644,5 @@ def get_top_orgs_by_points(limit=5):
     # Limit the results to the specified number
     return top_orgs[:limit] if limit and len(top_orgs) > limit else top_orgs
 
+
+# --- Messaging Functions ---

@@ -279,6 +279,11 @@ def setup_database():
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP
             )
             ''')
+
+            # Messages table
+            
+
+    
             
         except sqlite3.Error as e:
             print(f"Error setting up database: {e}")

@@ -2420,3 +2420,4 @@ def orgs_view():
     
     return orgs_list
 
+# --- Messaging Functions ---
