@@ -1438,6 +1438,17 @@ def get_entity_achievements(entity_id, entity_type):
         "data": response
     }
     
+def search_achievements_logic(entity_type):
+    """
+    Searches for all defined achievements for a given type.
+    Returns:
+        dict: Status message and list of dictionaries, each containing achievement data (id, name, description, points, icon).
+    """
+    achievements = db_operator.search_achievements(entity_type)
+    if achievements is None:
+        return {"status": "error", "message": f"There are no achievements for {entity_type}s."}
+    else:
+        return {"status": "success", "data": achievements}
 
 # --- Admin Functions ---
 
