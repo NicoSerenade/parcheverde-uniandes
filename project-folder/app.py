@@ -889,7 +889,7 @@ def add_map_point():
     """
     Add a new map point if the user has the special permission code.
     """
-    entity_id = session.get('entity_id') or session.get('org_id')
+    entity_id = session.get('entity_id')
     entity_type = session.get('entity_type')
     
     if not entity_id or not entity_type:

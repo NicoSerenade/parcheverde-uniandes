@@ -42,4 +42,4 @@ It means we have a mini database named users with the following information abou
                 creation_date
 
 Test achievement:
-{'achievement_id': 4, 'name': 'Wood Rank ', 'description': 'Earned for getting points', 'points_required': 5, 'badge_icon': 'badge-wood-test.svg'}
+{'achievement_id': 5, 'name': 'Liga Viento ', 'description': 'Earned for reaching 1 point', 'points_required': 1, 'badge_icon': 'badge-senor-vientos.svg'}
