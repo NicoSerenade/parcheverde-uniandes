@@ -281,10 +281,19 @@ def setup_database():
             ''')
 
             # Messages table
-            
-
-    
-            
+            cursor.execute('''
+            CREATE TABLE IF NOT EXISTS messages (
+                message_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sender_id INTEGER NOT NULL,
+                sender_type TEXT NOT NULL, -- 'user' or 'org'
+                recipient_id INTEGER NOT NULL,
+                recipient_type TEXT NOT NULL, -- 'user' or 'org'
+                content TEXT NOT NULL,
+                timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
+                is_read BOOLEAN DEFAULT 0
+            )
+            ''')
+        
         except sqlite3.Error as e:
             print(f"Error setting up database: {e}")
         finally:
