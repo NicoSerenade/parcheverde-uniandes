@@ -2422,3 +2422,139 @@ def orgs_view():
     return orgs_list
 
 # --- Messaging Functions ---
+
+def save_message(sender_id: int, sender_type: str, recipient_id: int, recipient_type: str, content: str) -> dict:
+    
+    '''
+    Saves a message in the database.
+    saves sender_id, recipient_id and content in the messages table.
+    Validates if content is a non-empty string.
+    
+    Returns a dict with the status and message ID.
+    '''
+    
+    result = None
+    
+    # Validate if content isn't empty and is a string
+    if not isinstance(content, str) or len(content.strip()) == 0:
+        result = {"status": "error", "message": "Content must be a non-empty string"}
+
+    else:
+        conn = db_conn.create_connection()
+        if conn is None:
+            result = {"status": "error", "message": "Database connection failed"}
+
+        else:
+            try:
+                cursor = conn.cursor()
+                cursor.execute('''
+                    INSERT INTO messages (sender_id, sender_type, recipient_id, recipient_type, content)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (sender_id, sender_type, recipient_id, recipient_type, content))
+                conn.commit()
+                result = {"status": "success", "message_id": cursor.lastrowid}
+
+            except sqlite3.Error as e:
+                result = {"status": "error", "message": str(e)}
+
+            finally:
+                conn.close()
+
+    return result
+
+def get_conversation (user1_id: int, user1_type: str, user2_id: int, user2_type: str, limit: int = 10 ) -> dict:
+
+    '''
+    Retrieves messages exchanged between two users.
+    Optional: limit to last 10 messages
+    Returns a dict with the status and the messages data.
+    
+    
+    Returns:
+        dict: A dictionary containing the status and messages data.
+        data: dict with message details.
+    '''
+    response = None
+    messages = []
+    conn = db_conn.create_connection()
+
+    #validate if conn is successfully created
+    if conn is None:
+        response = {"status": "error", "message": "Database connection failed"}
+
+    else:
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT message_id, sender_id, sender_type, recipient_id, recipient_type, content, timestamp, is_read
+                FROM messages
+                WHERE (sender_id = ? AND sender_type = ? AND recipient_id = ? AND recipient_type = ?)
+                   OR (sender_id = ? AND sender_type = ? AND recipient_id = ? AND recipient_type = ?)
+                ORDER BY timestamp DESC -- Obtener los más recientes primero
+                LIMIT ?
+            ''', (user1_id, user1_type, user2_id, user2_type,
+                  user2_id, user2_type, user1_id, user1_type,
+                  limit))
+
+            rows = reversed(cursor.fetchall()) #get revert messages to show in UI
+            for row in rows:
+                messages.append({
+                    'message_id': row[0],
+                    'sender_id': row[1],
+                    'sender_type': row[2],
+                    'recipient_id': row[3],
+                    'recipient_type': row[4],
+                    'content': row[5],
+                    'timestamp': row[6],
+                    'is_read': bool(row[7])
+                })
+
+            response = {
+                "status": "success",
+                "data": messages
+            }
+
+        except sqlite3.Error as e:
+            response = {"status": "error", "message": str(e)}
+
+        finally:
+            conn.close()
+    return response
+
+def mark_message_as_read(recipient_id: int, recipient_type: str, sender_id: int, sender_type: str) -> dict:
+    """
+    Marks messages as read for a specific recipient and sender.
+    
+    Args:
+        recipient_id (int): The ID of the recipient.
+        recipient_type (str): The type of the recipient ('user' or 'org').
+        sender_id (int): The ID of the sender.
+        sender_type (str): The type of the sender ('user' or 'org').
+
+    Returns:
+        dict: A dictionary containing the status and message ID.
+    """
+    result = None
+    conn = db_conn.create_connection()
+
+    if conn is None:
+        result = {"status": "error", "message": "Database connection failed"}
+    else:
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+                UPDATE messages
+                SET is_read = 1
+                WHERE sender_id = ? AND sender_type = ? AND recipient_id = ? AND recipient_type = ? AND is_read = ?
+            ''', (sender_id, sender_type, recipient_id, recipient_type, 0))
+
+            conn.commit()
+            result = {"status": "success", "message": f"Marked {cursor.rowcount} messages as read."}
+
+        except sqlite3.Error as e:
+            result = {"status": "error", "message": str(e)}
+
+        finally:
+            conn.close()
+
+    return result
