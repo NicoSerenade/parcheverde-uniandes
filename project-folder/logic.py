@@ -504,16 +504,38 @@ def delete_event_logic(entity_id, entity_type, event_id):
         # db_operator might print specific errors (not found, not authorized)
         return {"status": "error", "message": "Failed to delete event. It might not exist or you are not the organizer."}
 
-def search_events_logic(query):
+def search_events_logic(event_id=None, query=None, event_type=None, status=None, organizer_type=None, organizer_id=None, start_date=None, end_date=None):
     """
-    Searches for events matching the query in name or description.
-    Returns a dictionary with status and data.
+    Searches for events based on various criteria.
+    
+    Params:
+      event_id (int, optional): Filter by event ID.
+      query (str, optional): Search term for name or description.
+      event_type (str, optional): Filter by event type.
+      status (str, optional): Filter by event status. (active, completed)
+      organizer_type (str, optional): Organizer type ('user' or 'org').
+      organizer_id (int, optional): Filter by organizer ID.
+      start_date (str, optional): Filter events on or after this date.
+      end_date (str, optional): Filter events on or before this date.
+      
+    
+    Returns:
+      dict: Status and event data.
     """
-    events = db_operator.search_events(query=query)
-    if events is None:  # DB error
-        return {"status": "error", "message": f"Failed to search events for '{query}'."}
-    else:
-        return {"status": "success", "data": events}
+    events = db_operator.search_events(
+        event_id=event_id,
+        query=query,
+        event_type=event_type,
+        status=status,
+        organizer_type=organizer_type,
+        organizer_id=organizer_id,
+        start_date=start_date,
+        end_date=end_date
+    )
+    if events is None:
+        return {"status": "error", "message": "Database error while searching events."}
+    events = sorted(events, key=lambda x: x.get('event_datetime', ""), reverse=True)
+    return {"status": "success", "data": events}
 
 def get_event_participants_logic(event_id):
     """
@@ -1157,8 +1179,6 @@ def join_challenge_logic(entity_id, entity_type, challenge_id):
     if db_type not in ['user', 'org']:
          return {"status": "error", "message": f"Invalid entity type: {entity_type}"}
 
-
-    print(f"Logic: {entity_type.capitalize()} ID {entity_id} joining challenge ID {challenge_id}")
     success = db_operator.join_challenge(entity_id, db_type, challenge_id)
     if success:
         return {"status": "success", "message": "Successfully joined the challenge."}
@@ -1451,45 +1471,27 @@ def search_achievements_logic(entity_type):
         return {"status": "success", "data": achievements}
 
 # --- Admin Functions ---
+#Note: For getting user and orgs data admin can use the same functions as normal users
+#Note: This functions appears at the admin dashboard, so only admins must be able to access them
 
-def admin_delete_user_logic(admin_id, user_id_to_delete):
-    """
-    Allows an admin (verified in app.py) to delete a user.
-
-    Args:
-        admin_id (int): The ID of the admin performing the action (for logging).
-        user_id_to_delete (int): The ID of the user to delete.
-    """
-    # Admin check MUST happen in app.py route before calling this
-    print(f"Logic: Admin ID {admin_id} deleting user ID {user_id_to_delete}")
-    success = db_operator.delete_user_by_id(user_id_to_delete)
-    if success:
-        return {"status": "success", "message": f"User ID {user_id_to_delete} deleted successfully."}
-    else:
-        return {"status": "error", "message": f"Failed to delete user ID {user_id_to_delete}."}
-
-def admin_delete_org_logic(admin_id, org_id_to_delete):
+def admin_delete_org_logic(org_id_to_delete):
     """
     Allows an admin (verified in app.py) to delete an organization.
 
      Args:
-        admin_id (int): The ID of the admin performing the action (for logging).
         org_id_to_delete (int): The ID of the organization to delete.
     """
-    # Admin check MUST happen in app.py route before calling this
-    print(f"Logic: Admin ID {admin_id} deleting organization ID {org_id_to_delete}")
     success = db_operator.delete_org_by_id(org_id_to_delete)
     if success:
         return {"status": "success", "message": f"Organization ID {org_id_to_delete} deleted successfully."}
     else:
         return {"status": "error", "message": f"Failed to delete organization ID {org_id_to_delete}."}
 
-def admin_create_achievement_logic(admin_id, name, description, points_required, badge_icon, achievement_user_type):
+def admin_create_achievement_logic(name, description, points_required, badge_icon, achievement_user_type):
     """
     Allows an admin (verified in app.py) to create a new achievement.
 
      Args:
-        admin_id (int): The ID of the admin performing the action (for logging).
         name (str): Achievement name.
         description (str): Achievement description.
         points_required (int): Points needed to unlock.
@@ -1497,36 +1499,32 @@ def admin_create_achievement_logic(admin_id, name, description, points_required,
         achievement_user_type (str): 'user' or 'org'.
     """
     # Admin check MUST happen in app.py route before calling this
-    print(f"Logic: Admin ID {admin_id} creating {achievement_user_type} achievement '{name}'")
     result_id = db_operator.create_achievement(name, description, points_required, badge_icon, achievement_user_type)
     if result_id:
         return {"status": "success", "message": f"Achievement '{name}' created successfully."}
     else:
         return {"status": "error", "message": "Failed to create achievement. Name might already exist."}
 
-def admin_delete_achievement_logic(admin_id, achievement_id, achievement_user_type):
+def admin_delete_achievement_logic(achievement_id, achievement_user_type):
     """
     Allows an admin (verified in app.py) to delete an achievement.
 
     Args:
-        admin_id (int): The ID of the admin performing the action (for logging).
         achievement_id (int): ID of the achievement to delete.
         achievement_user_type (str): 'user' or 'org'.
     """
     # Admin check MUST happen in app.py route before calling this
-    print(f"Logic: Admin ID {admin_id} deleting {achievement_user_type} achievement ID {achievement_id}")
     success = db_operator.delete_achievement(achievement_id, achievement_user_type)
     if success:
         return {"status": "success", "message": "Achievement deleted successfully."}
     else:
         return {"status": "error", "message": "Failed to delete achievement."}
 
-def admin_create_challenge_logic(admin_id, name, description, goal_type, goal_target, points_reward, time_allowed, challenge_user_type):
+def admin_create_challenge_logic(name, description, goal_type, goal_target, points_reward, time_allowed, challenge_user_type):
     """
     Allows an admin (verified in app.py) to create a new challenge.
 
     Args:
-        admin_id (int): ID of the admin (for logging).
         name (str): Challenge name.
         description (str): Challenge description.
         goal_type (str): Type of goal.
@@ -1536,24 +1534,21 @@ def admin_create_challenge_logic(admin_id, name, description, goal_type, goal_ta
         challenge_user_type (str): 'user' or 'org'.
     """
     # Admin check MUST happen in app.py route before calling this
-    print(f"Logic: Admin ID {admin_id} creating {challenge_user_type} challenge '{name}'")
     result_id = db_operator.create_challenge(name, description, goal_type, goal_target, points_reward, time_allowed, challenge_user_type)
     if result_id:
         return {"status": "success", "message": f"Challenge '{name}' created successfully."}
     else:
         return {"status": "error", "message": "Failed to create challenge. Name might already exist."}
 
-def admin_delete_challenge_logic(admin_id, challenge_id, challenge_user_type):
+def admin_delete_challenge_logic(challenge_id, challenge_user_type):
     """
     Allows an admin (verified in app.py) to delete a challenge.
 
     Args:
-        admin_id (int): ID of the admin (for logging).
         challenge_id (int): ID of the challenge to delete.
         challenge_user_type (str): 'user' or 'org'.
     """
     # Admin check MUST happen in app.py route before calling this
-    print(f"Logic: Admin ID {admin_id} deleting {challenge_user_type} challenge ID {challenge_id}")
     success = db_operator.delete_challenge(challenge_id, challenge_user_type)
     if success:
         return {"status": "success", "message": "Challenge deleted successfully."}
@@ -1570,7 +1565,6 @@ def admin_get_events(query=None):
     Returns:
         dict: Status and data containing a list of events
     """
-    print(f"Logic: Admin retrieving all events with query='{query}'")
     events = db_operator.search_events(query=query)
     
     if events is None:
@@ -1591,12 +1585,7 @@ def admin_delete_event(event_id):
     if not event_id:
         return {"status": "error", "message": "Event ID is required."}
     
-    print(f"Logic: Admin deleting event ID {event_id}")
-    
-    # Admin can delete any event, so we pass special parameters to db_operator
-    # Using None for entity_id and 'admin' for user_type to bypass organizer check
     success = db_operator.delete_event(event_id, None, 'admin')
-    
     if success:
         return {"status": "success", "message": "Event deleted successfully."}
     else:

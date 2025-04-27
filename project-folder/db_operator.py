@@ -727,7 +727,7 @@ def leave_org(org_id, user_id):
     return success
 
 #EVENTS
-def search_events(event_id=None, query=None, event_type=None, status=None, organizer_type=None, start_date=None, end_date=None):
+def search_events(event_id=None, query=None, event_type=None, status=None, organizer_type=None, organizer_id=None, start_date=None, end_date=None):
     """
     Searches for events based on various criteria.
     
@@ -737,6 +737,7 @@ def search_events(event_id=None, query=None, event_type=None, status=None, organ
         event_type (str, optional): Filter by event type
         status (str, optional): Filter by event status ('active', 'completed', etc.)
         organizer_type (str, optional): Filter by organizer type ('user' or 'org')
+        organizer_id (int, optional): Filter by organizer ID
         start_date (str, optional): Filter events on or after this date (ISO format)
         end_date (str, optional): Filter events on or before this date (ISO format)
     
