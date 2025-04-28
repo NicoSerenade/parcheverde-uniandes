@@ -1318,14 +1318,3 @@ def admin_update_org_points():
     return render_template('admin/update_org_points.html')
 
 # --- Message Routes ---
-
-if __name__ == '__main__':
-    # Initialize the database
-    import db_conn
-    db_conn.setup_database()
-    
-    # Update database schema for exchange requests
-    import db_operator
-    db_operator.update_exchange_requests_schema()
-    
-    app.run(host='0.0.0.0', port=5000, debug=True) 
