@@ -19,15 +19,15 @@ def check_user_exists(email, student_code):
             print(f"Error checking user existence: {e}")
             return False
 
-def register_user(user_type, student_code, password, name, email, career=None, interests=None):
+def register_user(user_type, student_code, password, name, email, career=None, interests=None, photo=None):
     user_id = None
     try:
         conn = db_conn.create_connection()
         cursor = conn.cursor()
         cursor.execute('''
-        INSERT INTO users (user_type, student_code, password, name, email, career, interests)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (user_type, student_code, password, name, email, career, interests)) 
+        INSERT INTO users (user_type, student_code, password, name, email, career, interests, photo)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (user_type, student_code, password, name, email, career, interests, photo)) 
         conn.commit()
         user_id = cursor.lastrowid #returns the id of the last manipulated row 
     except sqlite3.Error as e:

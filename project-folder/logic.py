@@ -36,9 +36,17 @@ The points system encourages participation and community engagement.
 """
 
 # --- Authentication Functions ---
-def register_user(name, email, student_code, password, interests=None, career=None):
+def register_user(name, email, student_code, password, interests=None, career=None, photo=None):
     """
     Registers a new user in the system.
+    Args:
+        name (str): User's name.
+        email (str): User's email.
+        student_code (str): Student code.
+        password (str): User's password.
+        interests (str, optional): User's interests.
+        career (str, optional): User's career.
+        photo (str, optional): photo text identifier for 3 default photos. (photo-male, photo-female, photo-turtle)
     Returns a status message.
     """
     user_type = "user"
@@ -48,7 +56,7 @@ def register_user(name, email, student_code, password, interests=None, career=No
 
     # 1. Validate Email Domain for non admin users
     elif not isinstance(email, str) or not email.endswith("@uniandes.edu.co"):
-        print(f"status: error, message: Email must end with {"@uniandes.edu.co"}")
+        print(f"status: error, message: Email must end with {'@uniandes.edu.co'}")
         return None
     
     if not db_operator.check_user_exists(email, student_code):
@@ -62,7 +70,7 @@ def register_user(name, email, student_code, password, interests=None, career=No
         hashed_password = bcrypt.hashpw(password_bytes, 
         salt) #hash the password
 
-    success = db_operator.register_user(user_type, student_code, hashed_password, name, email, career, interests)
+    success = db_operator.register_user(user_type, student_code, hashed_password, name, email, career, interests, photo)
     if success:
         return {"status": "success", "message": f"User '{name}' registered successfully."}
     else:

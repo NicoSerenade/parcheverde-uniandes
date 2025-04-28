@@ -43,6 +43,7 @@ def setup_database():
                 career TEXT,
                 interests TEXT, --siembra, reciclaje, caridad, enseñanza, software
                 points INTEGER DEFAULT 0,
+                photo TEXT, --photo-male, photo-female, photo-turtle
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP
             )
             ''')
