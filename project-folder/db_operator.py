@@ -2462,7 +2462,7 @@ def save_message(sender_id: int, sender_type: str, recipient_id: int, recipient_
 
     return result
 
-def get_conversation (user1_id: int, user1_type: str, user2_id: int, user2_type: str, limit: int = 10 ) -> dict:
+def get_conversation (user1_id: int, user1_type: str, user2_id: int, user2_type: str, limit: int = 10) -> dict:
 
     '''
     Retrieves messages exchanged between two users.

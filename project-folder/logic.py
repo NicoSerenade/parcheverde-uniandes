@@ -3,6 +3,12 @@ import db_conn # Used occasionally for direct DB access
 import sqlite3 # For error handling
 import bcrypt  # bcrypt is a hashing algorithm
 import datetime # For datetime operations
+from flask import Flask, render_template, session, request
+from flask_socketio import SocketIO, emit, join_room, leave_room
+
+socketio = SocketIO()
+connected_users = {}
+
 """
 Main business logic module for the Comunidad Verde application.
 
@@ -1654,3 +1660,233 @@ def get_top_orgs_by_points(limit=5):
 
 
 # --- Messaging Functions ---
+
+## SocketIO event handlers
+
+@socketio.on('connect')
+def handle_connect():
+    """
+    Handler for the SocketIO 'connect' event.
+
+    This function is automatically executed when a new client establishes a
+    WebSocket connection with the server. Its primary purpose is:
+    1. Identify the authenticated user by accessing the active Flask session
+       (`session.get('entity_id')`).
+    2. Get the unique session ID (`sid`) for this specific connection
+       from `request.sid`.
+    3. If the user is authenticated, register the association between their
+       `entity_id` and the current `sid` in the `connected_users` dictionary.
+    4. Join the connection (`sid`) to the appropriate 'rooms':
+        - A personal room named with the user's `entity_id` (for
+          private messages).
+        - Rooms for each organization group the user belongs to
+          (named e.g., 'org_room_<org_id>').
+
+    This function takes no direct arguments but accesses the Flask context
+    (`session`, `request`).
+    """
+    
+    # (session, request, connected_users, join_room)
+    pass
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    """
+    Handler for the SocketIO 'disconnect' event.
+
+    This function is automatically executed when SocketIO detects that a
+    client connection has been lost (e.g., browser tab closed, network loss).
+    Its main purpose is cleanup:
+    1. Get the `sid` of the connection that was lost (`request.sid`).
+    2. Look up in the `connected_users` dictionary if that `sid` was
+       associated with any `entity_id`.
+    3. If an association is found, remove that entry from the
+       `connected_users` dictionary to reflect that the user no longer
+       has that active connection.
+
+    Leaving the rooms the `sid` was part of is typically handled
+    automatically by Flask-SocketIO.
+    This function takes no direct arguments but accesses `request.sid`.
+    """
+    
+    # (request, connected_users)
+    pass
+
+@socketio.on('private_message')
+def handle_private_message(data: dict) -> None:
+    """
+    Handler for the custom 'private_message' event.
+
+    Triggered when a client emits a 'private_message' event.
+    Manages the sending of one-to-one private messages.
+
+    Args:
+        data (dict): The data object sent by the client. Expected to
+                     contain at least:
+                     - 'recipient_id': The ID of the destination user.
+                     - 'recipient_type': The type of the recipient (usually 'user').
+                     - 'content': The text content of the message.
+
+    Logic:
+    1. Identifies the sender (`sender_id`, `sender_type`) using `session`.
+    2. Validates that the sender is authenticated and that `data` contains
+       the necessary information.
+    3. Calls `save_message_logic` to persist the message in the database.
+    4. If saved successfully, emits a 'new_message' event with the message
+       details only to the recipient's personal room (`room=str(recipient_id)`).
+    """
+    
+    # (session, data, save_message_logic, emit)
+    pass
+
+@socketio.on('group_message')
+def handle_group_message(data : dict) -> None:
+    """
+    Handler for the custom 'group_message' event.
+
+    Triggered when a client emits a 'group_message' event.
+    Manages the sending of messages to an organization's group chat.
+
+    Args:
+        data (dict): The data object sent by the client. Expected to
+                     contain at least:
+                     - 'org_id': The ID of the destination organization group.
+                     - 'content': The text content of the message.
+
+    Logic:
+    1. Identifies the sender (`sender_id`, `sender_type`) using `session`.
+    2. Extracts `org_id` and `content` from `data`.
+    3. Validates that the sender is authenticated and data is complete.
+    4. **Authorization:** Verifies if the `sender_id` is a member of the
+       target `org_id` (by calling `is_user_member_of_org_logic`).
+    5. If authorized, calls `save_message_logic` to persist the message
+       (using `org_id` as `recipient_id` and `'org'` as `recipient_type`).
+    6. If saved successfully, emits a 'new_group_message' event with the
+       message details to the organization's group room
+       (`room=f'org_room_{org_id}'`).
+    """
+    
+    # (session, data, is_user_member_of_org_logic, save_message_logic, emit)
+    pass
+
+
+## Messaging Logic Functions
+
+def save_message_logic(sender_id: int, sender_type: str, recipient_id: int, recipient_type: str, content: str) -> dict:
+    """
+    function to save a message to the database.
+
+    Calls the corresponding function in db_operator to persist the message.
+    Handles both private and group messages based on recipient_type.
+
+    Args:
+        sender_id (int): ID of the message sender.
+        sender_type (str): Type of the sender ('user' or 'org').
+        recipient_id (int): ID of the message recipient (user or org ID).
+        recipient_type (str): Type of the recipient ('user' or 'org').
+        content (str): The text content of the message.
+
+    Returns:
+        dict: A dictionary containing the result from db_operator.save_message,
+              typically {'status': 'success', 'message_id': <id>} on success,
+              or {'status': 'error', 'message': <error_msg>} on failure.
+    """
+    
+    result = db_operator.save_message(sender_id, sender_type, recipient_id, recipient_type, content)
+    
+    return result
+
+def get_conversation_logic(user1_id: int, user1_type: str, user2_id: int, user2_type: str, limit) -> dict:
+    """
+    function to retrieve the message history between two specific entities.
+
+    Calls the corresponding function in db_operator to fetch messages
+    where either entity was the sender and the other the recipient.
+    Typically used for loading private chat history.
+
+    Args:
+        user1_id (int): ID of the first entity.
+        user1_type (str): Type of the first entity ('user' or 'org').
+        user2_id (int): ID of the second entity.
+        user2_type (str): Type of the second entity ('user' or 'org').
+        limit (int): The maximum number of messages to retrieve.
+
+    Returns:
+        dict: A dictionary containing the result from db_operator.get_conversation,
+              typically {'status': 'success', 'data': [<message_dict>, ...]} on success
+              (where data can be an empty list if no messages exist),
+              or {'status': 'error', 'message': <error_msg>} on failure.
+    """
+    
+    result = db_operator.get_conversation(user1_id, user1_type, user2_id, user2_type, limit)
+    
+    return result
+    
+def get_group_conversation_logic(org_id: int, limit: int) -> list:
+    """
+    function to retrieve the message history for a specific organization group chat.
+
+    Calls the corresponding function in db_operator (to be created)
+    to fetch messages where the organization was the recipient.
+
+    Args:
+        org_id (int): The ID of the organization group.
+        limit (int): The maximum number of messages to retrieve.
+
+    Returns:
+        dict: Result dictionary from the db_operator function, containing
+              status and message data list or an error message.
+    """
+    
+    # result = db_operator.get_group_conversation(...) # (Needs to be created in db_operator)
+    # return result
+    pass
+
+def get_user_organization_ids_logic(user_id: int) -> dict:
+    """
+    function to get the IDs of organizations a user is a member of.
+
+    Calls a function in db_operator (potentially using search_orgs)
+    to retrieve the list of organization IDs. Used during the 'connect'
+    event to join the user to the appropriate group rooms.
+
+    Args:
+        user_id (int): The ID of the user.
+
+    Returns:
+        dict: A dictionary containing status and a list of organization IDs
+              (e.g., {'status': 'success', 'data': [101, 205]}) or an error.
+              (Consider returning just the list on success, handle errors).
+    """
+    # Example using search_orgs:
+    # result = db_operator.search_orgs(user_id=user_id)
+    # if result:
+    #     org_ids = [org['org_id'] for org in result]
+    #     return {"status": "success", "data": org_ids}
+    # else:
+    #     return {"status": "error", "message": "Failed to retrieve organizations"}
+    
+    # ids = db_operator.get_user_organization_ids(...) # (Needs using search_orgs)
+    # return ids
+    pass
+
+def is_user_member_of_org_logic(user_id, org_id) -> bool:
+    """
+    function to check if a user is a member of a specific organization.
+
+    Calls a function in db_operator (either new or using get_org_members)
+    to perform the membership check. Used to authorize sending messages
+    to a group chat.
+
+    Args:
+        user_id (int): The ID of the user.
+        org_id (int): The ID of the organization.
+
+    Returns:
+        bool: True if the user is a member, False otherwise.
+              (Consider returning a dict with status for clarity on errors).
+    """
+    
+    # is_member = db_operator.is_user_member_of_org(...) # (Necesita crearse o usar get_org_members)
+    # return is_member
+    pass
