@@ -65,7 +65,7 @@ def register_user(name, email, student_code, password, interests=None, career=No
         print(f"status: error, message: Email must end with {'@uniandes.edu.co'}")
         return None
     
-    if not db_operator.check_user_exists(email, student_code):
+    if db_operator.check_user_exists(email, student_code):
         return {"status": "error", "message": " Email or student code might exist."}
 
     # Hash password before sending to db_operator
@@ -146,6 +146,7 @@ def login(identifier, password):
                 "points": user.get('points'),
                 "interests": user.get('interests'),
                 "career": user.get('career'),
+                "photo": user.get('photo'),
                 "creation_date": user.get("creation_date")
             }
 
