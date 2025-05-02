@@ -2545,6 +2545,37 @@ def update_exchange_requests_schema():
         finally:
             conn.close()
 
+def setup_map_points_table():
+    """Setup the map_points table with updated structure"""
+    try:
+        conn = db_conn.create_connection()
+        cursor = conn.cursor()
+
+        # Eliminar la tabla si existe
+        cursor.execute('DROP TABLE IF EXISTS map_points')
+
+        # Crear la tabla con la nueva estructura
+        cursor.execute('''
+        CREATE TABLE IF NOT EXISTS map_points (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            description TEXT,
+            point_type TEXT NOT NULL,
+            latitude REAL NOT NULL,
+            longitude REAL NOT NULL,
+            added_by TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            creator_id INTEGER DEFAULT 1
+        )
+        ''')
+
+        conn.commit()
+    except Exception as e:
+        print(f"Error setting up map_points table: {e}")
+    finally:
+        if conn:
+            conn.close()
+
 # --- Statistics Functions ---
 
 def get_users_count():

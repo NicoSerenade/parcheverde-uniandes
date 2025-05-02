@@ -147,8 +147,8 @@ def setup_database():
                 request_date TEXT NOT NULL, -- ISO 8601 format: YYYY-MM-DD HH:MM:SS
                 decision_date TEXT, -- ISO 8601 format, filled when accepted/rejected
                 FOREIGN KEY (item_id) REFERENCES items (item_id) ON DELETE CASCADE,
-                FOREIGN KEY (requester_id) REFERENCES users (user_id) ON DELETE CASCADE,
-                FOREIGN KEY (owner_id) REFERENCES users (user_id) ON DELETE CASCADE
+                FOREIGN KEY (requester_id) REFERENCES users(user_id) ON DELETE CASCADE,
+                FOREIGN KEY (owner_id) REFERENCES users(user_id) ON DELETE CASCADE
             )
             ''')
             
@@ -267,12 +267,13 @@ def setup_database():
                 point_id INTEGER PRIMARY KEY AUTOINCREMENT,
                 creator_id INTEGER NOT NULL,
                 name TEXT NOT NULL,
-                description TEXT NOT NULL,
-                point_type TEXT NOT NULL, --tienda, reciclaje, punto_de_encuentro,
+                description TEXT,
+                point_type TEXT NOT NULL,
                 latitude REAL NOT NULL,
                 longitude REAL NOT NULL,
                 address TEXT,
-                creation_date TEXT DEFAULT CURRENT_TIMESTAMP
+                creation_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (creator_id) REFERENCES users(user_id)
             )
             ''')
             

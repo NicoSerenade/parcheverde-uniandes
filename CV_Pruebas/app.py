@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify
 import logic
 import os
 from functools import wraps # Import wraps for decorators
@@ -57,6 +57,10 @@ def inject_session():
 def index():
     """Render the main page."""
     return render_template('index.html')
+
+@app.route('/about')
+def about():
+    return render_template('about.html')
 
 
 # --- Authentication Routes ---
@@ -117,7 +121,7 @@ def register_org():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    # If user is already logged in, redirect to index
+# If user is already logged in, redirect to index
     if 'entity_type' in session:
         if session['entity_type'] == 'admin':
             return redirect(url_for('admin_dashboard'))
@@ -127,7 +131,7 @@ def login():
         identifier = request.form.get('identifier') 
         password = request.form.get('password')
 
-        # logic.login now just authenticates and returns data or error
+# logic.login now just authenticates and returns data or error
         result = logic.login(identifier, password)
 
         if result['status'] == 'success':
@@ -161,8 +165,7 @@ def login():
             flash(f"Login successful for {session['name']}!", 'success')
             return redirect(url_for('index'))
         else:
-            # Login failed, flash the error message from logic
-            flash(result['message'], result['status'])
+            flash("Sus credenciales son incorrectas, o no ha creado un perfil", "error")
             return redirect(url_for('login'))
 
     # Show login form for GET request
@@ -880,18 +883,9 @@ def reject_exchange(exchange_id):
 
 @app.route('/map')
 def view_map():
-    """
-    View map points.
-    """
-    # Call the logic function to get all map points
-    result = logic.get_map_points_logic()
-    
-    if result['status'] == 'success':
-        map_points = result.get('data', [])
-        return render_template('view_map.html', map_points=map_points)
-    else:
-        flash(result['message'], result['status'])
-        return render_template('view_map.html', map_points=[])
+    # Obtener todos los puntos de la base de datos
+    map_points = logic.get_map_points()
+    return render_template('view_map.html', map_points=map_points)
 
 @app.route('/map/add', methods=['GET', 'POST'])
 @login_required
@@ -942,6 +936,23 @@ def add_map_point():
     
     # GET request: render the form
     return render_template('add_map_point.html')
+
+@app.route('/save_map_point', methods=['POST'])
+def save_map_point():
+    if request.method == 'POST':
+        data = request.json
+        point = {
+            'name': data.get('name'),
+            'description': data.get('description'),
+            'point_type': data.get('point_type'),
+            'latitude': data.get('latitude'),
+            'longitude': data.get('longitude'),
+            'added_by': session.get('name', 'Anonymous'),
+            'creator_id': session.get('user_id', 1)  # Usar 1 como valor por defecto
+        }
+        
+        result = logic.save_map_point(point)
+        return jsonify(result)
 
 
 # --- Challenge Routes ---
@@ -1332,8 +1343,9 @@ if __name__ == '__main__':
     import db_conn
     db_conn.setup_database()
     
-    # Update database schema for exchange requests
+    # Update database schemas
     import db_operator
     db_operator.update_exchange_requests_schema()
+    db_operator.setup_map_points_table()  # Agregar esta línea
     
-    app.run(host='0.0.0.0', port=5000, debug=True) 
+    app.run(host='0.0.0.0', port=5000, debug=True)
