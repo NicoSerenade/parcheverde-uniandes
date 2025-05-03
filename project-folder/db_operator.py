@@ -2300,6 +2300,8 @@ def update_exchange_requests_schema():
         finally:
             conn.close()
 
+
+
 # --- Statistics Functions ---
 
 def get_users_count():

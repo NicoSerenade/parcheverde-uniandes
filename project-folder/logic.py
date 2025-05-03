@@ -984,6 +984,92 @@ def get_map_points_logic():
     else:
         return {"status": "success", "data": points}
 
+#TEMPORARY QUICK SOLUTION FOR MAP POINTS BELOW FROM SANTI's CODE
+
+def get_map_points():
+     """Get all map points from database
+        Returns list of dictionaries with point data.
+     """
+     try:
+         conn = db_conn.create_connection()
+         if conn is None:
+             return []
+             
+         cursor = conn.cursor()
+         cursor.execute("""
+             SELECT id, name, description, point_type, latitude, longitude, added_by, created_at
+             FROM map_points
+             ORDER BY created_at DESC
+         """)
+         
+         points = cursor.fetchall()
+         
+         # Convertir a lista de diccionarios
+         map_points = []
+         for point in points:
+             map_points.append({
+                 'id': point[0],
+                 'name': point[1],
+                 'description': point[2],
+                 'point_type': point[3],
+                 'latitude': point[4],
+                 'longitude': point[5],
+                 'added_by': point[6],
+                 'created_at': point[7]
+             })
+             
+         return map_points
+     except Exception as e:
+         print(f"Error getting map points: {e}")
+         return []
+     finally:
+         if conn:
+             conn.close()
+ 
+def save_map_point(point_data):
+    """
+    Saves a new map point to the database.
+    """
+    try:
+        conn = db_conn.create_connection()
+        if conn is None:
+            return {'status': 'error', 'message': 'Database connection failed'}
+            
+        cursor = conn.cursor()
+        
+        # Obtener creator_id de la sesión o usar valor por defecto
+        creator_id = point_data.get('creator_id', 1)
+        
+        cursor.execute("""
+            INSERT INTO map_points (
+                name, 
+                description, 
+                point_type, 
+                latitude, 
+                longitude, 
+                added_by,
+                creator_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            point_data['name'],
+            point_data['description'],
+            point_data['point_type'],
+            point_data['latitude'],
+            point_data['longitude'],
+            point_data['added_by'],
+            creator_id
+        ))
+        
+        conn.commit()
+        return {'status': 'success', 'message': 'Point saved successfully'}
+    except Exception as e:
+        return {'status': 'error', 'message': str(e)}
+    finally:
+        if conn:
+            conn.close()
+
+#-----------------------------
 
 # --- Challenge Functions ---
 def search_challenges_logic(entity_type):

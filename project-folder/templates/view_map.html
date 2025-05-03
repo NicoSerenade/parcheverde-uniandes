@@ -48,6 +48,33 @@
             text-decoration: none;
             font-weight: bold;
         }
+        .add-point-btn.active {
+            background-color: #dc3545 !important;
+        }
+        
+        .point-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 10px;
+        }
+        
+        .point-form input,
+        .point-form textarea,
+        .point-form select {
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .point-form button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
     </style>
 {% endblock %}
 
@@ -59,7 +86,7 @@
             <h3>Map Points ({{ map_points|length }})</h3>
         </div>
         {% if session.get('entity_type') %}
-            <a href="{{ url_for('add_map_point') }}" class="add-point-btn">+ Add Map Point</a>
+            <button id="addPointBtn" class="add-point-btn">+ Add Map Point</button>
         {% endif %}
     </div>
     
@@ -92,50 +119,103 @@
 {% endblock %}
 
 {% block scripts %}
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initialize map
-            var map = L.map('map-container').setView([4.6097, -74.0817], 13); // Bogotá coordinates as default
-            
-            // Add OpenStreetMap tiles
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(map);
-            
-            // Add markers for map points
-            var points = document.querySelectorAll('.map-point-item');
-            var markers = [];
-            
-            points.forEach(function(point) {
-                var lat = parseFloat(point.getAttribute('data-lat'));
-                var lng = parseFloat(point.getAttribute('data-lng'));
-                var name = point.querySelector('h4').textContent;
-                var description = point.querySelector('.map-point-details p').textContent;
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Inicializar el mapa
+        const map = L.map('map-container').setView([4.6015, -74.0655], 16);
+        let addingPoint = false;
+
+        // Agregar capa de OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Cargar puntos existentes
+        const points = JSON.parse('{{ map_points|tojson|safe }}');
+        
+        // Agregar marcadores existentes al mapa
+        points.forEach(function(point) {
+            const marker = L.marker([point.latitude, point.longitude]).addTo(map);
+            marker.bindPopup(`
+                <div>
+                    <h4>${point.name}</h4>
+                    <p>${point.description}</p>
+                    <span class="map-point-type">${point.point_type}</span>
+                    ${point.added_by ? `<p><small>Added by: ${point.added_by}</small></p>` : ''}
+                </div>
+            `);
+        });
+
+        // Manejar el botón de agregar punto
+        const addPointBtn = document.getElementById('addPointBtn');
+        if (addPointBtn) {
+            addPointBtn.addEventListener('click', function() {
+                addingPoint = !addingPoint;
+                this.classList.toggle('active');
+                map.getContainer().style.cursor = addingPoint ? 'crosshair' : '';
+            });
+        }
+
+        // Evento de click en el mapa
+        map.on('click', function(e) {
+            if (!addingPoint) return;
+
+            const marker = L.marker(e.latlng).addTo(map);
+            const popupContent = document.createElement('div');
+            popupContent.innerHTML = `
+                <form id="pointForm" class="point-form">
+                    <input type="text" name="name" placeholder="Point Name" required>
+                    <textarea name="description" placeholder="Description" required></textarea>
+                    <select name="point_type" required>
+                        <option value="recycling">Recycling Point</option>
+                        <option value="event">Event Location</option>
+                        <option value="other">Other</option>
+                    </select>
+                    <button type="submit">Save Point</button>
+                </form>
+            `;
+
+            const form = popupContent.querySelector('form');
+            form.addEventListener('submit', async function(evt) {
+                evt.preventDefault();
                 
-                if (!isNaN(lat) && !isNaN(lng)) {
-                    var marker = L.marker([lat, lng]).addTo(map);
-                    marker.bindPopup("<b>" + name + "</b><br>" + description);
-                    markers.push(marker);
+                const pointData = {
+                    name: this.name.value,
+                    description: this.description.value,
+                    point_type: this.point_type.value,
+                    latitude: e.latlng.lat,
+                    longitude: e.latlng.lng
+                };
+
+                try {
+                    const response = await fetch('/save_map_point', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(pointData)
+                    });
+
+                    const result = await response.json();
+                    
+                    if (result.status === 'success') {
+                        window.location.reload();
+                    } else {
+                        alert('Error saving point: ' + result.message);
+                    }
+                } catch (error) {
+                    alert('Error saving point: ' + error);
                 }
             });
+
+            marker.bindPopup(popupContent).openPopup();
             
-            // Fit bounds to markers if we have any
-            if (markers.length > 0) {
-                var group = new L.featureGroup(markers);
-                map.fitBounds(group.getBounds().pad(0.1));
-            }
-            
-            // Click on list item to focus on map
-            points.forEach(function(point, index) {
-                point.addEventListener('click', function() {
-                    var marker = markers[index];
-                    if (marker) {
-                        map.setView(marker.getLatLng(), 15);
-                        marker.openPopup();
-                    }
-                });
-            });
+            // Desactivar modo de agregar punto
+            addingPoint = false;
+            addPointBtn.classList.remove('active');
+            map.getContainer().style.cursor = '';
         });
-    </script>
-{% endblock %} 
+    });
+</script>
+{% endblock %}
