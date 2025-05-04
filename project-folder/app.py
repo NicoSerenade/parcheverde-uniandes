@@ -131,11 +131,11 @@ def login():
         return redirect(url_for('index'))
         
     if request.method == 'POST':
-        identifier = request.form.get('identifier') 
+        code = request.form.get('identifier') 
         password = request.form.get('password')
 
         # logic.login now just authenticates and returns data or error
-        result = logic.login(identifier, password)
+        result = logic.login(code, password)
 
         if result['status'] == 'success':
             # --- Store relevant info in Flask session --- 
@@ -158,11 +158,8 @@ def login():
             
             # Store type-specific ID and data
             if result['entity_type'] == 'user':
-                session['student_code'] = result['student_code']
+                session['student_code'] = result.get('student_code', '')
                 session['career'] = result.get('career', '')
-
-            elif result['entity_type'] == 'org':
-                session['creator_student_code'] = result['creator_student_code']
                 
             flash(f"Login successful for {session['name']}!", 'success')
             return redirect(url_for('index'))
@@ -172,6 +169,43 @@ def login():
             return redirect(url_for('login'))
 
     return render_template('login.html')
+
+@app.route('/login/org', methods=['GET', 'POST'])
+def login_org():
+    # If user is already logged in, redirect to index
+    if 'entity_type' in session:
+        if session['entity_type'] == 'admin':
+            return redirect(url_for('admin_dashboard'))
+        return redirect(url_for('index'))
+        
+    if request.method == 'POST':
+        creator_code = request.form.get('creator_code')
+        password = request.form.get('password')
+        
+        # Call the organization-specific login function
+        result = logic.login_orgs(creator_code, password)
+        
+        if result['status'] == 'success':
+            # Clear any old session data first
+            session.clear()
+            # Store org data in session
+            session['entity_id'] = result['entity_id']
+            session['entity_type'] = 'org'  # Use 'organization' consistently
+            session['name'] = result['name']
+            session['email'] = result['email']
+            session['description'] = result.get('description', '')
+            session['interests'] = result.get('interests', '')
+            session['points'] = result.get('points', 0)
+            session['creator_student_code'] = result.get('creator_student_code', '')
+            
+            flash(f"Organization login successful for {session['name']}!", 'success')
+            return redirect(url_for('index'))
+        else:
+            flash(result['message'], result['status'])
+            return redirect(url_for('login_org'))
+    
+    # GET request: render the organization login form
+    return render_template('login_org.html')
 
 @app.route('/logout')
 def logout():

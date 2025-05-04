@@ -44,11 +44,11 @@ The points system encourages participation and community engagement.
 # --- Authentication Functions ---
 def register_user(name, email, student_code, password, interests=None, career=None, photo=None):
     """
-    Registers a new user in the system.
+    Registers a new user whether Student, professor or admin in the system.
     Args:
         name (str): User's name.
         email (str): User's email.
-        student_code (str): Student code.
+        student_code (str): Student code or Professor code or Admin code.
         password (str): User's password.
         interests (str, optional): User's interests.
         career (str, optional): User's career.
@@ -113,14 +113,17 @@ def register_organization(creator_email, creator_student_code, name, email, desc
     else:
         return {"status": "error", "message": "Organization registration failed. Email might already exist."}
 
-def login(identifier, password):
+def login(code, password):
     """
-    Authenticates a user or admin (using student_code) or an organization (using name).
+    Authenticates normal users (students, professors or admins)
+    args:
+        code int: student, professor or admin code
+        password str: password of the user
     Returns a dictionary containing status and entity data on success,
     or status and error message on failure.
     """
     # First try to authenticate as a user
-    user = db_operator.get_user_by_student_code(identifier)
+    user = db_operator.get_user_by_student_code(code)
     if user:
         password_bytes = password.encode('utf-8')
         stored_password = user['password']
@@ -135,7 +138,6 @@ def login(identifier, password):
                     "email": user.get('email')
                 }
                 
-            # Return data needed for Flask session setup
             return {
                 "status": "success",
                 "entity_type": "user",
@@ -150,9 +152,18 @@ def login(identifier, password):
                 "creation_date": user.get("creation_date")
             }
 
-    # Then try to authenticate as an organization
-    org = db_operator.get_org_by_name(identifier)
-    if org and 'password' in org:
+    print(f"Logic: Login failed for code '{code}'")
+    return {"status": "error", "message": "Invalid credentials or entity not found."}
+
+def login_orgs(creator_code, password):
+    """
+    Authenticates organizations.
+    Returns:
+        a dictionary containing status and organization data on success,
+        or status and error message on failure.
+    """
+    org = db_operator.get_org_by_creator_student_code(creator_code)
+    if org:
         password_bytes = password.encode('utf-8')
         stored_password = org['password']
         if bcrypt.checkpw(password_bytes, stored_password):
@@ -168,10 +179,8 @@ def login(identifier, password):
                 "interests": org.get('interests'),
                 "creation_date": org.get("creation_date")
             }
-    # If both fail
-    print(f"Logic: Login failed for identifier '{identifier}'")
+    print(f"Logic: Login failed for code '{creator_code}'")
     return {"status": "error", "message": "Invalid credentials or entity not found."}
-
 
 # --- Profile Functions ---
 def update_my_profile_logic(entity_id, entity_type, new_data):
