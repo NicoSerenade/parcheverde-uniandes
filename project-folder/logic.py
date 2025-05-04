@@ -5,7 +5,7 @@ import bcrypt  # bcrypt is a hashing algorithm
 import datetime # For datetime operations
 from flask import Flask, render_template, session, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
-
+from datetime import datetime
 socketio = SocketIO()
 connected_users = {}
 
@@ -1685,9 +1685,23 @@ def handle_connect():
     This function takes no direct arguments but accesses the Flask context
     (`session`, `request`).
     """
+    sid = request.sid
+    print(f"SocketIO: New connection established with SID: {sid}")
     
+    user_id = session.get('entity_id')
+    user_type = session.get('entity_type')
+    
+    if user_id and user_type == 'user':
+        connected_users[sid] = user_id
+        print(f'User autenticated: ID: {user_id}, type: {user_type}. SID saved: {sid}')
+        
+        personal_room = str(user_id)
+        join_room(personal_room)
+        print(f'personal_room: {personal_room}')
+        print(f"SocketIO: User {user_id} joined their personal room: {personal_room}")
+    #elif with user_type == 'org' case. [TODO: Add logic for organizations]
+    else: print(f"SocketIO: User not authenticated. SID: {sid} not saved.")
     # (session, request, connected_users, join_room)
-    pass
 
 @socketio.on('disconnect')
 def handle_disconnect():
@@ -1708,9 +1722,26 @@ def handle_disconnect():
     automatically by Flask-SocketIO.
     This function takes no direct arguments but accesses `request.sid`.
     """
+    sid = request.sid
+    print(f"SocketIO: Connection with SID {sid} has been disconnected.")
+    
+    user_id_remove = None
+    
+    
+    for key, value in connected_users.items():
+        if key == sid:
+            user_id_remove = value
+            break
+    
+    if user_id_remove:
+        try:
+            del connected_users[sid]
+            print(f"SocketIO: User ID {user_id_remove} removed from connected users.")
+        except KeyError:
+            print(f"SocketIO: User ID {user_id_remove} not found in connected users.")
+    else: print(f'SocketIO: No user found for SID {sid}.")')
     
     # (request, connected_users)
-    pass
 
 @socketio.on('private_message')
 def handle_private_message(data: dict) -> None:
@@ -1736,8 +1767,53 @@ def handle_private_message(data: dict) -> None:
        details only to the recipient's personal room (`room=str(recipient_id)`).
     """
     
+    sender_id = session.get('entity_id')
+    sender_type = session.get('entity_type')
+    
+    if not sender_id or not sender_type:
+        emit('error_message', {'message': 'Sender not authenticated.'})
+        print("SocketIO: Sender not authenticated.")
+        return
+    
+    recipient_id_str = data.get('recipient_id')
+    recipient_type = 'user'
+    content = data.get('content')
+    
+    if not recipient_id_str or not recipient_type or not content:
+        emit('error_message', {'message': 'Missing required fields.'})
+        print("SocketIO: Missing required fields.")
+        return
+    
+    try:
+        recipient_id = int(recipient_id_str)
+    except (ValueError, TypeError):
+        emit('error_message', {'message': 'Invalid recipient ID.'})
+        print("SocketIO: Invalid recipient ID.")
+        return
+    
+    
+    save_message = save_message_logic(sender_id, sender_type, recipient_id, recipient_type, content)
+    
+    if not save_message or save_message.get('status') != 'success':
+        emit('error_message', {'message': 'Failed to save message.'})
+        print("SocketIO: Failed to save message.")
+        return
+    
+    time_now = datetime.now().isoformat()
+    message_send = {
+        'sender_id': sender_id,
+        'sender_type': sender_type,
+        'recipient_id': recipient_id,
+        'recipient_type': recipient_type,
+        'content': content,
+        'timestamp': time_now,
+        'message_id': save_message.get('message_id'),
+    }
+    
+    recipient_room = str(recipient_id)
+    emit('new_message', message_send, room = recipient_room)
+    print(f"SocketIO: New message sent to recipient ID {recipient_id} in room {recipient_room}.")
     # (session, data, save_message_logic, emit)
-    pass
 
 @socketio.on('group_message')
 def handle_group_message(data : dict) -> None:
@@ -1821,7 +1897,7 @@ def get_conversation_logic(user1_id: int, user1_type: str, user2_id: int, user2_
     result = db_operator.get_conversation(user1_id, user1_type, user2_id, user2_type, limit)
     
     return result
-    
+
 def get_group_conversation_logic(org_id: int, limit: int) -> list:
     """
     function to retrieve the message history for a specific organization group chat.

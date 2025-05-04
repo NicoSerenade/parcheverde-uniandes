@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import logic
 import os
+from logic import socketio
 from functools import wraps # Import wraps for decorators
 
 # --- Flask App Setup ---
@@ -9,6 +10,7 @@ app = Flask(__name__)
 # Keep this key secret in production (e.g., use environment variables).
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24)) 
 
+socketio.init_app(app)
 
 # --- Decorators for Route Protection ---
 
@@ -1318,3 +1320,28 @@ def admin_update_org_points():
     return render_template('admin/update_org_points.html')
 
 # --- Message Routes ---
+###IGNORAR
+@app.route('/index_prueba_messages')
+def chat_test():
+    session.clear() # Limpia sesión anterior por si acaso
+    test_user_id = 1 # <-- !!! CAMBIA ESTO por un user_id válido de tu BD !!!
+    session['entity_id'] = test_user_id
+    session['entity_type'] = 'user'
+    session['name'] = f'Usuario Temporal {test_user_id}' # Nombre de prueba
+    session.modified = True # Marca la sesión como modificada
+    print(f"[Workaround] Sesión establecida manualmente para user_id: {test_user_id}")
+    current_user_id = session.get('entity_id')
+    return render_template('index_prueba_messages.html', current_user_id=current_user_id)
+###
+# --- initialize the app ---
+
+if __name__ == '__main__':
+    import db_conn 
+    db_conn.setup_database()
+    import db_operator
+    
+    db_operator.register_user('user', '202510939', '12345678', 'Edy', 'es.martinez@uniandes.edu.co', 'ISIS', 'Study')
+    
+    socketio.run(app, host = '0.0.0.0', port = 5000)
+    
+    chat_test()
