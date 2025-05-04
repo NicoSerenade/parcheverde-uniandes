@@ -1,4 +1,5 @@
-﻿# Run -r requirements.txt to install all dependencies
+﻿# Run: pip install -r requirements.txt in the terminal to install all dependencies.
+# Remember to use a virtual environment for installing dependencies.
 bcrypt==4.3.0
 Flask
 psycopg2-binary
