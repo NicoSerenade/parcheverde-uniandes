@@ -13,6 +13,11 @@
     <div class="welcome-message">
         <p class="animated-text">Explora nuestras funciones usando el panel de navegación en la parte superior.</p>
         
+        <!-- Nuevo texto tipo cita -->
+        <blockquote class="quote-text">
+            "Pequeñas acciones generan grandes cambios. ¡Sé parte del impacto!"
+        </blockquote>
+        
         {% if 'entity_type' not in session %}
         <div class="login-prompt">
             <p class="animated-text delayed">¡Únete a nuestra comunidad!</p>
@@ -21,6 +26,43 @@
         {% endif %}
     </div>
 </div>
+
+<!-- Nueva sección destacada: Solo visible si el usuario está logueado -->
+{% if 'entity_type' in session %}
+<div class="benefits-section">
+    <h3 class="section-title">Beneficios de ser parte de nuestra comunidad</h3>
+    <div class="benefits-row">
+        <!-- Tarjeta 1 -->
+        <div class="benefit-card">
+            <div class="icon">♻️</div>
+            <h4>Gana puntos ayudando al planeta</h4>
+            <p>Participa en actividades ecológicas y acumula puntos.</p>
+            <a href="{{ url_for('view_events') }}" class="btn">Explorar</a>
+        </div>
+        <!-- Tarjeta 2 -->
+        <div class="benefit-card">
+            <div class="icon">🌍</div>
+            <h4>Conecta con organizaciones verdes</h4>
+            <p>Descubre y colabora con organizaciones ecológicas.</p>
+            <a href="{{ url_for('view_organizations') }}" class="btn">Explorar</a>
+        </div>
+        <!-- Tarjeta 3 -->
+        <div class="benefit-card">
+            <div class="icon">🌱</div>
+            <h4>Crea o participa en eventos ecológicos</h4>
+            <p>Únete a eventos que promueven el cuidado del medio ambiente.</p>
+            <a href="{{ url_for('view_events') }}" class="btn">Explorar</a>
+        </div>
+        <!-- Tarjeta 4 -->
+        <div class="benefit-card">
+            <div class="icon">🎖️</div>
+            <h4>Consigue logros y sube de nivel</h4>
+            <p>Completa desafíos y gana reconocimientos únicos.</p>
+            <a href="{{ url_for('profile') }}" class="btn">Explorar</a>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block styles %}
@@ -107,6 +149,74 @@
     @keyframes underline {
         from { transform: scaleX(0); }
         to { transform: scaleX(1); }
+    }
+
+    /* Nueva sección de beneficios */
+    .benefits-section {
+        margin-top: 40px;
+        text-align: center;
+    }
+
+    .section-title {
+        font-size: 2em;
+        color: #333;
+        margin-bottom: 20px;
+    }
+
+    .benefits-row {
+        display: flex;
+        flex-wrap: nowrap; /* Evitar que las tarjetas se envuelvan */
+        justify-content: space-between; /* Espaciado uniforme entre tarjetas */
+        gap: 10px; /* Reducir el espacio entre tarjetas */
+    }
+
+    .benefit-card {
+        background: #f9f9f9;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        padding: 15px; /* Reducir espacio interno */
+        width: 22%; /* Ajustar ancho para que quepan 4 tarjetas en una fila */
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .benefit-card .icon {
+        font-size: 2em; /* Reducir tamaño del ícono */
+        margin-bottom: 10px;
+    }
+
+    .benefit-card h4 {
+        font-size: 1.2em; /* Reducir tamaño del título */
+        color: #4CAF50;
+        margin-bottom: 10px;
+    }
+
+    .benefit-card p {
+        font-size: 0.9em; /* Reducir tamaño del texto */
+        color: #555;
+        margin-bottom: 10px;
+    }
+
+    .benefit-card .btn {
+        background-color: #4CAF50;
+        color: white;
+        padding: 8px 12px; /* Reducir tamaño del botón */
+        text-decoration: none;
+        border-radius: 5px;
+        font-size: 0.9em; /* Reducir tamaño del texto del botón */
+    }
+
+    .benefit-card .btn:hover {
+        background-color: #45a049;
+    }
+
+    /* Estilo para el texto tipo cita */
+    .quote-text {
+        font-size: 1em; /* Reducir tamaño de la fuente */
+        font-style: italic;
+        color: #666;
+        margin-top: 20px;
+        font-family: 'Poppins', sans-serif;
     }
 </style>
 {% endblock %}
