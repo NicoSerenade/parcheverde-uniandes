@@ -1,6 +1,12 @@
-{% extends "index.html" %}
+{% extends "base.html" %}
 
 {% block content %}
+<div class="events-container">
+    <!-- Botón en la esquina superior derecha -->
+    <div class="create-event-button">
+        <a href="{{ url_for('create_event') }}" class="btn btn-primary">Crear Evento</a>
+    </div>
+
     <h2>Available Events</h2>
     {% if events %}
         <ul class="list-group list-group-flush">
@@ -40,4 +46,33 @@
             <p>No events found.</p>
         </div>
     {% endif %}
-{% endblock %} 
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+    .events-container {
+        position: relative;
+        padding: 20px;
+    }
+
+    .create-event-button {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+
+    .btn {
+        background-color: #4CAF50;
+        color: white;
+        padding: 10px 20px;
+        text-decoration: none;
+        border-radius: 5px;
+        font-size: 1em;
+    }
+
+    .btn:hover {
+        background-color: #45a049;
+    }
+</style>
+{% endblock %}
