@@ -1610,6 +1610,13 @@ def handle_connect():
         join_room(personal_room)
         print(f'personal_room: {personal_room}')
         print(f"SocketIO: User {user_id} joined their personal room: {personal_room}")
+        
+        for org in get_user_orgs_logic(user_id = user_id)['data']:
+            org_id = org['org_id']
+            org_room = f'org_room_{org_id}'
+            join_room(org_room)
+            print(f"SocketIO: User {user_id} joined organization room: {org_room}")
+        
     #elif with user_type == 'org' case. [TODO: Add logic for organizations]
     else: print(f"SocketIO: User not authenticated. SID: {sid} not saved.")
     # (session, request, connected_users, join_room)
@@ -1752,9 +1759,62 @@ def handle_group_message(data : dict) -> None:
        message details to the organization's group room
        (`room=f'org_room_{org_id}'`).
     """
+    sender_id = session.get('entity_id')
+    sender_type = session.get('entity_type')
     
-    # (session, data, is_user_member_of_org_logic, save_message_logic, emit)
-    pass
+    if not sender_id or not sender_type:
+        emit('error_message', {'message': 'Sender not authenticated.'})
+        print("SocketIO: Sender not authenticated.")
+        return
+    
+    org_id_str = data.get('recipient_id')
+    content = data.get('content')
+    
+    if not org_id_str or not content:
+        emit('error_message', {'message': 'Missing required fields.'})
+        print("SocketIO: Missing required fields.")
+        return
+    
+    try:
+        org_id = int(org_id_str)
+    except (ValueError, TypeError):
+        emit('error_message', {'message': 'Invalid organization ID.'})
+        print("SocketIO: Invalid organization ID.")
+        return
+    
+    # Check if the user is a member of the organization
+    is_member = False
+    for org in get_user_orgs_logic(sender_id)['data']:
+        if org_id == org['org_id']:
+            is_member = True
+            break
+            
+    if not is_member:
+        emit('error_message', {'message': 'User is not a member of the organization.'})
+        print("SocketIO: User is not a member of the organization.")
+        return
+    
+    save_message = save_message_logic(sender_id, sender_type, org_id, 'org', content)
+    
+    if not save_message or save_message.get('status') != 'success':
+        emit('error_message', {'message': 'Failed to save message.'})
+        print("SocketIO: Failed to save message.")
+        return
+    
+    time_now = datetime.now().isoformat()
+    message_send = {
+        'sender_id': sender_id,
+        'sender_type': sender_type,
+        'recipient_id': org_id,
+        'recipient_type': 'org',
+        'content': content,
+        'timestamp': time_now,
+        'message_id': save_message.get('message_id'),
+    }
+    
+    group_room = f'org_room_{org_id}'
+    emit('new_group_message', message_send, room = group_room)
+    print(f"SocketIO: New group message sent to organization ID {org_id}")
 
 
 ## Messaging Logic Functions
@@ -1825,55 +1885,5 @@ def get_group_conversation_logic(org_id: int, limit: int) -> list:
               status and message data list or an error message.
     """
     
-    # result = db_operator.get_group_conversation(...) # (Needs to be created in db_operator)
-    # return result
-    pass
-
-def get_user_organization_ids_logic(user_id: int) -> dict:
-    """
-    function to get the IDs of organizations a user is a member of.
-
-    Calls a function in db_operator (potentially using search_orgs)
-    to retrieve the list of organization IDs. Used during the 'connect'
-    event to join the user to the appropriate group rooms.
-
-    Args:
-        user_id (int): The ID of the user.
-
-    Returns:
-        dict: A dictionary containing status and a list of organization IDs
-              (e.g., {'status': 'success', 'data': [101, 205]}) or an error.
-              (Consider returning just the list on success, handle errors).
-    """
-    # Example using search_orgs:
-    # result = db_operator.search_orgs(user_id=user_id)
-    # if result:
-    #     org_ids = [org['org_id'] for org in result]
-    #     return {"status": "success", "data": org_ids}
-    # else:
-    #     return {"status": "error", "message": "Failed to retrieve organizations"}
-    
-    # ids = db_operator.get_user_organization_ids(...) # (Needs using search_orgs)
-    # return ids
-    pass
-
-def is_user_member_of_org_logic(user_id, org_id) -> bool:
-    """
-    function to check if a user is a member of a specific organization.
-
-    Calls a function in db_operator (either new or using get_org_members)
-    to perform the membership check. Used to authorize sending messages
-    to a group chat.
-
-    Args:
-        user_id (int): The ID of the user.
-        org_id (int): The ID of the organization.
-
-    Returns:
-        bool: True if the user is a member, False otherwise.
-              (Consider returning a dict with status for clarity on errors).
-    """
-    
-    # is_member = db_operator.is_user_member_of_org(...) # (Necesita crearse o usar get_org_members)
-    # return is_member
-    pass
+    result = db_operator.get_group_conversation(org_id, limit)
+    return result

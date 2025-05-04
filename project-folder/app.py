@@ -1342,12 +1342,11 @@ def admin_update_org_points():
 @app.route('/index_prueba_messages')
 def chat_test():
     session.clear() # Limpia sesión anterior por si acaso
-    test_user_id = 1 # <-- !!! CAMBIA ESTO por un user_id válido de tu BD !!!
-    session['entity_id'] = test_user_id
+    session['entity_id'] = 1
     session['entity_type'] = 'user'
-    session['name'] = f'Usuario Temporal {test_user_id}' # Nombre de prueba
+    session['name'] = f'Usuario Temporal {1}' # Nombre de prueba
     session.modified = True # Marca la sesión como modificada
-    print(f"[Workaround] Sesión establecida manualmente para user_id: {test_user_id}")
+    print(f"[Workaround] Sesión establecida manualmente para user_id: {1}")
     current_user_id = session.get('entity_id')
     return render_template('index_prueba_messages.html', current_user_id=current_user_id)
 ###
@@ -1358,5 +1357,12 @@ if __name__ == '__main__':
     db_conn.setup_database()
     import db_operator
     
+    #To test the database connection and operations, uncomment the following lines:
+    #db_operator.register_user('user', '202510939', '12345678', 'Edy', 'es.martinez@uniandes.edu.co', 'ISIS', 'Study')
+    #db_operator.register_org('org', '202510939', '12345678', 'Edy', 'es.martinez@uniandes.edu.co', 'Non', 'Non')
+    #db_operator.join_org(1, 1)
+    
     socketio.run(app, host = '0.0.0.0', port = 5000)
     
+    # Uncomment the following line to test the chat functionality
+    #chat_test()

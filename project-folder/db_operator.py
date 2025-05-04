@@ -2596,3 +2596,56 @@ def mark_message_as_read(recipient_id: int, recipient_type: str, sender_id: int,
             conn.close()
 
     return result
+
+def get_group_conversation (org_id: int, limit: int = 50) -> dict:
+    """
+    Retrieves messages exchanged in a group conversation for a specific organization.
+    
+    Args:
+        org_id (int): The ID of the organization.
+        limit (int): The maximum number of messages to retrieve.
+
+    Returns:
+        dict: A dictionary containing the status and messages data.
+    """
+    response = None
+    messages = []
+    conn = db_conn.create_connection()
+
+    if conn is None:
+        response = {"status": "error", "message": "Database connection failed"}
+    else:
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT message_id, sender_id, sender_type, recipient_id, recipient_type, content, timestamp, is_read
+                FROM messages
+                WHERE recipient_id = ? AND recipient_type = 'org'
+                ORDER BY timestamp DESC -- Get newest first
+                LIMIT ?
+            ''', (org_id, limit))
+
+            rows = reversed(cursor.fetchall()) #get revert messages to show in UI
+            for row in rows:
+                messages.append({
+                    'message_id': row[0],
+                    'sender_id': row[1],
+                    'sender_type': row[2],
+                    'recipient_id': row[3],
+                    'recipient_type': row[4],
+                    'content': row[5],
+                    'timestamp': row[6],
+                    'is_read': bool(row[7])
+                })
+
+            response = {
+                "status": "success",
+                "data": messages
+            }
+
+        except sqlite3.Error as e:
+            response = {"status": "error", "message": str(e)}
+
+        finally:
+            conn.close()
+    return response

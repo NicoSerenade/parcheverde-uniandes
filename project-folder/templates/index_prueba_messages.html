@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Socket.IO Chat Test</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 15px; }
+        #chatbox { height: 300px; width: 90%; overflow-y: scroll; border: 1px solid #ccc; margin-bottom: 10px; padding: 5px; }
+        .message { margin-bottom: 5px; padding: 3px; border-radius: 3px; }
+        .my-message { background-color: #dcf8c6; text-align: right; margin-left: 20%; }
+        .other-message { background-color: #eee; text-align: left; margin-right: 20%;}
+        #controls input { margin-right: 5px; padding: 5px;}
+    </style>
+</head>
+<body>
+    <h1>Prueba de Chat Socket.IO</h1>
+    <p>Abre la consola del navegador (F12) y la consola del servidor para ver los logs.</p>
+
+    <div id="chatbox">
+        </div>
+
+    <div id="controls">
+        <select id="recipient_type">
+            <option value="org">org</option>
+            <option value="user">user</option>
+        </select>
+        <input type="text" id="recipient_id" placeholder="ID Destinatario">
+        <input type="text" id="message_input" placeholder="Escribe tu mensaje...">
+        <button id="send_button">Enviar Mensaje Privado</button>
+    </div>
+
+    <script>
+        // --- Conexión ---
+        console.log('Intentando conectar a Socket.IO...');
+        // Conecta automáticamente al host/puerto desde donde se sirvió esta página
+        const socket = io();
+
+        // --- Estado de Conexión ---
+        socket.on('connect', () => {
+            console.log('CONECTADO al servidor. Tu SID:', socket.id);
+            // Puedes añadir lógica aquí si quieres hacer algo al conectar
+            // como pedir historial inicial o lista de usuarios.
+            // Por ahora, solo verificamos la conexión.
+        });
+
+        socket.on('disconnect', () => {
+            console.warn('DESCONECTADO del servidor.');
+        });
+
+        socket.on('connect_error', (err) => {
+            console.error('Error de Conexión Socket.IO:', err);
+        });
+
+        // --- Escuchar Mensajes Nuevos del Servidor ---
+        socket.on('new_message', (msg) => {
+            console.log('Mensaje NUEVO recibido:', msg);
+            // Añadir el mensaje al chatbox
+            addMessageToChat(msg); // 'false' indica que no es mi mensaje
+        });
+
+        socket.on('new_group_message', (msg) => {
+            console.log('Mensaje NUEVO de grupo recibido:', msg);
+            // Añadir el mensaje al chatbox
+            addMessageToChat(msg); // 'false' indica que no es mi mensaje
+        });
+        // --- Escuchar Errores del Servidor ---
+        socket.on('error_message', (err) => {
+            console.error('Error del Servidor:', err.message);
+            alert('Error del servidor: ' + err.message); // Muestra el error al usuario
+        });
+
+        // --- Envío de Mensajes ---
+        const recipientTypeSelect = document.getElementById('recipient_type');
+        const recipientInput = document.getElementById('recipient_id');
+        const messageInput = document.getElementById('message_input');
+        const sendButton = document.getElementById('send_button');
+        const chatbox = document.getElementById('chatbox');
+
+        sendButton.onclick = () => {
+            const recipientId = recipientInput.value.trim();
+            const messageContent = messageInput.value.trim();
+
+            if (!recipientId) {
+                alert('Por favor, introduce un ID de destinatario.');
+                return;
+            }
+            if (!messageContent) {
+                alert('Por favor, escribe un mensaje.');
+                return;
+            }
+
+            console.log(`Enviando mensaje a ${recipientId}: ${messageContent}`);
+
+            // Emitir el evento 'private_message' al servidor
+            if (recipientTypeSelect.value === 'org') {
+                const messageData = {
+                    recipient_id: recipientId,
+                    recipient_type: 'org', // Asumimos org para prueba one-to-one
+                    content: messageContent
+                };
+                socket.emit('group_message', messageData);
+            }
+            else if (recipientTypeSelect.value === 'user') {
+                const messageData = {
+                    recipient_id: recipientId,
+                    recipient_type: 'user', // Asumimos user para prueba one-to-one
+                    content: messageContent
+                };
+                socket.emit('private_message', messageData);
+            }
+            
+
+
+            // (Opcional) Añadir tu propio mensaje al chatbox inmediatamente
+            // Para una mejor UX, podrías esperar confirmación del servidor ('message_sent')
+            // addMessageToChat({
+            //     sender_id: 'YO', // O obtener tu ID real si lo tienes disponible aquí
+            //     content: messageContent,
+            //     timestamp: new Date().toISOString()
+            // }, true); // 'true' indica que es mi mensaje
+
+            // Limpiar input
+            messageInput.value = '';
+        };
+
+        // Función helper para añadir mensajes al div
+        function addMessageToChat(msg, isMyMessage) {
+             const msgDiv = document.createElement('div');
+             msgDiv.classList.add('message');
+             msgDiv.classList.add(isMyMessage ? 'my-message' : 'other-message');
+
+             // Formatear un poco la info (puedes mejorar esto)
+             const sender = msg.sender_id === session?.entity_id ? 'Yo' : `Usuario ${msg.sender_id}`; // Necesitarías tu propio ID aquí
+             const time = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : '';
+             msgDiv.textContent = `${sender} (${time}): ${msg.content}`;
+
+             chatbox.appendChild(msgDiv);
+             // Auto-scroll hacia abajo
+             chatbox.scrollTop = chatbox.scrollHeight;
+        }
+
+    </script>
+</body>
+</html>
