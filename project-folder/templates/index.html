@@ -6,7 +6,7 @@
         {% if 'entity_type' in session %}
             ¡Bienvenido a <span class="highlight">Comunidad Verde</span>!
         {% else %}
-            ¡Únete ahora a la <span class="highlight">Comunidad Verde Uniandina</span>!
+            ¡Únete ahora a la <span class="highlight">Comunidad Parche Verde Uniandes</span>!
         {% endif %}
     </h2>
     
@@ -25,70 +25,58 @@
 
 {% block styles %}
 <style>
+    /* Contenedor principal */
     .welcome-container {
         text-align: center;
-        padding: 40px 20px;
-        max-width: 800px;
+        padding: 40px 20px; /* Reducir espacio interno */
+        max-width: 800px; /* Contenedor más estrecho */
         margin: 0 auto;
         animation: fadeIn 1s ease-out;
     }
 
+    /* Título principal */
     .welcome-title {
-        font-size: 2.5em;
+        font-size: 2.8em; /* Reducir tamaño del título */
         color: #333;
         margin-bottom: 30px;
-        font-weight: 600;
-        opacity: 0;
-        animation: slideDown 0.8s ease-out forwards;
+        font-weight: 700; /* Negrita para destacar */
+        font-family: 'Poppins', sans-serif; /* Fuente elegante y accesible */
     }
 
+    /* Texto destacado */
     .highlight {
         color: rgb(76, 175, 80);
-        position: relative;
+        font-weight: 800; /* Más negrita para destacar */
     }
 
-    .highlight::after {
-        content: '';
-        position: absolute;
-        bottom: -5px;
-        left: 0;
-        width: 100%;
-        height: 2px;
-        background-color: rgb(76, 175, 80);
-        transform: scaleX(0);
-        animation: underline 1s ease-out 0.8s forwards;
-    }
-
+    /* Mensaje de bienvenida */
     .welcome-message {
-        margin-top: 40px;
+        margin-top: 30px;
+        font-size: 1.2em; /* Reducir tamaño del texto */
+        line-height: 1.6; /* Mejor legibilidad */
+        color: #555;
     }
 
+    /* Texto animado */
     .animated-text {
-        font-size: 1.2em;
-        color: #555;
-        margin: 15px 0;
+        font-size: 1.4em; /* Texto más grande */
+        color: #444;
+        margin: 20px 0;
         opacity: 0;
         animation: fadeIn 0.8s ease-out forwards;
+        font-family: 'Poppins', sans-serif; /* Fuente consistente */
     }
 
-    .delayed {
-        animation-delay: 0.4s;
-    }
-
-    .more-delayed {
-        animation-delay: 0.8s;
-    }
-
+    /* Contenedor de inicio de sesión */
     .login-prompt {
         margin-top: 30px;
-        padding: 20px;
+        padding: 20px; /* Reducir espacio interno */
         background: rgba(76, 175, 80, 0.1);
-        border-radius: 15px;
-        transform: translateY(20px);
-        opacity: 0;
-        animation: slideUp 0.8s ease-out 0.6s forwards;
+        border-radius: 15px; /* Bordes más redondeados */
+        font-size: 1.1em; /* Reducir tamaño del texto */
     }
 
+    /* Animaciones */
     @keyframes fadeIn {
         from { opacity: 0; }
         to { opacity: 1; }
