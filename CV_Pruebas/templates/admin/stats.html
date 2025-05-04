@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Statistics{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">System Statistics</li>
+                </ol>
+            </nav>
+            
+            <h1 class="mb-4">System Statistics</h1>
+            
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title">Total Users</h5>
+                            <h2 class="display-4">{{ stats.total_users }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title">Total Organizations</h5>
+                            <h2 class="display-4">{{ stats.total_orgs }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title">Total Events</h5>
+                            <h2 class="display-4">{{ stats.total_events }}</h2>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <h5 class="card-title">Total Items</h5>
+                            <h2 class="display-4">{{ stats.total_items }}</h2>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Top Organizations by Points -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Top Organizations by Points</h5>
+                </div>
+                <div class="card-body">
+                    {% if stats.top_orgs %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Points</th>
+                                        <th>Created</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for org in stats.top_orgs %}
+                                    <tr>
+                                        <td>{{ org.name }}</td>
+                                        <td>{{ org.email }}</td>
+                                        <td>{{ org.points }}</td>
+                                        <td>{{ org.creation_date }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No organizations found</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Users List -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>All Users</h5>
+                </div>
+                <div class="card-body">
+                    {% if stats.users %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Student Code</th>
+                                        <th>Career</th>
+                                        <th>Points</th>
+                                        <th>Created</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for user in stats.users %}
+                                    <tr>
+                                        <td>{{ user.user_id }}</td>
+                                        <td>{{ user.name }}</td>
+                                        <td>{{ user.email }}</td>
+                                        <td>{{ user.student_code }}</td>
+                                        <td>{{ user.career }}</td>
+                                        <td>{{ user.points }}</td>
+                                        <td>{{ user.creation_date }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No users found</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Organizations List -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>All Organizations</h5>
+                </div>
+                <div class="card-body">
+                    {% if stats.orgs %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Description</th>
+                                        <th>Points</th>
+                                        <th>Created By</th>
+                                        <th>Created</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for org in stats.orgs %}
+                                    <tr>
+                                        <td>{{ org.org_id }}</td>
+                                        <td>{{ org.name }}</td>
+                                        <td>{{ org.email }}</td>
+                                        <td>{{ org.description }}</td>
+                                        <td>{{ org.points }}</td>
+                                        <td>{{ org.creator_student_code }}</td>
+                                        <td>{{ org.creation_date }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No organizations found</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-primary">Back to Dashboard</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

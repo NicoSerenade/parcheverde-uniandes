@@ -269,17 +269,18 @@ def setup_database():
             # Map Points table
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS map_points (
-                point_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                creator_id INTEGER NOT NULL,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
-                description TEXT NOT NULL,
-                point_type TEXT NOT NULL, --tienda, reciclaje, punto_de_encuentro,
+                description TEXT,
+                point_type TEXT NOT NULL,
                 latitude REAL NOT NULL,
                 longitude REAL NOT NULL,
-                address TEXT,
-                creation_date TEXT DEFAULT CURRENT_TIMESTAMP
+                added_by TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                creator_id INTEGER DEFAULT 1
             )
             ''')
+
 
             # Messages table
             cursor.execute('''
@@ -331,7 +332,6 @@ def drop_table():
         print("Operation cancelled. Table was not dropped.")
 
 setup_database()
-
 
 
 

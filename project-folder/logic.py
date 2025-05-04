@@ -65,7 +65,7 @@ def register_user(name, email, student_code, password, interests=None, career=No
         print(f"status: error, message: Email must end with {'@uniandes.edu.co'}")
         return None
     
-    if not db_operator.check_user_exists(email, student_code):
+    if db_operator.check_user_exists(email, student_code):
         return {"status": "error", "message": " Email or student code might exist."}
 
     # Hash password before sending to db_operator
@@ -146,6 +146,7 @@ def login(identifier, password):
                 "points": user.get('points'),
                 "interests": user.get('interests'),
                 "career": user.get('career'),
+                "photo": user.get('photo'),
                 "creation_date": user.get("creation_date")
             }
 
@@ -782,7 +783,7 @@ def get_org_confirmed_count(event_id, org_id):
 
 
 # --- Item Functions ---
-def add_item_logic(owner_id, owner_type, name, description, item_type, item_terms):
+def add_item_logic(owner_id, name, description, item_type, item_terms):
     """
     Allows a specified user to add an item for exchange, gift or borrowing.
     Returns a status message, including points awarded.
@@ -793,24 +794,22 @@ def add_item_logic(owner_id, owner_type, name, description, item_type, item_term
         name (str): Item name.
         description (str): Item description.
         item_type (str): Item type (ropa, libros, hogar, otros).
-        item_terms (str): Item terms (regalo, prestamo, intercambio).
+        item_terms (str): Item terms (gift, loan, exchange).
     """
     # Removed _get_session_details call
     # Type check (ensuring it's a user) should happen in app.py
     if not owner_id:
         return {"status": "error", "message": "Owner ID is required."}
-
-    # Validate item_terms
-    valid_terms = ['regalo', 'prestamo', 'intercambio']
+    
+    valid_terms = ['gift', 'loan', 'exchange']
     if item_terms not in valid_terms:
         return {"status": "error", "message": f"Invalid item terms. Must be one of: {', '.join(valid_terms)}"}
-
+    
     item_id = db_operator.create_item(owner_id, name, description, item_type, item_terms)
 
     if item_id:
-
         points_to_award = 1  # Just 1 point for listing an item
-        award_result = award_points_logic(owner_id, owner_type, points_to_award)
+        award_result = award_points_logic(owner_id, 'user', points_to_award)
         return {"status": "success", "message": f"Item '{name}' added successfully. {award_result.get('message', '')}"}
     else:
         return {"status": "error", "message": "Failed to add item."}
@@ -836,7 +835,6 @@ def delete_my_item_logic(user_id, item_id):
     if owner_id is None:
         return {"status": "error", "message": "Item not found."}
     if owner_id != user_id:
-        # This check is crucial and correctly placed here.
         return {"status": "error", "message": "You can only delete your own items."}
 
     # 2. Update status to 'removed' (or implement a real delete in db_operator if preferred)
@@ -847,254 +845,81 @@ def delete_my_item_logic(user_id, item_id):
     else:
         return {"status": "error", "message": "Failed to remove item."}
 
-def view_items_logic(item_terms=None):
+def view_items_logic(item_type=None, item_terms=None, user_id=None):
     """
     Retrieves items currently available for exchange, gift or borrowing.
     Items can be filtered by their terms.
     
     Args:
-        item_terms (str, optional): Filter by item terms (regalo, prestamo, intercambio).
+        item_type (str, optional): Filter by item type (ropa, libros, hogar, otros).
+        item_terms (str, optional): Filter by item terms (gift, loan, exchange).
+        user_id (int, optional): items from the specific owner.
         If None, all items are returned.
     
     Returns:
-        dict: Dictionary with status and data.
-    """
-    print(f"Logic: Fetching available items with terms filter: {item_terms}")
-    items = db_operator.get_available_items(item_terms=item_terms)
-    if items is None:  # DB error
+        dict: Dictionary with status and data.  
+    """ 
+    items = db_operator.get_available_items(item_type=item_type, item_terms=item_terms, user_id=user_id)
+    if items is None:
         return {"status": "error", "message": "Failed to retrieve items."}
     else:
         return {"status": "success", "data": items}
 
 def request_item_logic(requester_id, item_id, message=""):
     """
-    Allows a user to request an item for exchange, gift, or borrowing.
+    Allows a user to request an item.
     Uses the original item terms defined by the owner.
     
     Args:
         requester_id (int): The user_id of the requester.
         item_id (int): The ID of the item being requested.
-        message (str, optional): Optional message from requester to owner.
+        message (str, optional/Mandatory): Mandatory message only for requesting an item as a exchange.
         
     Returns:
         dict: Status message and details.
     """
+    # Validate requester and item ID
     if not requester_id or not item_id:
         return {"status": "error", "message": "Requester ID and Item ID are required."}
 
-    # Get item details (need to know the owner and original term)
+    # Retrieve item details and verify availability
     item_details = db_operator.get_item_details(item_id)
     if not item_details:
         return {"status": "error", "message": "Item not found."}
-    
     owner_id = item_details.get('owner_id')
     item_name = item_details.get('name')
-    original_term = item_details.get('item_terms')
-    
-    # Prevent requesting your own items
+    item_term = item_details.get('item_terms')  # expected to be 'gift', 'loan', or 'exchange'
     if owner_id == requester_id:
         return {"status": "error", "message": "You cannot request your own items."}
-    
-    # Check if item is available
-    # Note: get_item_details maps item_status to status for API compatibility
     if item_details.get('status') != 'available':
         return {"status": "error", "message": "This item is not available for request."}
-
-    print(f"Logic: User ID {requester_id} requesting item ID {item_id} with term '{original_term}'")
-    print(f"Owner is User ID {owner_id}")
     
-    # Create an exchange request with the original term
-    exchange_id = db_operator.create_item_request(
-        requester_id, 
-        owner_id, 
-        item_id, 
-        original_term,
-        message
-    )
+    # Process the request based on item term
+    if item_term == 'gift':
+        update_success = db_operator.update_item_status(item_id, 'unavailable')
+        if update_success:
+            return {"status": "success", "message": f"Gift item '{item_name}' requested. The item is now unavailable. Initiate chat with the owner."}
+        else:
+            return {"status": "error", "message": "Failed to update item status for gift request."}
     
-    if exchange_id:
-        # Success message varies based on item term
-        term_messages = {
-            'regalo': "You have requested this item as a gift. Please contact the owner to arrange a pickup or delivery.",
-            'prestamo': "You have requested to borrow this item. Please contact the owner to arrange pickup, delivery, and return details.",
-            'intercambio': "You have requested to exchange this item. Please contact the owner to arrange an exchange meeting."
-        }
-        
-        base_message = f"Request for '{item_name}' sent successfully! {term_messages.get(original_term, '')}"
-        
-        return {"status": "success", "message": base_message}
+    elif item_term == 'loan':
+        update_success = db_operator.update_item_status(item_id, 'borrowed')
+        if update_success:
+            return {"status": "success", "message": f"Loan item '{item_name}' requested. The item is now marked as borrowed. Initiate chat with the owner regarding delivery and return."}
+        else:
+            return {"status": "error", "message": "Failed to update item status for loan request."}
+    
+    elif item_term == 'exchange':
+        if not message.strip():
+            return {"status": "error", "message": "Proposal message is required for exchange requests."}
+        exchange_id = db_operator.create_item_request(requester_id, owner_id, item_id, item_term, message)
+        if exchange_id:
+            return {"status": "success", "message": f"Exchange proposal for item '{item_name}' submitted successfully. Wait for the owner's decision."}
+        else:
+            return {"status": "error", "message": "Failed to submit exchange proposal."}
+    
     else:
-        # Request failed in the database
-        return {"status": "error", "message": "Failed to create exchange request. Please try again later."}
-
-def view_my_exchange_requests_logic(user_id, request_type='received'):
-    """
-    Allows the specified user to view their 'received' or 'sent' exchange requests.
-    Returns a dictionary containing the status and a list of request details.
-
-     Args:
-        user_id (int): The user_id whose requests to view.
-        request_type (str): 'received' or 'sent'. Defaults to 'received'.
-    """
-    # Removed _get_session_details call
-    # Type check ('user') should happen in app.py
-    if not user_id:
-        return {"status": "error", "message": "User ID is required."}
-
-    if request_type not in ['received', 'sent']:
-        return {"status": "error", "message": "Invalid request type specified. Use 'received' or 'sent'."}
-
-    print(f"Logic: User ID {user_id} viewing {request_type} exchange requests")
-
-    requests_list = db_operator.get_user_exchange_requests(user_id, request_type)
-
-    # Format Response
-    if requests_list is None: # Indicates DB error
-        return {"status": "error", "message": f"An error occurred while retrieving {request_type} requests."}
-    else:
-        # Return success status and the list (which might be empty)
-        return {"status": "success", "data": requests_list}
-
-def accept_exchange_logic(owner_id, exchange_id):
-    """
-    Allows an item owner to accept an exchange request.
-    The item will be marked with the status based on the original item terms.
-    Points are awarded according to the item term:
-    - regalo (gift): 10 points to owner
-    - prestamo (loan): 4 points to owner
-    - intercambio (exchange): 2 points to both owner and requester
-    
-    Returns a status message with encouragement to contact the other party.
-
-    Args:
-        owner_id (int): The user_id of the item owner accepting the request.
-        exchange_id (int): The ID of the exchange request being accepted.
-    """
-    owner_type = 'user'
-    requester_type = 'user'
-      # Assuming owner is always a user
-    if not owner_id or not exchange_id:
-        return {"status": "error", "message": "Owner ID and exchange request ID are required."}
-
-    # Get exchange request details
-    exchange_request = db_operator.get_exchange_request(exchange_id)
-    if not exchange_request:
-        return {"status": "error", "message": "Exchange request not found."}
-    
-    # Verify ownership
-    if exchange_request.get('owner_id') != owner_id:
-        return {"status": "error", "message": "You can only accept requests for your own items."}
-    
-    # Verify status
-    if exchange_request.get('status') != 'pending':
-        return {"status": "error", "message": "This request is not in a pending state."}
-    
-    # Get relevant data
-    item_id = exchange_request.get('item_id')
-    requester_id = exchange_request.get('requester_id')
-    
-    # Get item details to refer to it by name in messages
-    item_details = db_operator.get_item_details(item_id)
-    if not item_details:
-        return {"status": "error", "message": "Item details not found."}
-        
-    item_name = item_details.get('name', f"Item #{item_id}")
-    item_terms = item_details.get('item_terms')
-    
-    print(f"Logic: User ID {owner_id} accepting exchange request ID {exchange_id} for item {item_id}")
-    print(f"Original item terms: {item_terms}")
-    
-    # Accept the exchange in DB - using the original item_terms
-    success = db_operator.accept_exchange_request(exchange_id, item_terms)
-    
-    if success:
-        # Award points based on the original item_terms
-        owner_points = 0
-        requester_points = 0
-        contact_message = ""
-        
-        if item_terms == 'regalo':
-            # 10 points for giving an item as a gift
-            owner_points = 10
-            requester_points = 0
-            contact_message = "Please contact the requester to arrange a pickup or delivery."
-        elif item_terms == 'prestamo':
-            # 4 points for lending an item
-            owner_points = 4
-            requester_points = 0
-            contact_message = "Please contact the requester to arrange pickup, delivery, and return details."
-        elif item_terms == 'intercambio':
-            # 2 points for exchanging an item
-            owner_points = 2
-            requester_points = 2
-            contact_message = "Please contact the requester to arrange an exchange meeting."
-        
-        # Award points to owner
-        if owner_points > 0:
-            award_points_logic(owner_id, owner_type, owner_points)
-        
-        # Award points to requester if applicable
-        if requester_points > 0:
-            award_points_logic(requester_id, requester_type, requester_points)
-        
-        # Create success message based on the item_terms
-        term_messages = {
-            'regalo': f"You have given {item_name} as a gift.",
-            'prestamo': f"You have loaned {item_name}. Remember it should be returned.",
-            'intercambio': f"You have exchanged {item_name}."
-        }
-        
-        base_message = term_messages.get(
-            item_terms, 
-            f"Exchange request for {item_name} accepted successfully!"
-        )
-        
-        points_message = f"You earned {owner_points} points for this transaction!"
-        
-        return {
-            "status": "success", 
-            "message": f"{base_message} {points_message} {contact_message}"
-        }
-    else:
-        return {"status": "error", "message": "Failed to accept exchange request. Please try again."}
-
-def reject_exchange_logic(current_user_id, exchange_id):
-    """
-    Allows the specified user (owner of the item) to reject a pending exchange request.
-    Updates the exchange status.
-    Returns a status message dictionary.
-
-     Args:
-        current_user_id (int): The user_id attempting to reject the request.
-        exchange_id (int): The ID of the exchange request.
-    """
-    # Removed _get_session_details call
-    # Type check ('user') should happen in app.py
-    if not current_user_id:
-        return {"status": "error", "message": "User ID is required."}
-
-    print(f"Logic: User ID {current_user_id} attempting to reject exchange ID {exchange_id}")
-
-    # Get Request Details & Validate
-    request_details = db_operator.get_exchange_request(exchange_id)
-    if not request_details:
-        return {"status": "error", "message": "Exchange request not found."}
-
-    if request_details['owner_id'] != current_user_id:
-         return {"status": "error", "message": "You are not authorized to reject this request."}
-    if request_details['status'] != 'pending':
-         return {"status": "error", "message": f"This request is not pending (current status: {request_details['status']})."}
-
-    # Update DB
-    success = db_operator.update_exchange_status(exchange_id, 'rejected')
-
-    # Format Response
-    if success:
-        # Optional: Notify requester
-        return {"status": "success", "message": f"Exchange request {exchange_id} rejected successfully."}
-    else:
-        return {"status": "error", "message": "Failed to reject exchange request."}
-
+        return {"status": "error", "message": "Invalid item term."}
 
 # --- Map Functions ---
 def add_map_point_logic(adder_id, adder_type, permission_code, name, latitude, longitude, point_type, description):
@@ -1159,6 +984,92 @@ def get_map_points_logic():
     else:
         return {"status": "success", "data": points}
 
+#TEMPORARY QUICK SOLUTION FOR MAP POINTS BELOW FROM SANTI's CODE
+
+def get_map_points():
+     """Get all map points from database
+        Returns list of dictionaries with point data.
+     """
+     try:
+         conn = db_conn.create_connection()
+         if conn is None:
+             return []
+             
+         cursor = conn.cursor()
+         cursor.execute("""
+             SELECT id, name, description, point_type, latitude, longitude, added_by, created_at
+             FROM map_points
+             ORDER BY created_at DESC
+         """)
+         
+         points = cursor.fetchall()
+         
+         # Convertir a lista de diccionarios
+         map_points = []
+         for point in points:
+             map_points.append({
+                 'id': point[0],
+                 'name': point[1],
+                 'description': point[2],
+                 'point_type': point[3],
+                 'latitude': point[4],
+                 'longitude': point[5],
+                 'added_by': point[6],
+                 'created_at': point[7]
+             })
+             
+         return map_points
+     except Exception as e:
+         print(f"Error getting map points: {e}")
+         return []
+     finally:
+         if conn:
+             conn.close()
+ 
+def save_map_point(point_data):
+    """
+    Saves a new map point to the database.
+    """
+    try:
+        conn = db_conn.create_connection()
+        if conn is None:
+            return {'status': 'error', 'message': 'Database connection failed'}
+            
+        cursor = conn.cursor()
+        
+        # Obtener creator_id de la sesión o usar valor por defecto
+        creator_id = point_data.get('creator_id', 1)
+        
+        cursor.execute("""
+            INSERT INTO map_points (
+                name, 
+                description, 
+                point_type, 
+                latitude, 
+                longitude, 
+                added_by,
+                creator_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            point_data['name'],
+            point_data['description'],
+            point_data['point_type'],
+            point_data['latitude'],
+            point_data['longitude'],
+            point_data['added_by'],
+            creator_id
+        ))
+        
+        conn.commit()
+        return {'status': 'success', 'message': 'Point saved successfully'}
+    except Exception as e:
+        return {'status': 'error', 'message': str(e)}
+    finally:
+        if conn:
+            conn.close()
+
+#-----------------------------
 
 # --- Challenge Functions ---
 def search_challenges_logic(entity_type):

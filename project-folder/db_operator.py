@@ -532,6 +532,42 @@ def get_org_by_name(name):
             conn.close()
     return org_data
 
+def get_org_by_creator_student_code(creator_student_code):
+    """
+    Retrieves organization information by creator student code.
+    Returns organization data if found, None otherwise.
+    """
+    org_data = None
+    conn = db_conn.create_connection()
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+            SELECT org_id, user_type, creator_student_code, name, email, password, description, interests, points, creation_date
+            FROM organizations
+            WHERE creator_student_code = ?
+            ''', (creator_student_code,))
+            
+            org = cursor.fetchone()
+            if org:
+                org_data = {
+                    'org_id': org[0],
+                    'user_type': org[1],
+                    'creator_student_code': org[2],
+                    'name': org[3],
+                    'email': org[4],
+                    'password': org[5],
+                    'description': org[6],
+                    'interests': org[7],
+                    'points': org[8],
+                    'creation_date': org[9]
+                }
+        except sqlite3.Error as e:
+            print(f"Error retrieving organization by creator student code: {e}")
+        finally:
+            conn.close()
+    return org_data
+
 #USER/ORG FUNCTIONS
 def search_orgs(query=None, interests=None, sort_by=None, user_id=None):
     """
@@ -2263,6 +2299,8 @@ def update_exchange_requests_schema():
             print(f"Error updating schema: {e}")
         finally:
             conn.close()
+
+
 
 # --- Statistics Functions ---
 

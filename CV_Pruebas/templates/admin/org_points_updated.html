@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+
+{% block title %}Organization Points Updated{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin_update_org_points') }}">Update Organization Points</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Results</li>
+                </ol>
+            </nav>
+            
+            <h1 class="mb-4">Organization Points Updated</h1>
+            
+            <div class="alert alert-success">
+                <strong>Success!</strong> Organization points have been updated based on member points.
+            </div>
+            
+            {% if updated_orgs %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Updated Organizations ({{ updated_orgs|length }})</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Organization</th>
+                                        <th>Members</th>
+                                        <th>Previous Points</th>
+                                        <th>New Points</th>
+                                        <th>Difference</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for org in updated_orgs %}
+                                    <tr>
+                                        <td>{{ org.name }}</td>
+                                        <td>{{ org.members_count }}</td>
+                                        <td>{{ org.previous_points }}</td>
+                                        <td>{{ org.new_points }}</td>
+                                        <td>
+                                            {% set diff = org.new_points - org.previous_points %}
+                                            <span class="{% if diff > 0 %}text-success{% elif diff < 0 %}text-danger{% endif %}">
+                                                {% if diff > 0 %}+{% endif %}{{ diff }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                
+                {% for org in updated_orgs %}
+                <div class="accordion mb-3" id="orgAccordion{{ org.org_id }}">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="heading{{ org.org_id }}">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" 
+                                    data-bs-target="#collapse{{ org.org_id }}" aria-expanded="false" 
+                                    aria-controls="collapse{{ org.org_id }}">
+                                {{ org.name }} - Member Details
+                            </button>
+                        </h2>
+                        <div id="collapse{{ org.org_id }}" class="accordion-collapse collapse" 
+                             aria-labelledby="heading{{ org.org_id }}" data-bs-parent="#orgAccordion{{ org.org_id }}">
+                            <div class="accordion-body">
+                                <h6>Members ({{ org.members_count }})</h6>
+                                {% if org.member_points %}
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>Name</th>
+                                                    <th>Points</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for member in org.member_points %}
+                                                <tr>
+                                                    <td>{{ member.name }}</td>
+                                                    <td>{{ member.points }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                {% else %}
+                                    <p class="text-muted">No member details available</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="card">
+                    <div class="card-body">
+                        <p class="text-muted">No organizations were updated. All organization points were already up-to-date.</p>
+                    </div>
+                </div>
+            {% endif %}
+            
+            <div class="mt-4">
+                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-primary">Back to Dashboard</a>
+                <a href="{{ url_for('admin_update_org_points') }}" class="btn btn-outline-secondary">Run Update Again</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

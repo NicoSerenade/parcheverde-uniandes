@@ -28,11 +28,12 @@ nav a {
     display: inline-block;
     color: white;
     text-decoration: none;
-    padding: 8px 16px;
-    margin: 0 5px;
+    padding: 8px 24px;
+    margin: 0 8px;
     border-radius: 20px;
-    background-color: rgba(255, 255, 255, 0.5); /* Fondo blanco con 50% de opacidad */
+    background-color: rgba(255, 255, 255, 0.5);
     transition: all 0.3s ease;
+    white-space: nowrap;
 }
 
 nav a:hover {
@@ -45,6 +46,25 @@ nav a:hover {
     margin: 0 10px;
 }
 
+/* Nuevo estilo para el botón universal */
+.universal-tab {
+    display: inline-block;
+    color: white !important;
+    text-decoration: none;
+    padding: 8px 16px;
+    margin: 0 5px;
+    border-radius: 20px;
+    background-color: rgb(38, 107, 41) !important; /* Verde más oscuro para destacar */
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+.universal-tab:hover {
+    background-color: rgba(56, 142, 60, 1) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
 /* Container Section */
 .container {
     position: relative;
@@ -53,8 +73,9 @@ nav a:hover {
     margin: 80px auto;
     padding: 20px;
     border-radius: 10px; /* Bordes redondeados */
-    max-width: 900px; /* Centrar y limitar el ancho */
+    max-width: 1200px; /* Centrar y limitar el ancho */
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Aspecto moderno */
+    min-height: 350px;
 }
 
 /* Input Fields */
@@ -107,23 +128,40 @@ button:hover {
 
 /* Flash Messages */
 .flash-message {
-    position: relative;
-    z-index: 2;
-    padding: 10px;
-    margin: 10px 0;
-    border-radius: 5px;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 20px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    z-index: 2000;
+    max-width: 80%;
+    text-align: center;
+    animation: fadeIn 0.3s ease-out;
 }
 
-.flash-warning {
-    background-color: rgba(255, 243, 205, 0.9);
-    border: 1px solid #ffeeba;
-    color: #856404;
+.flash-message.error {
+    border: 2px solid #ff4444;
 }
 
-.flash-error {
-    background-color: rgba(248, 215, 218, 0.9);
-    border: 1px solid #f5c6cb;
-    color: #721c24;
+.flash-message .message-text {
+    color: #ff0000;
+    font-size: 1.1em;
+    font-weight: 500;
+    margin: 0;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -60%);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%);
+    }
 }
 
 /* Footer Section */
@@ -149,4 +187,166 @@ footer {
     opacity: 1;
 }
 
-/* Removemos la clase .fade ya que no la necesitaremos más */
+/* Loader central styles */
+.central-loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    z-index: 9999; /* Aumentado para asegurar que esté sobre todo */
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.3s ease-out, visibility 0.3s ease-out;
+}
+
+.central-loader.hidden {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.central-loader .container {
+    --uib-size: 50px;
+    --uib-color: rgb(56, 142, 60);
+    --uib-speed: .9s;
+    --uib-bg-opacity: .5;
+}
+
+/* Loader Styles */
+.central-loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    z-index: 9999;
+    background: rgba(168, 207, 132, 0.651);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.3s ease-out;
+}
+
+/* "Acerca de" Section Styles */
+.about-section {
+    padding: 40px;
+    margin-top: 100px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.about-content {
+    max-width: 800px;
+    margin: 0 auto;
+    line-height: 1.8;
+}
+
+.about-content p {
+    margin-bottom: 30px;
+    font-size: 1.1em;
+    color: #333;
+}
+
+.about-content strong {
+    color: rgb(76, 175, 80);
+    font-size: 1.2em;
+    display: inline-block;
+    margin-bottom: 10px;
+}
+
+/* Confirmation Dialog Styles */
+.confirmation-dialog {
+    position: absolute;
+    background: rgb(255, 255, 255);
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    z-index: 1001;
+    display: none;
+    min-width: 200px;
+    text-align: center;
+}
+
+.confirmation-dialog.show {
+    display: block;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.confirmation-dialog p {
+    margin: 0 0 15px 0;
+    color: #333;
+    font-size: 0.9em;
+}
+
+.confirmation-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.confirmation-buttons button {
+    margin: 0;
+    padding: 5px 15px;
+    font-size: 0.9em;
+}
+
+.confirm-btn {
+    background-color: #ff4444;
+}
+
+.cancel-btn {
+    background-color: #666;
+}
+
+/* Map Styles */
+.map-container {
+    position: relative;
+    height: 80vh;
+}
+
+#map {
+    height: 100%;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.map-button {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background-color: rgb(76, 175, 80);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 20px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 1000;
+}
+
+.map-button:hover {
+    background-color: rgb(56, 142, 60);
+    transform: translateY(-2px);
+}
+
+/* Custom Marker Style */
+.custom-marker {
+    background-color: rgb(76, 175, 80);
+    border: 2px solid white;
+    border-radius: 50%;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    transition: transform 0.3s ease;
+}
+
+.custom-marker:hover {
+    transform: scale(1.2);
+}

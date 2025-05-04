@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="update-profile-container">
+    <h2>Update Your Profile</h2>
+    
+    {% if error %}
+    <div class="alert alert-danger">
+        {{ error }}
+    </div>
+    {% endif %}
+    
+    {% if success %}
+    <div class="alert alert-success">
+        {{ success }}
+    </div>
+    {% endif %}
+    
+    <form method="POST" action="{{ url_for('update_profile') }}" class="update-form">
+        <div class="form-section">
+            <h3>
+                {% if session.entity_type == 'user' %}
+                    User Information
+                {% else %}
+                    Organization Information
+                {% endif %}
+            </h3>
+            
+            <div class="form-group">
+                <label for="name">Name</label>
+                <input type="text" id="name" name="name" class="form-control" value="{{ data.name }}" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" class="form-control" value="{{ data.email }}" required>
+            </div>
+            
+            {% if session.entity_type == 'user' %}
+                <div class="form-group">
+                    <label for="student_code">Student Code</label>
+                    <input type="text" id="student_code" name="student_code" class="form-control" value="{{ data.student_code }}">
+                </div>
+                
+                <div class="form-group">
+                    <label for="career">Career</label>
+                    <input type="text" id="career" name="career" class="form-control" value="{{ data.career }}">
+                </div>
+            {% else %}
+                <div class="form-group">
+                    <label for="description">Description</label>
+                    <textarea id="description" name="description" class="form-control" rows="4">{{ data.description }}</textarea>
+                </div>
+            {% endif %}
+            
+            <div class="form-group">
+                <label for="interests">Interests</label>
+                <textarea id="interests" name="interests" class="form-control" rows="3">{{ data.interests }}</textarea>
+                <small class="form-text text-muted">Separate interests with commas</small>
+            </div>
+        </div>
+        
+        <div class="form-section">
+            <h3>Change Password</h3>
+            <p class="text-muted">Leave blank if you don't want to change your password</p>
+            
+            <div class="form-group">
+                <label for="current_password">Current Password</label>
+                <input type="password" id="current_password" name="current_password" class="form-control">
+            </div>
+            
+            <div class="form-group">
+                <label for="new_password">New Password</label>
+                <input type="password" id="new_password" name="new_password" class="form-control">
+            </div>
+            
+            <div class="form-group">
+                <label for="confirm_password">Confirm New Password</label>
+                <input type="password" id="confirm_password" name="confirm_password" class="form-control">
+            </div>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn-save">Save Changes</button>
+            <a href="{{ url_for('profile') }}" class="btn-cancel">Cancel</a>
+        </div>
+    </form>
+    
+    <div class="danger-zone">
+        <h3>Danger Zone</h3>
+        <p>Delete your account permanently</p>
+        <a href="{{ url_for('delete_account') }}" class="btn-delete">Delete Account</a>
+    </div>
+</div>
+
+<style>
+    .update-profile-container {
+        max-width: 700px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .alert {
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 4px;
+    }
+    
+    .alert-danger {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+    }
+    
+    .alert-success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+    }
+    
+    .update-form {
+        margin-bottom: 30px;
+    }
+    
+    .form-section {
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    
+    .form-group {
+        margin-bottom: 15px;
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 16px;
+    }
+    
+    textarea.form-control {
+        resize: vertical;
+    }
+    
+    .form-text {
+        display: block;
+        margin-top: 5px;
+        font-size: 14px;
+    }
+    
+    .text-muted {
+        color: #6c757d;
+    }
+    
+    .form-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    
+    .btn-save {
+        background-color: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    .btn-cancel {
+        background-color: #6c757d;
+        color: white;
+        text-decoration: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+    }
+    
+    .danger-zone {
+        margin-top: 40px;
+        border: 1px solid #dc3545;
+        border-radius: 5px;
+        padding: 20px;
+    }
+    
+    .danger-zone h3 {
+        color: #dc3545;
+        margin-top: 0;
+    }
+    
+    .btn-delete {
+        background-color: #dc3545;
+        color: white;
+        text-decoration: none;
+        padding: 8px 15px;
+        border-radius: 4px;
+        display: inline-block;
+        margin-top: 10px;
+    }
+</style>
+{% endblock %} 

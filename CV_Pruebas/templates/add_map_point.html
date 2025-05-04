@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block styles %}
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        #map-picker {
+            height: 400px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            cursor: crosshair;
+            border: 2px solid #ccc;
+        }
+        .coords-display {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        .coords-display input {
+            flex: 1;
+            background-color: #f0f0f0;
+        }
+        .coords-display.has-values input {
+            background-color: #e6ffe6;
+            border-color: #28a745;
+        }
+        .map-instructions {
+            margin-bottom: 15px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border-left: 3px solid #17a2b8;
+        }
+        .coords-help {
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .coords-help i {
+            margin-right: 10px;
+            font-size: 20px;
+        }
+        .coords-help.hidden {
+            display: none;
+        }
+        .coords-set {
+            background-color: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            display: none;
+            align-items: center;
+        }
+        .coords-set.visible {
+            display: flex;
+        }
+        .required-label::after {
+            content: " *";
+            color: red;
+        }
+        .point-types {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        .point-type-option {
+            padding: 8px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .point-type-option.selected {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <h2>Add Map Point</h2>
+    
+    <div class="map-instructions">
+        <p><strong>Instructions:</strong></p>
+        <ol>
+            <li><strong>Click on the map</strong> to select a location for your new point.</li>
+            <li>The latitude and longitude fields will be automatically filled when you click.</li>
+            <li>Fill out the form with all required details.</li>
+            <li>You must have a valid permission code to add a point.</li>
+        </ol>
+    </div>
+    
+    <form action="{{ url_for('add_map_point') }}" method="post" id="map-form">
+        <div class="coords-help" id="coords-help">
+            <i>⚠️</i> <strong>Please click on the map below</strong> to set the location coordinates.
+        </div>
+        
+        <div class="coords-set" id="coords-set">
+            <i>✅</i> <strong>Location selected!</strong> You can click elsewhere on the map to change it.
+        </div>
+        
+        <div id="map-picker"></div>
+        
+        <div class="coords-display" id="coords-display">
+            <div>
+                <label for="latitude" class="required-label">Latitude:</label>
+                <input type="text" id="latitude" name="latitude" required readonly 
+                       placeholder="Click on map to set">
+            </div>
+            <div>
+                <label for="longitude" class="required-label">Longitude:</label>
+                <input type="text" id="longitude" name="longitude" required readonly
+                       placeholder="Click on map to set">
+            </div>
+        </div>
+        
+        <div>
+            <label for="permission_code" class="required-label">Permission Code:</label>
+            <input type="text" id="permission_code" name="permission_code" required 
+                   placeholder="Enter your special permission code">
+            <small>You need a special code to add map points.</small>
+        </div>
+        
+        <div>
+            <label for="name" class="required-label">Point Name:</label>
+            <input type="text" id="name" name="name" required 
+                   placeholder="E.g., Recycling Center, Green Park">
+        </div>
+        
+        <div>
+            <label for="point_type" class="required-label">Point Type:</label>
+            <div class="point-types">
+                <div class="point-type-option" data-value="recycling">Recycling Point</div>
+                <div class="point-type-option" data-value="garden">Community Garden</div>
+                <div class="point-type-option" data-value="event">Event Location</div>
+                <div class="point-type-option" data-value="water">Water Resource</div>
+                <div class="point-type-option" data-value="other">Other</div>
+            </div>
+            <input type="hidden" id="point_type" name="point_type" required>
+            <div id="point-type-error" style="color: red; display: none;">Please select a point type</div>
+        </div>
+        
+        <div>
+            <label for="description">Description:</label>
+            <textarea id="description" name="description" rows="3" 
+                      placeholder="Describe this point - what can be found here? Why is it important?"></textarea>
+        </div>
+        
+        <div>
+            <button type="submit" id="submit-btn">Add Map Point</button>
+            <a href="{{ url_for('view_map') }}" class="btn-cancel">Cancel</a>
+        </div>
+    </form>
+{% endblock %}
+
+{% block scripts %}
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize map centered on Bogotá
+            var map = L.map('map-picker').setView([4.6097, -74.0817], 13);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+            
+            var marker = null;
+            var coordsHelp = document.getElementById('coords-help');
+            var coordsSet = document.getElementById('coords-set');
+            var coordsDisplay = document.getElementById('coords-display');
+            var latInput = document.getElementById('latitude');
+            var lngInput = document.getElementById('longitude');
+            var hasSetCoords = false;
+            
+            // Handle map clicks to set marker and update coordinates
+            map.on('click', function(e) {
+                var lat = e.latlng.lat.toFixed(6);
+                var lng = e.latlng.lng.toFixed(6);
+                
+                // Update input fields
+                latInput.value = lat;
+                lngInput.value = lng;
+                
+                // Update or create marker
+                if (marker) {
+                    marker.setLatLng(e.latlng);
+                } else {
+                    marker = L.marker(e.latlng).addTo(map);
+                }
+                
+                // Show success message, hide help message
+                coordsHelp.classList.add('hidden');
+                coordsSet.classList.add('visible');
+                coordsDisplay.classList.add('has-values');
+                hasSetCoords = true;
+            });
+            
+            // Handle point type selection
+            var typeOptions = document.querySelectorAll('.point-type-option');
+            var typeInput = document.getElementById('point_type');
+            var typeError = document.getElementById('point-type-error');
+            var hasSelectedType = false;
+            
+            typeOptions.forEach(function(option) {
+                option.addEventListener('click', function() {
+                    // Remove selected class from all options
+                    typeOptions.forEach(function(opt) {
+                        opt.classList.remove('selected');
+                    });
+                    
+                    // Add selected class to clicked option
+                    this.classList.add('selected');
+                    
+                    // Update hidden input
+                    typeInput.value = this.getAttribute('data-value');
+                    hasSelectedType = true;
+                    typeError.style.display = 'none';
+                });
+            });
+            
+            // Form validation
+            document.getElementById('map-form').addEventListener('submit', function(e) {
+                var isValid = true;
+                
+                // Check if coordinates are set
+                if (!hasSetCoords) {
+                    coordsHelp.classList.remove('hidden');
+                    coordsHelp.scrollIntoView({behavior: 'smooth'});
+                    isValid = false;
+                }
+                
+                // Check if point type is selected
+                if (!hasSelectedType) {
+                    typeError.style.display = 'block';
+                    isValid = false;
+                }
+                
+                if (!isValid) {
+                    e.preventDefault();
+                }
+            });
+            
+            // Make map refresh when shown (fixes sizing issues)
+            setTimeout(function() {
+                map.invalidateSize();
+            }, 100);
+        });
+    </script>
+{% endblock %} 
