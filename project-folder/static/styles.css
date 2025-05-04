@@ -69,7 +69,7 @@ nav a:hover {
 .container {
     position: relative;
     z-index: 1;
-    background: rgba(255, 255, 255, 0.5); /* Fondo blanco con opacidad */
+    background: rgba(255, 255, 255, 0.625); /* Fondo blanco con opacidad */
     margin: 80px auto;
     padding: 20px;
     border-radius: 10px; /* Bordes redondeados */

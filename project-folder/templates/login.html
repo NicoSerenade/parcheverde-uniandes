@@ -1,15 +1,137 @@
 {% extends "index.html" %}
 
+{% block styles %}
+<style>
+    /* Aplicar la fuente globalmente */
+    body {
+        font-family: 'Poppins', sans-serif; /* Fuente utilizada en "Iniciar sesión" */
+        color: #000000; /* Color de texto por defecto */
+        margin: 0;
+        padding: 0;
+    }
+
+    /* Contenedor principal */
+    .login-container {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: auto; /* Ajustar altura automáticamente */
+        max-height: 80vh; /* Limitar la altura máxima */
+        width: 90%; /* Reducir el ancho al 90% del viewport */
+        max-width: 600px; /* Ajustar el ancho máximo a 600px */
+        margin: 50px auto; /* Centrar el contenedor */
+        text-align: center;
+        background: none; /* Eliminar cualquier fondo adicional */
+        padding: 20px;
+    }
+
+    /* Formulario */
+    .login-form {
+        display: flex;
+        flex-direction: column; /* Alinear elementos en columna */
+        align-items: center; /* Centrar elementos horizontalmente */
+        width: 100%;
+        max-width: 500px; /* Ajustar el ancho máximo del formulario */
+        padding: 30px; /* Aumentar el relleno */
+        border-radius: 10px; /* Bordes redondeados */
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Sombra sutil */
+        background: white; /* Fondo blanco */
+    }
+
+    .login-form h2 {
+        font-size: 2.5em; /* Tamaño del título */
+        font-weight: 700; /* Negrita */
+        margin-bottom: 20px; /* Más espacio debajo del título */
+        color: #4caf50; /* Verde animado */
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2); /* Sombra para destacar */
+    }
+
+    .login-form p {
+        margin-bottom: 20px; /* Más espacio debajo del texto descriptivo */
+        font-size: 1.1em; /* Aumentar el tamaño del texto */
+        color: #333;
+    }
+
+    .login-form label {
+        display: block;
+        width: 100%; /* Asegurar que las etiquetas ocupen todo el ancho */
+        text-align: left; /* Alinear las etiquetas a la izquierda */
+        margin-bottom: 10px; /* Más espacio debajo de las etiquetas */
+        font-size: 1em;
+        color: #0a0a0a;
+    }
+
+    .login-form input[type="text"],
+    .login-form input[type="password"] {
+        width: 100%; /* Asegurar que los campos ocupen todo el ancho */
+        padding: 12px; /* Aumentar el relleno interno */
+        margin: 15px 0; /* Más espacio entre los campos */
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        font-size: 1em;
+    }
+
+    .login-form button {
+        width: 100%; /* Asegurar que el botón ocupe todo el ancho */
+        padding: 12px; /* Aumentar el relleno interno */
+        background-color: #4caf50; /* Botón verde */
+        color: white;
+        border: none;
+        border-radius: 5px;
+        font-size: 1.2em;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+        margin-top: 20px; /* Más espacio encima del botón */
+    }
+
+    .login-form button:hover {
+        background-color: #45a049; /* Efecto hover */
+    }
+
+    .forgot-password {
+        display: block;
+        margin-top: 15px; /* Más espacio encima del enlace */
+        font-size: 0.9em;
+        color: #4caf50;
+        text-decoration: none;
+    }
+
+    .forgot-password:hover {
+        text-decoration: underline;
+    }
+
+    .create-account {
+        margin-top: 25px; /* Más espacio encima del enlace */
+        font-size: 1em;
+        color: #000000;
+    }
+
+    .create-account a {
+        color: #4caf50;
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .create-account a:hover {
+        text-decoration: underline;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-    <h2>Login</h2>
-    <p>Login as a User (use Student Code) or Organization (use Name).</p>
-    <form action="{{ url_for('login') }}" method="post">
-        <label for="identifier">Student Code or Organization Name:</label>
-        <input type="text" id="identifier" name="identifier" required>
+    <div class="login-container">
+        <form class="login-form" action="{{ url_for('login') }}" method="post">
+            <h2>Iniciar Sesión</h2>
+            <p>Inicia con tu usuario (Código Uniandes) o Organización (Nombre de la organización).</p>
+            
+            <label for="identifier">Código de Estudiante o nombre de Organización:</label>
+            <input type="text" id="identifier" name="identifier" required>
 
-        <label for="password">Password:</label>
-        <input type="password" id="password" name="password" required>
+            <label for="password">Contraseña:</label>
+            <input type="password" id="password" name="password" required>
 
-        <button type="submit">Login</button>
-    </form>
-{% endblock %} 
+            <button type="submit">Iniciar sesión</button>
+        </form>
+    </div>
+{% endblock %}
