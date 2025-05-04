@@ -252,9 +252,6 @@ def profile():
             session['interests'] = fresh_user_data.get('interests', '')
             session.modified = True
         
-
- 
-        
         # Get points and user orgs
         points = session.get('points', 0)
         user_orgs = []
