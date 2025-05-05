@@ -1,32 +1,114 @@
-{% extends "index.html" %}
+{% extends "base.html" %}
 
 {% block content %}
-    <h2>Add Item for Exchange/Gift</h2>
-    <form action="{{ url_for('add_item') }}" method="post">
-        <label for="name">Item Name:</label>
-        <input type="text" id="name" name="name" required>
-
-        <label for="description">Description:</label>
-        <textarea id="description" name="description" rows="3" required></textarea>
-
-        <label for="item_type">Type:</label>
-        <select id="item_type" name="item_type" required>
-            <option value="ropa">Ropa (Clothing)</option>
-            <option value="libros">Libros (Books)</option>
-            <option value="hogar">Hogar (Home)</option>
-            <option value="otros">Otros (Others)</option>
-        </select>
-
-        <label for="item_terms">Terms:</label>
-        <select id="item_terms" name="item_terms" required>
-            <option value="regalo">Regalo (Gift) - Give away for free</option>
-            <option value="prestamo">Préstamo (Borrowing) - Lend temporarily</option>
-            <option value="intercambio">Intercambio (Exchange) - Trade for another item</option>
-        </select>
-
-        <label for="item_details">Additional Details (condition, restrictions, etc.):</label>
-        <textarea id="item_details" name="item_details" rows="3"></textarea>
-
-        <button type="submit">Add Item</button>
+<div class="add-item-container">
+    <h2 class="form-title">Añadir Nuevo Item</h2>
+    <p class="form-description">Completa los campos para compartir un nuevo item con la comunidad.</p>
+    
+    <form method="POST" action="{{ url_for('add_item') }}" class="add-item-form">
+        <div class="form-group">
+            <label for="name">Nombre del Item:</label>
+            <input type="text" id="name" name="name" placeholder="Ejemplo: Bicicleta" required>
+        </div>
+        <div class="form-group">
+            <label for="description">Descripción:</label>
+            <textarea id="description" name="description" placeholder="Describe el item..." rows="4" required></textarea>
+        </div>
+        <div class="form-group">
+            <label for="item_type">Tipo de Item:</label>
+            <select id="item_type" name="item_type" required>
+                <option value="" disabled selected>Selecciona un tipo</option>
+                <option value="Electrónico">Electrónico</option>
+                <option value="Mueble">Mueble</option>
+                <option value="Ropa">Ropa</option>
+                <option value="Otro">Otro</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="item_terms">Términos:</label>
+            <select id="item_terms" name="item_terms" required>
+                <option value="" disabled selected>Selecciona los términos</option>
+                <option value="gift">Regalo</option>
+                <option value="loan">Préstamo</option>
+                <option value="exchange">Intercambio</option>
+            </select>
+        </div>
+        <button type="submit" class="btn-submit">Añadir Item</button>
     </form>
-{% endblock %} 
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+    .add-item-container {
+        max-width: 600px;
+        margin: 50px auto;
+        padding: 20px;
+        background: #f9f9f9;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        overflow: hidden; /* Evita que los elementos se salgan del contenedor */
+    }
+
+    .form-title {
+        font-size: 2.5em; /* Hacer el título más grande */
+        color: #4CAF50;
+        margin-bottom: 10px;
+    }
+
+    .form-description {
+        font-size: 1.1em;
+        color: #555;
+        margin-bottom: 20px;
+    }
+
+    .add-item-form {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .form-group {
+        text-align: left;
+    }
+
+    .form-group label {
+        display: block;
+        font-size: 1em;
+        color: #333;
+        margin-bottom: 5px;
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+        width: 100%; /* Asegura que los campos no excedan el ancho del contenedor */
+        max-width: 100%; /* Limita el ancho máximo */
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 1em;
+        box-sizing: border-box; /* Incluye padding y borde en el ancho total */
+    }
+
+    .form-group textarea {
+        resize: none;
+    }
+
+    .btn-submit {
+        background-color: #4CAF50;
+        color: white;
+        padding: 15px 25px; /* Hacer el botón más grande */
+        border: none;
+        border-radius: 5px;
+        font-size: 1.2em; /* Aumentar el tamaño del texto del botón */
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .btn-submit:hover {
+        background-color: #45a049;
+    }
+</style>
+{% endblock %}

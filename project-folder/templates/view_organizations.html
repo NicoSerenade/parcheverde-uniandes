@@ -1,142 +1,146 @@
 {% extends "base.html" %}
 
 {% block content %}
-    <h2>Organizations</h2>
+<div class="organizations-container">
+    <h2 class="form-title">Buscar Organizaciones</h2>
+    <p class="form-description">Encuentra organizaciones por nombre, intereses o puntos destacados.</p>
     
     <div class="search-section">
-        <h3>Search Organizations</h3>
         <form action="{{ url_for('view_organizations') }}" method="get" class="search-form">
             <div class="form-row">
-                <label for="q">Name/Description:</label>
-                <input type="text" id="q" name="q" value="{{ query }}">
+                <label for="q">🔍 Nombre/Descripción:</label>
+                <input type="text" id="q" name="q" value="{{ query }}" placeholder="Ejemplo: Reciclaje">
             </div>
             
             <div class="form-row">
-                <label for="interests">Interests:</label>
-                <input type="text" id="interests" name="interests" value="{{ interests }}" placeholder="e.g., environment, technology">
+                <label for="interests">🏷️ Intereses:</label>
+                <input type="text" id="interests" name="interests" value="{{ interests }}" placeholder="Ejemplo: Medio Ambiente">
             </div>
             
             <div class="form-row">
-                <label for="sort_by">Sort by:</label>
+                <label for="sort_by">Ordenar por:</label>
                 <select id="sort_by" name="sort_by">
-                    <option value="name" {% if sort_by == 'name' %}selected{% endif %}>Name</option>
-                    <option value="points" {% if sort_by == 'points' %}selected{% endif %}>Points</option>
-                    <option value="creation_date" {% if sort_by == 'creation_date' %}selected{% endif %}>Creation Date</option>
+                    <option value="name" {% if sort_by == 'name' %}selected{% endif %}>Nombre</option>
+                    <option value="points" {% if sort_by == 'points' %}selected{% endif %}>Puntos</option>
+                    <option value="creation_date" {% if sort_by == 'creation_date' %}selected{% endif %}>Fecha de creación</option>
                 </select>
             </div>
             
-            <button type="submit">Search</button>
+            <button type="submit" class="btn-submit">Buscar</button>
         </form>
     </div>
-    
-    {% if orgs %}
-        <div class="results-section">
-            <h3>Results ({{ orgs|length }} found)</h3>
-            <ul class="orgs-list">
-                {% for org in orgs %}
-                    <li class="org-item">
-                        <div class="org-header">
-                            <h4>{{ org.name }}</h4>
-                            <span class="points-badge">{{ org.points }} points</span>
-                        </div>
-                        <div class="org-details">
-                            <p><strong>Email:</strong> {{ org.email }}</p>
-                            <p><strong>Description:</strong> {{ org.description }}</p>
-                            {% if org.interests %}
-                                <p><strong>Interests:</strong> {{ org.interests }}</p>
-                            {% endif %}
-                            <p><strong>Created:</strong> {{ org.creation_date }}</p>
-                        </div>
-                        <div class="org-actions">
-                            <a href="{{ url_for('view_org_members', org_id=org.org_id) }}" class="view-members-btn">View Members</a>
-                            {% if session.get('entity_type') == 'user' %}
-                                <form action="{{ url_for('join_org', org_id=org.org_id) }}" method="post">
-                                    <button type="submit" class="join-btn">Join Organization</button>
-                                </form>
-                            {% endif %}
-                        </div>
-                    </li>
-                {% endfor %}
-            </ul>
-        </div>
-    {% else %}
-        <p>No organizations found matching your criteria.</p>
-    {% endif %}
-    
-    <style>
-        .search-section {
-            background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-        .search-form {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        .form-row {
-            display: flex;
-            flex-direction: column;
-        }
-        .orgs-list {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 15px;
-        }
-        .org-item {
-            background-color: white;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            padding: 15px;
-        }
-        .org-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .org-header h4 {
-            margin: 0;
-        }
-        .points-badge {
-            background-color: #28a745;
-            color: white;
-            padding: 3px 8px;
-            border-radius: 10px;
-            font-size: 0.8em;
-        }
-        .org-details p {
-            margin: 5px 0;
-        }
-        .org-actions {
-            margin-top: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .join-btn {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 8px 15px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .join-btn:hover {
-            background-color: #0056b3;
-        }
-        .view-members-btn {
-            background-color: #6c757d;
-            color: white;
-            text-decoration: none;
-            padding: 8px 15px;
-            border-radius: 4px;
-            font-size: 0.9em;
-        }
-        .view-members-btn:hover {
-            background-color: #5a6268;
-            text-decoration: none;
-        }
-    </style>
-{% endblock %} 
+</div>
+
+{% if orgs %}
+<div class="results-section">
+    <h3>Resultados ({{ orgs|length }} encontrados)</h3>
+    <ul class="orgs-list">
+        {% for org in orgs %}
+        <li class="org-item">
+            <div class="org-header">
+                <h4>{{ org.name }}</h4>
+                <span class="points-badge">{{ org.points }} puntos</span>
+            </div>
+            <div class="org-details">
+                <p><strong>Email:</strong> {{ org.email }}</p>
+                <p><strong>Descripción:</strong> {{ org.description }}</p>
+                {% if org.interests %}
+                <p><strong>Intereses:</strong> {{ org.interests }}</p>
+                {% endif %}
+                <p><strong>Creado:</strong> {{ org.creation_date }}</p>
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% else %}
+<div class="no-results">
+    <p class="no-results-message">😕 No encontramos organizaciones con esos criterios.</p>
+    <p class="suggestion-message">🌿 ¡Intenta buscar por otros intereses como "reciclaje" o "educación ambiental"!</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block styles %}
+<style>
+    .organizations-container {
+        max-width: 600px;
+        margin: 50px auto;
+        padding: 20px;
+        background: #f9f9f9;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        text-align: center;
+    }
+
+    .form-title {
+        font-size: 2.5em;
+        color: #4CAF50;
+        margin-bottom: 10px;
+    }
+
+    .form-description {
+        font-size: 1.1em;
+        color: #555;
+        margin-bottom: 20px;
+    }
+
+    .search-section {
+        background-color: #f8f9fa;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+    }
+
+    .search-form {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .form-row {
+        text-align: left;
+    }
+
+    .form-row label {
+        display: block;
+        font-size: 1em;
+        color: #333;
+        margin-bottom: 5px;
+    }
+
+    .form-row input,
+    .form-row select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 1em;
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+        transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .form-row input:focus,
+    .form-row select:focus {
+        border-color: #4CAF50;
+        box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+        outline: none;
+    }
+
+    .btn-submit {
+        background-color: #4CAF50;
+        color: white;
+        padding: 15px 25px;
+        border: none;
+        border-radius: 5px;
+        font-size: 1.2em;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    .btn-submit:hover {
+        background-color: #45a049;
+    }
+</style>
+{% endblock %}

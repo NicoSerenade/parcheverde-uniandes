@@ -1,23 +1,117 @@
 {% extends "index.html" %}
 
 {% block content %}
-    <h2>Create New Event</h2>
-    <form action="{{ url_for('create_event') }}" method="post">
-        <label for="title">Event Title:</label>
-        <input type="text" id="title" name="title" required>
-
-        <label for="description">Description:</label>
-        <textarea id="description" name="description" rows="4" required></textarea>
-
-        <label for="event_datetime">Date and Time:</label>
-        <input type="datetime-local" id="event_datetime" name="event_datetime" required>
-
-        <label for="location">Location:</label>
-        <input type="text" id="location" name="location" required>
-
-        <label for="event_type">Event Type (e.g., charla, voluntariado, taller):</label>
-        <input type="text" id="event_type" name="event_type" required>
-
-        <button type="submit">Create Event</button>
+<div class="create-event-container">
+    <h2 class="form-title">🎉 Crear Nuevo Evento</h2>
+    <p class="form-description">Organiza un evento para colaborar con la comunidad y sumar puntos verdes 🌱.</p>
+    
+    <form action="{{ url_for('create_event') }}" method="post" class="create-event-form">
+        <div class="form-group">
+            <label for="title">📝 Título del Evento:</label>
+            <input type="text" id="title" name="title" placeholder="Ejemplo: Jornada de Reciclaje" required>
+        </div>
+        <div class="form-group">
+            <label for="description">📝 Descripción:</label>
+            <textarea id="description" name="description" rows="4" placeholder="Describe el evento..." required></textarea>
+        </div>
+        <div class="form-group">
+            <label for="event_datetime">📅 Fecha y Hora:</label>
+            <input type="datetime-local" id="event_datetime" name="event_datetime" required>
+        </div>
+        <div class="form-group">
+            <label for="location">📍 Ubicación:</label>
+            <input type="text" id="location" name="location" placeholder="Ejemplo: Parque Central" required>
+        </div>
+        <div class="form-group">
+            <label for="event_type">🧩 Tipo de Evento:</label>
+            <input type="text" id="event_type" name="event_type" placeholder="Ejemplo: Charla, Voluntariado, Taller" required>
+        </div>
+        <button type="submit" class="btn-submit">🎉 Crear Evento Verde</button>
     </form>
-{% endblock %} 
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+    .create-event-container {
+        max-width: 600px;
+        margin: 50px auto;
+        padding: 20px;
+        background: #f9f9f9;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        overflow: hidden; /* Evita que los elementos se salgan del contenedor */
+    }
+
+    .form-title {
+        font-size: 2.5em;
+        color: #4CAF50;
+        margin-bottom: 10px;
+    }
+
+    .form-description {
+        font-size: 1.1em;
+        color: #555;
+        margin-bottom: 20px;
+    }
+
+    .create-event-form {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .form-group {
+        text-align: left;
+    }
+
+    .form-group label {
+        display: block;
+        font-size: 1em;
+        color: #333;
+        margin-bottom: 5px;
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+        width: 100%; /* Asegura que los campos no excedan el ancho del contenedor */
+        max-width: 100%; /* Limita el ancho máximo */
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 1em;
+        box-sizing: border-box; /* Incluye padding y borde en el ancho total */
+    }
+
+    .form-group textarea {
+        resize: none;
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus,
+    .form-group select:focus {
+        border-color: #4CAF50;
+        box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+        outline: none;
+    }
+
+    .btn-submit {
+        background-color: #4CAF50;
+        color: white;
+        padding: 15px 25px;
+        border: none;
+        border-radius: 5px;
+        font-size: 1.2em;
+        cursor: pointer;
+        transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+
+    .btn-submit:hover {
+        background-color: #45a049;
+        transform: scale(1.05); /* Efecto de escala */
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Sombra al hover */
+    }
+</style>
+{% endblock %}

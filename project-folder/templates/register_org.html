@@ -1,24 +1,126 @@
 {% extends "index.html" %}
 
 {% block content %}
-    <h2>Register New Organization</h2>
-    <p>Registering organization as user: <strong>{{ session.name }}</strong></p>
-    <form action="{{ url_for('register_org') }}" method="post">
-        <label for="name">Organization Name:</label>
-        <input type="text" id="name" name="name" required>
-
-        <label for="email">Organization Email:</label>
-        <input type="email" id="email" name="email" required>
-
-        <label for="description">Description:</label>
-        <textarea id="description" name="description" rows="4" required></textarea>
-
-        <label for="password">Password for Organization:</label>
-        <input type="password" id="password" name="password" required>
-
-        <label for="interests">Interests (Optional, comma-separated):</label>
-        <input type="text" id="interests" name="interests">
-
-        <button type="submit">Register Organization</button>
+<div class="register-org-container">
+    <h2 class="form-title">Registrar Nueva Organización</h2>
+    <p class="form-description">Estás registrando una organización como usuario: <strong>{{ session.name }}</strong></p>
+    
+    <form action="{{ url_for('register_org') }}" method="post" class="register-org-form">
+        <div class="form-group">
+            <label for="name">Nombre de la organización:</label>
+            <input type="text" id="name" name="name" placeholder="Ejemplo: Fundación Verde" required>
+        </div>
+        <div class="form-group">
+            <label for="email">Correo electrónico:</label>
+            <input type="email" id="email" name="email" placeholder="Ejemplo: contacto@fundacionverde.org" required>
+        </div>
+        <div class="form-group">
+            <label for="description">Descripción:</label>
+            <textarea id="description" name="description" rows="4" placeholder="Describe brevemente la organización..." required></textarea>
+        </div>
+        <div class="form-group">
+            <label for="password">Contraseña:</label>
+            <input type="password" id="password" name="password" placeholder="Crea una contraseña segura" required>
+            <small class="password-hint">Debe tener al menos 8 caracteres.</small>
+        </div>
+        <div class="form-group">
+            <label for="interests">Intereses (opcional):</label>
+            <input type="text" id="interests" name="interests" placeholder="Ejemplo: Reciclaje, Educación Ambiental">
+        </div>
+        <button type="submit" class="btn-submit">Registrar Organización</button>
     </form>
-{% endblock %} 
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+    .register-org-container {
+        max-width: 600px;
+        margin: 50px auto;
+        padding: 20px;
+        background: #f9f9f9;
+        border-radius: 10px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        text-align: center;
+    }
+
+    .form-title {
+        font-size: 2.5em;
+        color: #4CAF50;
+        margin-bottom: 10px;
+    }
+
+    .form-description {
+        font-size: 1.1em;
+        color: #555;
+        margin-bottom: 20px;
+    }
+
+    .register-org-form {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        align-items: center; /* Centra los campos horizontalmente */
+    }
+
+    .form-group {
+        text-align: left;
+        width: 100%; /* Asegura que los campos ocupen todo el ancho disponible */
+        max-width: 500px; /* Ajusta el ancho máximo de los campos */
+    }
+
+    .form-group label {
+        display: block;
+        font-size: 1em;
+        color: #333;
+        margin-bottom: 5px;
+    }
+
+    .form-group input,
+    .form-group textarea {
+        width: 100%;
+        padding: 10px; /* Ajusta el padding interno */
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        font-size: 1em; /* Ajusta el tamaño de la fuente */
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+        transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .form-group textarea {
+        resize: none;
+        height: 100px; /* Ajusta la altura del textarea */
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus {
+        border-color: #4CAF50;
+        box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
+        outline: none;
+    }
+
+    .password-hint {
+        font-size: 0.85em; /* Reduce el tamaño del texto */
+        color: #777;
+        margin-top: 5px;
+        display: block;
+    }
+
+    .btn-submit {
+        background-color: #4CAF50;
+        color: white;
+        padding: 15px 25px; /* Ajusta el tamaño del botón */
+        border: none;
+        border-radius: 5px;
+        font-size: 1.2em; /* Ajusta el tamaño del texto del botón */
+        cursor: pointer;
+        transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+
+    .btn-submit:hover {
+        background-color: #45a049;
+        transform: scale(1.05); /* Efecto de escala */
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Sombra al hover */
+    }
+</style>
+{% endblock %}
