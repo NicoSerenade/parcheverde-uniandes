@@ -30,9 +30,9 @@
             
             {% if 'entity_type' in session %}
                 <span class="user-info">
-                    Logged in as: <strong>{{ session.name }}</strong> ({{ session.entity_type }}) |
-                    Points: {{ session.points | default('N/A') }} |
-                    <a href="{{ url_for('logout') }}">Logout</a>
+                    Usuario: <strong>{{ session.name }}</strong> ({{ session.entity_type }}) |
+                    Puntos: {{ session.points | default('N/A') }} |
+                    <a href="{{ url_for('logout') }}">Cerrar sesión</a>
                 </span>
                 <a href="{{ url_for('profile') }}">Mi perfil</a>
                 <a href="{{ url_for('view_events') }}">Eventos</a>

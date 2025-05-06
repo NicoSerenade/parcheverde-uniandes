@@ -3,119 +3,173 @@
 {% block styles %}
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
     <style>
+        .map-container {
+            max-width: 1200px;
+            margin: 50px auto;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.9); /* Fondo semitransparente */
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
         #map-container {
-            height: 500px;
+            width: 90%; /* Ajusta el ancho del mapa */
+            max-width: 800px; /* Limita el ancho máximo */
+            height: 400px; /* Ajusta la altura del mapa */
+            margin: 0 auto 20px auto; /* Ajusta el margen inferior */
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-title {
+            font-size: 2.5em;
+            color: #4CAF50;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .form-description {
+            font-size: 1.1em;
+            color: #555;
             margin-bottom: 20px;
         }
+
         .map-controls {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
         }
+
+        .add-point-btn {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+
+        .add-point-btn:hover {
+            background-color: #45a049;
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
         .map-point-list {
             margin-top: 30px;
         }
-        .map-point-item {
-            display: flex;
-            flex-direction: column;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
+
+        .map-points-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
         }
+
+        .map-point-card {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: left;
+        }
+
         .map-point-header {
             display: flex;
             justify-content: space-between;
+            align-items: center;
             margin-bottom: 10px;
         }
+
+        .map-point-title {
+            font-size: 1.2em;
+            color: #4CAF50;
+            margin: 0;
+        }
+
         .map-point-type {
             background-color: #17a2b8;
             color: white;
-            padding: 3px 8px;
+            padding: 5px 10px;
             border-radius: 10px;
-            font-size: 0.8em;
+            font-size: 0.9em;
         }
+
         .map-point-details p {
             margin: 5px 0;
+            font-size: 1em;
+            color: #555;
         }
-        .add-point-btn {
-            background-color: #28a745;
-            color: white;
-            padding: 8px 15px;
-            border: none;
-            border-radius: 4px;
-            text-decoration: none;
-            font-weight: bold;
+
+        .map-point-details small {
+            color: #777;
         }
-        .add-point-btn.active {
-            background-color: #dc3545 !important;
-        }
-        
-        .point-form {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            padding: 10px;
-        }
-        
-        .point-form input,
-        .point-form textarea,
-        .point-form select {
-            padding: 5px;
+
+        .points-card {
+            background: rgba(255, 255, 255, 0.8); /* Fondo semitransparente */
             border: 1px solid #ddd;
-            border-radius: 4px;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin: 0 auto; /* Centrado dentro del contenedor */
+            max-width: 800px; /* Limita el ancho del contenedor */
         }
-        
-        .point-form button {
-            background-color: #28a745;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 4px;
-            cursor: pointer;
+
+        .points-card-title {
+            font-size: 1.8em;
+            color: #4CAF50;
+            margin-bottom: 20px;
+            text-align: center;
         }
     </style>
 {% endblock %}
 
 {% block content %}
-    <h2>Community Map</h2>
+<div class="map-container">
+    <h2 class="form-title">Mapa Comunitario</h2>
+    <p class="form-description">Explora los puntos de interés en el mapa o añade nuevos puntos para compartir con la comunidad.</p>
     
     <div class="map-controls">
         <div>
-            <h3>Map Points ({{ map_points|length }})</h3>
+            <h3 class="form-description">Puntos en el Mapa ({{ map_points|length }})</h3>
         </div>
         {% if session.get('entity_type') %}
-            <button id="addPointBtn" class="add-point-btn">+ Add Map Point</button>
+            <button id="addPointBtn" class="add-point-btn">+ Añadir Punto</button>
         {% endif %}
     </div>
     
     <div id="map-container"></div>
     
+    <!-- Mover el contenedor de "Todos los puntos..." aquí, justo debajo del mapa -->
     {% if map_points %}
-        <div class="map-point-list">
-            <h3>All Map Points</h3>
-            <ul>
+        <div class="points-card">
+            <h3 class="points-card-title">Todos los Puntos en el Mapa</h3>
+            <div class="map-points-grid">
                 {% for point in map_points %}
-                    <li class="map-point-item" data-lat="{{ point.latitude }}" data-lng="{{ point.longitude }}">
-                        <div class="map-point-header">
-                            <h4>{{ point.name }}</h4>
-                            <span class="map-point-type">{{ point.point_type }}</span>
-                        </div>
-                        <div class="map-point-details">
-                            <p>{{ point.description }}</p>
-                            <p><small>Coordinates: {{ point.latitude }}, {{ point.longitude }}</small></p>
-                            {% if point.added_by %}
-                                <p><small>Added by: {{ point.added_by }}</small></p>
-                            {% endif %}
-                        </div>
-                    </li>
+                <div class="map-point-card">
+                    <div class="map-point-header">
+                        <h4 class="map-point-title">{{ point.name }}</h4>
+                        <span class="map-point-type">{{ point.point_type }}</span>
+                    </div>
+                    <div class="map-point-details">
+                        <p>{{ point.description }}</p>
+                        <p><small>Coordenadas: {{ point.latitude }}, {{ point.longitude }}</small></p>
+                        {% if point.added_by %}
+                        <p><small>Añadido por: {{ point.added_by }}</small></p>
+                        {% endif %}
+                    </div>
+                </div>
                 {% endfor %}
-            </ul>
+            </div>
         </div>
     {% else %}
-        <p>No map points found. {% if session.get('entity_type') %}Be the first to add one!{% endif %}</p>
+        <p class="form-description">No hay puntos en el Mapa. {% if session.get('entity_type') %}¡Sé el primero en agregar un punto en el Mapa!{% endif %}</p>
     {% endif %}
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -137,12 +191,12 @@
         // Agregar marcadores existentes al mapa
         points.forEach(function(point) {
             const marker = L.marker([point.latitude, point.longitude]).addTo(map);
-            marker.bindPopup(`
+            marker.bindPopup(` 
                 <div>
                     <h4>${point.name}</h4>
                     <p>${point.description}</p>
                     <span class="map-point-type">${point.point_type}</span>
-                    ${point.added_by ? `<p><small>Added by: ${point.added_by}</small></p>` : ''}
+                    ${point.added_by ? `<p><small>Añadido por: ${point.added_by}</small></p>` : ''}
                 </div>
             `);
         });
@@ -165,14 +219,14 @@
             const popupContent = document.createElement('div');
             popupContent.innerHTML = `
                 <form id="pointForm" class="point-form">
-                    <input type="text" name="name" placeholder="Point Name" required>
-                    <textarea name="description" placeholder="Description" required></textarea>
+                    <input type="text" name="name" placeholder="Nombre del Punto" required>
+                    <textarea name="description" placeholder="Descripción" required></textarea>
                     <select name="point_type" required>
-                        <option value="recycling">Recycling Point</option>
-                        <option value="event">Event Location</option>
-                        <option value="other">Other</option>
+                        <option value="recycling">Punto de Reciclaje</option>
+                        <option value="event">Ubicación de Evento</option>
+                        <option value="other">Otro</option>
                     </select>
-                    <button type="submit">Save Point</button>
+                    <button type="submit">Guardar Punto</button>
                 </form>
             `;
 
@@ -202,10 +256,10 @@
                     if (result.status === 'success') {
                         window.location.reload();
                     } else {
-                        alert('Error saving point: ' + result.message);
+                        alert('Error al guardar el punto: ' + result.message);
                     }
                 } catch (error) {
-                    alert('Error saving point: ' + error);
+                    alert('Error al guardar el punto: ' + error);
                 }
             });
 
