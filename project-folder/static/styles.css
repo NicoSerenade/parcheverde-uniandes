@@ -143,11 +143,11 @@ button:hover {
 }
 
 .flash-message.error {
-    border: 2px solid #ff4444;
+    border: 2px solid #44ff44;
 }
 
 .flash-message .message-text {
-    color: #ff0000;
+    color: #2bff00;
     font-size: 1.1em;
     font-weight: 500;
     margin: 0;
@@ -296,7 +296,7 @@ footer {
 }
 
 .confirm-btn {
-    background-color: #ff4444;
+    background-color: #44f9ff;
 }
 
 .cancel-btn {
