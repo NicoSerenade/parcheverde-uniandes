@@ -2,27 +2,16 @@
 
 {% block content %}
 <div class="welcome-container">
-    <h2 class="welcome-title">
-        {% if 'entity_type' in session %}
-            ¡Bienvenido a <span class="highlight">Comunidad Parche Verde</span>!
-        {% else %}
-            ¡Únete ahora a la <span class="highlight">Comunidad Parche Verde Uniandes</span>!
-        {% endif %}
-    </h2>
+    <!-- Replace welcome title with logo for all users -->
+    <div class="logo-container">
+        <img src="{{ url_for('static', filename='logo-name-landscape.png') }}" alt="Comunidad Parche Verde Logo" class="app-logo">
+    </div>
     
     <div class="welcome-message">
-        <p class="animated-text">Explora nuestras funciones usando el panel de navegación en la parte superior.</p>
-        
-        <!-- Nuevo texto tipo cita -->
-        <blockquote class="quote-text">
-            "Pequeñas acciones generan grandes cambios. ¡Sé parte del impacto!"
-        </blockquote>
-        
         {% if 'entity_type' not in session %}
-        <div class="login-prompt">
-            <p class="animated-text delayed">¡Únete a nuestra comunidad!</p>
-            <p class="animated-text more-delayed">Inicia sesión o regístrate para acceder a todas las funciones.</p>
-        </div>
+            <!-- Content for non-logged in users -->
+            <p class="animated-text">Inicia sesión o regístrate para acceder a todas las funciones.</p>
+        {% else %}
         {% endif %}
     </div>
 </div>
@@ -30,7 +19,7 @@
 <!-- Nueva sección destacada: Solo visible si el usuario está logueado -->
 {% if 'entity_type' in session %}
 <div class="benefits-section">
-    <h3 class="section-title">Beneficios de ser parte de nuestra comunidad</h3>
+    <h3 class="section-title">¡Bienvenido a <span class="highlight">Comunidad Parche Verde</span>!</h3>
     <div class="benefits-row">
         <!-- Tarjeta 1 -->
         <div class="benefit-card">
@@ -67,55 +56,107 @@
 
 {% block styles %}
 <style>
-    /* Contenedor principal */
+    /* More aggressive reset to override base template margins */
+    html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    /* Target the main content container in base template */
+    main, .container, .content-container, #content, .main-content, [class*="content"] {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+    
+    /* Reset any navbar spacing that might push content down */
+    nav + *, .navbar + *, header + * {
+        margin-top: 0 !important;
+    }
+    
+    /* Complete override for welcome container layout */
     .welcome-container {
-        text-align: center;
-        padding: 40px 20px; /* Reducir espacio interno */
-        max-width: 800px; /* Contenedor más estrecho */
-        margin: 0 auto;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        text-align: center !important;
+        margin: 0 auto !important;
+        box-sizing: border-box !important;
         animation: fadeIn 1s ease-out;
+    }
+
+    /* Logo styling - added vertical margins */
+    .logo-container {
+        width: 90% !important;
+        margin: 100px auto 30px !important; /* Top, horizontal, bottom margins */
+        padding: 0 !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+    }
+    
+    .app-logo {
+        width: 100% !important;
+        height: auto !important;
+        max-width: 800px !important;
+        display: block !important;
+        margin: 0 auto !important;
     }
 
     /* Título principal */
     .welcome-title {
-        font-size: 2.8em; /* Reducir tamaño del título */
+        font-size: 2.8em;
         color: #333;
-        margin-bottom: 30px;
-        font-weight: 700; /* Negrita para destacar */
-        font-family: 'Poppins', sans-serif; /* Fuente elegante y accesible */
+        margin-bottom: 0px;
+        font-weight: 700;
+        font-family: 'Poppins', sans-serif;
     }
 
     /* Texto destacado */
     .highlight {
         color: rgb(76, 175, 80);
-        font-weight: 800; /* Más negrita para destacar */
+        font-weight: 800;
     }
 
-    /* Mensaje de bienvenida */
+    /* Mensaje de bienvenida - comprehensive centering */
     .welcome-message {
-        margin-top: 30px;
-        font-size: 1.2em; /* Reducir tamaño del texto */
-        line-height: 1.6; /* Mejor legibilidad */
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 100% !important;
+        text-align: center !important;
+        margin: 10px auto !important;
+        padding: 0 !important;
+        font-size: 1.2em;
+        line-height: 1.6;
         color: #555;
+        max-width: 100%;
     }
 
-    /* Texto animado */
+    /* Texto animado - forced centering */
     .animated-text {
-        font-size: 1.4em; /* Texto más grande */
+        display: inline-block !important;
+        width: auto !important;
+        text-align: center !important;
+        margin: 10px auto !important;
+        font-size: 1.4em;
         color: #444;
-        margin: 20px 0;
+        padding: 0 !important;
         opacity: 0;
         animation: fadeIn 0.8s ease-out forwards;
-        font-family: 'Poppins', sans-serif; /* Fuente consistente */
+        font-family: 'Poppins', sans-serif;
     }
 
     /* Contenedor de inicio de sesión */
     .login-prompt {
         margin-top: 30px;
-        padding: 20px; /* Reducir espacio interno */
+        padding: 20px;
         background: rgba(76, 175, 80, 0.1);
-        border-radius: 15px; /* Bordes más redondeados */
-        font-size: 1.1em; /* Reducir tamaño del texto */
+        border-radius: 15px;
+        font-size: 1.1em;
     }
 
     /* Animaciones */
@@ -153,7 +194,7 @@
 
     /* Nueva sección de beneficios */
     .benefits-section {
-        margin-top: 40px;
+        margin-top: 0px;
         text-align: center;
     }
 
@@ -165,34 +206,34 @@
 
     .benefits-row {
         display: flex;
-        flex-wrap: nowrap; /* Evitar que las tarjetas se envuelvan */
-        justify-content: space-between; /* Espaciado uniforme entre tarjetas */
-        gap: 10px; /* Reducir el espacio entre tarjetas */
+        flex-wrap: nowrap;
+        justify-content: space-between;
+        gap: 10px;
     }
 
     .benefit-card {
         background: #f9f9f9;
         border: 1px solid #ddd;
         border-radius: 10px;
-        padding: 15px; /* Reducir espacio interno */
-        width: 22%; /* Ajustar ancho para que quepan 4 tarjetas en una fila */
+        padding: 15px;
+        width: 22%;
         text-align: center;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
 
     .benefit-card .icon {
-        font-size: 2em; /* Reducir tamaño del ícono */
+        font-size: 2em;
         margin-bottom: 10px;
     }
 
     .benefit-card h4 {
-        font-size: 1.2em; /* Reducir tamaño del título */
+        font-size: 1.2em;
         color: #4CAF50;
         margin-bottom: 10px;
     }
 
     .benefit-card p {
-        font-size: 0.9em; /* Reducir tamaño del texto */
+        font-size: 0.9em;
         color: #555;
         margin-bottom: 10px;
     }
@@ -200,10 +241,10 @@
     .benefit-card .btn {
         background-color: #4CAF50;
         color: white;
-        padding: 8px 12px; /* Reducir tamaño del botón */
+        padding: 8px 12px;
         text-decoration: none;
         border-radius: 5px;
-        font-size: 0.9em; /* Reducir tamaño del texto del botón */
+        font-size: 0.9em;
     }
 
     .benefit-card .btn:hover {
@@ -212,7 +253,7 @@
 
     /* Estilo para el texto tipo cita */
     .quote-text {
-        font-size: 1em; /* Reducir tamaño de la fuente */
+        font-size: 1em;
         font-style: italic;
         color: #666;
         margin-top: 20px;
