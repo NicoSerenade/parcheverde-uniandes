@@ -42,4 +42,13 @@ It means we have a mini database named users with the following information abou
                 creation_date
 
 Test achievement:
-{'achievement_id': 5, 'name': 'Liga Viento ', 'description': 'Earned for reaching 1 point', 'points_required': 1, 'badge_icon': 'badge-senor-vientos.svg'}
+import logic as l
+
+result = l.admin_create_achievement_logic(
+    name="Primeros pasos", 
+    description="Tu primer punto en la plataforma", 
+    points_required=1, 
+    badge_icon="badge-first-step.svg", 
+    achievement_user_type="user"
+)
+print(result)

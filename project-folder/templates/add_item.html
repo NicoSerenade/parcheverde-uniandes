@@ -1,114 +1,130 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="add-item-container">
-    <h2 class="form-title">Añadir Nuevo Item</h2>
-    <p class="form-description">Completa los campos para compartir un nuevo item con la comunidad.</p>
+<div class="page">
+  <div class="card add-item-card">
+    <h2 class="card-title">Añadir Nuevo Ítem</h2>
+    <p class="card-description">Completa los campos para compartir un nuevo ítem con la comunidad.</p>
     
     <form method="POST" action="{{ url_for('add_item') }}" class="add-item-form">
-        <div class="form-group">
-            <label for="name">Nombre del Item:</label>
-            <input type="text" id="name" name="name" placeholder="Ejemplo: Bicicleta" required>
-        </div>
-        <div class="form-group">
-            <label for="description">Descripción:</label>
-            <textarea id="description" name="description" placeholder="Describe el item..." rows="4" required></textarea>
-        </div>
-        <div class="form-group">
-            <label for="item_type">Tipo de Item:</label>
-            <select id="item_type" name="item_type" required>
-                <option value="" disabled selected>Selecciona un tipo</option>
-                <option value="Electrónico">Electrónico</option>
-                <option value="Mueble">Mueble</option>
-                <option value="Ropa">Ropa</option>
-                <option value="Otro">Otro</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <label for="item_terms">Términos:</label>
-            <select id="item_terms" name="item_terms" required>
-                <option value="" disabled selected>Selecciona los términos</option>
-                <option value="gift">Regalo</option>
-                <option value="loan">Préstamo</option>
-                <option value="exchange">Intercambio</option>
-            </select>
-        </div>
-        <button type="submit" class="btn-submit">Añadir Item</button>
+      <div class="form-group">
+        <label for="name">Nombre del Ítem:</label>
+        <input type="text" id="name" name="name" placeholder="Ejemplo: Bicicleta" required>
+      </div>
+
+      <div class="form-group">
+        <label for="description">Descripción:</label>
+        <textarea id="description" name="description" placeholder="Describe el ítem..." rows="4" required></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="item_type">Tipo de Ítem:</label>
+        <select id="item_type" name="item_type" required>
+          <option value="" disabled selected>Selecciona un tipo</option>
+          <option value="ropa">ropa</option>
+          <option value="libros">libros</option>
+          <option value="hogar">hogar</option>
+          <option value="otros">otros</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="item_terms">Términos:</label>
+        <select id="item_terms" name="item_terms" required>
+          <option value="" disabled selected>Selecciona los términos</option>
+          <option value="regalo">regalo</option>
+          <option value="intercambio">intercambio</option>
+        </select>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Añadir Ítem</button>
     </form>
+  </div>
 </div>
 {% endblock %}
 
 {% block styles %}
 <style>
-    .add-item-container {
-        max-width: 600px;
-        margin: 50px auto;
-        padding: 20px;
-        background: #f9f9f9;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        text-align: center;
-        overflow: hidden; /* Evita que los elementos se salgan del contenedor */
-    }
+:root {
+  --green-dark: #2C5F2D;
+  --green-medium: #97BC62;
+  --green-light: #D9E5D9;
+  --text-dark: #333333;
+  --bg-light: #F7F9F7;
+  --radius: 12px;
+}
 
-    .form-title {
-        font-size: 2.5em; /* Hacer el título más grande */
-        color: #4CAF50;
-        margin-bottom: 10px;
-    }
+.page {
+  max-width: 700px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  font-family: 'Montserrat', sans-serif;
+  color: var(--text-dark);
+}
 
-    .form-description {
-        font-size: 1.1em;
-        color: #555;
-        margin-bottom: 20px;
-    }
+.add-item-card {
+  background: var(--bg-light);
+  padding: 2rem;
+  border-radius: var(--radius);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
 
-    .add-item-form {
-        display: flex;
-        flex-direction: column;
-        gap: 15px;
-    }
+.card-title {
+  margin: 0;
+  font-size: 1.8rem;
+  color: var(--green-dark);
+  border-bottom: 2px solid var(--green-medium);
+  padding-bottom: 0.5rem;
+}
 
-    .form-group {
-        text-align: left;
-    }
+.card-description {
+  margin-top: 0.5rem;
+  font-size: 1rem;
+  color: var(--text-dark);
+}
 
-    .form-group label {
-        display: block;
-        font-size: 1em;
-        color: #333;
-        margin-bottom: 5px;
-    }
+.add-item-form {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
 
-    .form-group input,
-    .form-group textarea,
-    .form-group select {
-        width: 100%; /* Asegura que los campos no excedan el ancho del contenedor */
-        max-width: 100%; /* Limita el ancho máximo */
-        padding: 10px;
-        border: 1px solid #ddd;
-        border-radius: 5px;
-        font-size: 1em;
-        box-sizing: border-box; /* Incluye padding y borde en el ancho total */
-    }
+.form-group label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 0.3rem;
+}
 
-    .form-group textarea {
-        resize: none;
-    }
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: 0.8rem;
+  border: 1px solid #ddd;
+  border-radius: var(--radius);
+  font-size: 1rem;
+  box-sizing: border-box;
+}
 
-    .btn-submit {
-        background-color: #4CAF50;
-        color: white;
-        padding: 15px 25px; /* Hacer el botón más grande */
-        border: none;
-        border-radius: 5px;
-        font-size: 1.2em; /* Aumentar el tamaño del texto del botón */
-        cursor: pointer;
-        transition: background-color 0.3s ease;
-    }
+.form-group textarea {
+  resize: vertical;
+}
 
-    .btn-submit:hover {
-        background-color: #45a049;
-    }
+.btn-primary {
+  background: var(--green-medium);
+  color: #fff;
+  padding: 0.8rem 1.2rem;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 1rem;
+  cursor: pointer;
+  align-self: flex-start;
+  transition: background-color 0.3s ease;
+}
+
+.btn-primary:hover {
+  background: var(--green-dark);
+}
 </style>
 {% endblock %}

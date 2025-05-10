@@ -77,7 +77,7 @@ def register_user():
         password = request.form.get('password')
         interests = request.form.get('interests')
         career = request.form.get('career')
-        photo = "testing-photo" # replace with request.form.get('photo')
+        photo = request.form.get('photo')
 
         # Call logic function (unchanged)
         result = logic.register_user(name, email, student_code, password, interests, career, photo)
@@ -190,14 +190,15 @@ def login_org():
             session.clear()
             # Store org data in session
             session['entity_id'] = result['entity_id']
-            session['entity_type'] = 'org'  # Use 'organization' consistently
+            session['entity_type'] = 'organization'
             session['name'] = result['name']
             session['email'] = result['email']
             session['description'] = result.get('description', '')
             session['interests'] = result.get('interests', '')
             session['points'] = result.get('points', 0)
             session['creator_student_code'] = result.get('creator_student_code', '')
-            
+            session['photo'] = result.get('photo', '')
+
             flash(f"Organization login successful for {session['name']}!", 'success')
             return redirect(url_for('index'))
         else:
@@ -236,7 +237,8 @@ def profile():
             'student_code': session.get('student_code'),
             'career': session.get('career'),
             'interests': session.get('interests'),
-            'points': session.get('points', 0)
+            'points': session.get('points', 0),
+            'photo': session.get('photo', '')
         }
         
         # Get full user data from database for accurate information
@@ -260,20 +262,20 @@ def profile():
         badges = []
         result = logic.get_entity_achievements(entity_id, entity_type)
         if result['status'] == 'success' and 'data' in result:
-            achievement_badges = result.get('data', [])
-            # Add any additional badges to our list
-            badges.extend(achievement_badges)
+            badges = result.get('data', [])
+
         
         # Get user organizations
         orgs_result = logic.get_user_orgs_logic(entity_id)
         if orgs_result['status'] == 'success':
             user_orgs = orgs_result['data']
         
-        return render_template('profile.html', 
-                              user_data=user_data,
-                              points=points, 
-                              badges=badges,
-                              user_orgs=user_orgs)
+        return render_template('profile.html',
+                            entity_type=entity_type, 
+                            user_data=user_data,
+                            points=points, 
+                            badges=badges,
+                            user_orgs=user_orgs)
         
 
     elif entity_type == 'organization':
@@ -285,7 +287,8 @@ def profile():
             'email': session.get('email'),
             'description': session.get('description'),
             'interests': session.get('interests'),
-            'points': session.get('points', 0)
+            'points': session.get('points', 0),
+            'photo': session.get('photo', '')
         }
         
         # Get org members if available
@@ -294,9 +297,10 @@ def profile():
         if members_result['status'] == 'success':
             members = members_result['data']
         
-        return render_template('profile.html', 
-                              org_data=org_data,
-                              members=members)
+        return render_template('profile.html',
+                            entity_type=entity_type, 
+                            org_data=org_data,
+                            members=members)
     
     else:
         # This should not happen due to the @login_required decorator
@@ -783,8 +787,8 @@ def mark_attendance():
 
 
 # --- Item Routes ---
-@app.route('/item/add', methods=['GET', 'POST'])
 @user_login_required # Only users can add items
+@app.route('/item/add', methods=['GET', 'POST'])
 def add_item():
     # Decorator ensures user login.
     owner_id = session.get('entity_id')
@@ -794,8 +798,7 @@ def add_item():
         name = request.form.get('name')
         description = request.form.get('description')
         item_type = request.form.get('item_type')
-        item_terms = "gift" #request.form.get('item_terms') pending to format the terms into (gift, loan or exchange)
-        
+        item_terms = request.form.get('item_terms')
 
         # Validate required fields
         if not all([name, description, item_type, item_terms]):
@@ -814,8 +817,8 @@ def add_item():
             # Re-fetch current points to ensure accuracy
              user_data = logic.get_entity_by_id(owner_id, owner_type)
              if user_data['status'] == 'success':
-                 session['points'] = user_data['data'].get('points', session.get('points')) # Update session points
-                 session.modified = True # Required when modifying mutable session objects
+                 session['points'] = user_data['data'].get('points', session.get('points')) 
+                 session.modified = True 
 
         return redirect(url_for('view_items'))
 

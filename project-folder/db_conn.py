@@ -6,7 +6,7 @@ goal_type: --siembra, reciclaje, caridad, enseñanza, software
 event_status: active, completed
 exchange_status: pending, accepted, rejected
 item_type: --ropa, libros, hogar, otros
-item_terms: --gift, loan, exchange (NO SE PUEDEN VENDER)
+item_terms: --regalo, intercambio
 item_status: --available, borrowed, unavailable
 challenge_status: active, completed
 datetime format ISO 8601 YYYY-MM-DD HH:MM:SS
@@ -60,6 +60,7 @@ def setup_database():
                 description TEXT,
                 interests TEXT, --siembra, reciclaje, caridad, enseñanza, software
                 points INTEGER DEFAULT 0,
+                photo TEXT, --photo-org
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP
             )
             ''')

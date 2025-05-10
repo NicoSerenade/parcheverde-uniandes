@@ -1,263 +1,190 @@
 {% extends "base.html" %}
 
-{% block content %}
-<div class="welcome-container">
-    <!-- Replace welcome title with logo for all users -->
-    <div class="logo-container">
-        <img src="{{ url_for('static', filename='logo-name-landscape.png') }}" alt="Comunidad Parche Verde Logo" class="app-logo">
-    </div>
-    
-    <div class="welcome-message">
-        {% if 'entity_type' not in session %}
-            <!-- Content for non-logged in users -->
-            <p class="animated-text">Inicia sesión o regístrate para acceder a todas las funciones.</p>
-        {% else %}
-        {% endif %}
-    </div>
-</div>
-
-<!-- Nueva sección destacada: Solo visible si el usuario está logueado -->
-{% if 'entity_type' in session %}
-<div class="benefits-section">
-    <h3 class="section-title">¡Bienvenido a <span class="highlight">Comunidad Parche Verde</span>!</h3>
-    <div class="benefits-row">
-        <!-- Tarjeta 1 -->
-        <div class="benefit-card">
-            <div class="icon">♻️</div>
-            <h4>Gana puntos ayudando al planeta</h4>
-            <p>Participa en actividades ecológicas y acumula puntos.</p>
-            <a href="{{ url_for('view_events') }}" class="btn">Explorar</a>
-        </div>
-        <!-- Tarjeta 2 -->
-        <div class="benefit-card">
-            <div class="icon">🌍</div>
-            <h4>Conecta con organizaciones verdes</h4>
-            <p>Descubre y colabora con organizaciones ecológicas.</p>
-            <a href="{{ url_for('view_organizations') }}" class="btn">Explorar</a>
-        </div>
-        <!-- Tarjeta 3 -->
-        <div class="benefit-card">
-            <div class="icon">🌱</div>
-            <h4>Crea o participa en eventos ecológicos</h4>
-            <p>Únete a eventos que promueven el cuidado del medio ambiente.</p>
-            <a href="{{ url_for('view_events') }}" class="btn">Explorar</a>
-        </div>
-        <!-- Tarjeta 4 -->
-        <div class="benefit-card">
-            <div class="icon">🎖️</div>
-            <h4>Consigue logros y sube de nivel</h4>
-            <p>Completa desafíos y gana reconocimientos únicos.</p>
-            <a href="{{ url_for('profile') }}" class="btn">Explorar</a>
-        </div>
-    </div>
-</div>
-{% endif %}
-{% endblock %}
-
 {% block styles %}
 <style>
-    /* More aggressive reset to override base template margins */
-    html, body {
-        margin: 0 !important;
-        padding: 0 !important;
-    }
-    
-    /* Target the main content container in base template */
-    main, .container, .content-container, #content, .main-content, [class*="content"] {
-        margin-top: 0 !important;
-        padding-top: 0 !important;
-    }
-    
-    /* Reset any navbar spacing that might push content down */
-    nav + *, .navbar + *, header + * {
-        margin-top: 0 !important;
-    }
-    
-    /* Complete override for welcome container layout */
-    .welcome-container {
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        justify-content: center !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        text-align: center !important;
-        margin: 0 auto !important;
-        box-sizing: border-box !important;
-        animation: fadeIn 1s ease-out;
-    }
+:root {
+  --green-dark: #2C5F2D;
+  --green-medium: #97BC62;
+  --green-light: #D9E5D9;
+  --text-dark: #333333;
+  --bg-light: #F7F9F7;
+  --radius: 12px;
+  --shadow-light: rgba(0, 0, 0, 0.05);
+}
 
-    /* Logo styling - added vertical margins */
-    .logo-container {
-        width: 90% !important;
-        margin: 100px auto 30px !important; /* Top, horizontal, bottom margins */
-        padding: 0 !important;
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-    }
-    
-    .app-logo {
-        width: 100% !important;
-        height: auto !important;
-        max-width: 800px !important;
-        display: block !important;
-        margin: 0 auto !important;
-    }
+/* Global body style */
+body {
+  font-family: 'Montserrat', sans-serif;
+  color: var(--text-dark);
+  background: var(--bg-light);
+  margin: 0;
+  padding: 0;
+}
 
-    /* Título principal */
-    .welcome-title {
-        font-size: 2.8em;
-        color: #333;
-        margin-bottom: 0px;
-        font-weight: 700;
-        font-family: 'Poppins', sans-serif;
-    }
+/* Hero section */
+.hero {
+  text-align: center;
+  padding: 3rem 1rem;
+  background: var(--green-light);
+  margin: 2rem auto;
+  max-width: 800px;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px var(--shadow-light);
+}
 
-    /* Texto destacado */
-    .highlight {
-        color: rgb(76, 175, 80);
-        font-weight: 800;
-    }
+.logo-container {
+  margin-bottom: 1.5rem;
+}
 
-    /* Mensaje de bienvenida - comprehensive centering */
-    .welcome-message {
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        justify-content: center !important;
-        width: 100% !important;
-        text-align: center !important;
-        margin: 10px auto !important;
-        padding: 0 !important;
-        font-size: 1.2em;
-        line-height: 1.6;
-        color: #555;
-        max-width: 100%;
-    }
+.app-logo {
+  max-width: 300px;
+  width: 100%;
+  height: auto;
+}
 
-    /* Texto animado - forced centering */
-    .animated-text {
-        display: inline-block !important;
-        width: auto !important;
-        text-align: center !important;
-        margin: 10px auto !important;
-        font-size: 1.4em;
-        color: #444;
-        padding: 0 !important;
-        opacity: 0;
-        animation: fadeIn 0.8s ease-out forwards;
-        font-family: 'Poppins', sans-serif;
-    }
+.hero-title {
+  font-size: 2.5rem;
+  color: var(--green-dark);
+  margin: 0.5rem 0;
+}
 
-    /* Contenedor de inicio de sesión */
-    .login-prompt {
-        margin-top: 30px;
-        padding: 20px;
-        background: rgba(76, 175, 80, 0.1);
-        border-radius: 15px;
-        font-size: 1.1em;
-    }
+.hero-subtitle {
+  font-size: 1.2rem;
+  margin-bottom: 1.5rem;
+}
 
-    /* Animaciones */
-    @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
+.btn-hero {
+  display: inline-block;
+  padding: 0.8rem 1.6rem;
+  background: var(--green-medium);
+  color: #fff;
+  font-size: 1rem;
+  border: none;
+  border-radius: var(--radius);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
 
-    @keyframes slideDown {
-        from {
-            opacity: 0;
-            transform: translateY(-30px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
+.btn-hero:hover {
+  background: var(--green-dark);
+}
 
-    @keyframes slideUp {
-        from {
-            opacity: 0;
-            transform: translateY(20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
+/* Benefits section for logged-in users */
+.benefits-section {
+  max-width: 1000px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
 
-    @keyframes underline {
-        from { transform: scaleX(0); }
-        to { transform: scaleX(1); }
-    }
+.section-title {
+  text-align: center;
+  font-size: 2rem;
+  color: var(--green-dark);
+  margin-bottom: 1.5rem;
+  position: relative;
+}
 
-    /* Nueva sección de beneficios */
-    .benefits-section {
-        margin-top: 0px;
-        text-align: center;
-    }
+.section-title::after {
+  content: '';
+  display: block;
+  width: 60px;
+  height: 3px;
+  background: var(--green-medium);
+  margin: 0.5rem auto 0;
+}
 
-    .section-title {
-        font-size: 2em;
-        color: #333;
-        margin-bottom: 20px;
-    }
+.benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+}
 
-    .benefits-row {
-        display: flex;
-        flex-wrap: nowrap;
-        justify-content: space-between;
-        gap: 10px;
-    }
+.benefit-card {
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  box-shadow: 0 2px 8px var(--shadow-light);
+  text-align: center;
+}
 
-    .benefit-card {
-        background: #f9f9f9;
-        border: 1px solid #ddd;
-        border-radius: 10px;
-        padding: 15px;
-        width: 22%;
-        text-align: center;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
+.benefit-card .icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.8rem;
+  color: var(--green-dark);
+}
 
-    .benefit-card .icon {
-        font-size: 2em;
-        margin-bottom: 10px;
-    }
+.benefit-card h4 {
+  font-size: 1.2rem;
+  margin-bottom: 0.5rem;
+  color: var(--green-dark);
+}
 
-    .benefit-card h4 {
-        font-size: 1.2em;
-        color: #4CAF50;
-        margin-bottom: 10px;
-    }
+.benefit-card p {
+  font-size: 0.95rem;
+  margin-bottom: 1rem;
+  color: #555;
+}
 
-    .benefit-card p {
-        font-size: 0.9em;
-        color: #555;
-        margin-bottom: 10px;
-    }
+.benefit-card .btn {
+  display: inline-block;
+  padding: 0.6rem 1.2rem;
+  background: var(--green-medium);
+  color: #fff;
+  font-size: 0.9rem;
+  border-radius: var(--radius);
+  text-decoration: none;
+  transition: background-color 0.3s ease;
+}
 
-    .benefit-card .btn {
-        background-color: #4CAF50;
-        color: white;
-        padding: 8px 12px;
-        text-decoration: none;
-        border-radius: 5px;
-        font-size: 0.9em;
-    }
-
-    .benefit-card .btn:hover {
-        background-color: #45a049;
-    }
-
-    /* Estilo para el texto tipo cita */
-    .quote-text {
-        font-size: 1em;
-        font-style: italic;
-        color: #666;
-        margin-top: 20px;
-        font-family: 'Poppins', sans-serif;
-    }
+.benefit-card .btn:hover {
+  background: var(--green-dark);
+}
 </style>
+{% endblock %}
+
+{% block content %}
+  <div class="hero">
+    <div class="logo-container">
+      <img src="{{ url_for('static', filename='logo-name-landscape.png') }}" alt="Comunidad Parche Verde Uniandes Logo" class="app-logo">
+    </div>
+    <h1 class="hero-title">Comunidad Parche Verde Uniandes</h1>
+    <p class="hero-subtitle">Participa en eventos ecológicos, conecta con la comunidad y actúa por el planeta.</p>
+
+    {% if 'entity_type' not in session %}
+      <a href="{{ url_for('login') }}" class="btn-hero">Iniciar Sesión</a>
+    {% endif %}
+  </div>
+
+  {% if 'entity_type' in session %}
+    <section class="benefits-section">
+      <h2 class="section-title">¡Bienvenido a la Comunidad!</h2>
+      <div class="benefits-grid">
+        <div class="benefit-card">
+          <div class="icon">♻️</div>
+          <h4>Gana Puntos</h4>
+          <p>Participa en actividades y acumula reconocimientos.</p>
+          <a href="{{ url_for('view_events') }}" class="btn">Explorar Eventos</a>
+        </div>
+        <div class="benefit-card">
+          <div class="icon">🌍</div>
+          <h4>Conecta Organizaciones</h4>
+          <p>Descubre grupos locales y colabora con ellos.</p>
+          <a href="{{ url_for('view_organizations') }}" class="btn">Ver Organizaciones</a>
+        </div>
+        <div class="benefit-card">
+          <div class="icon">🌱</div>
+          <h4>Únete a Eventos</h4>
+          <p>Encuentra y participa en eventos ecológicos activos.</p>
+          <a href="{{ url_for('view_events') }}" class="btn">Explorar Eventos</a>
+        </div>
+        <div class="benefit-card">
+          <div class="icon">🎖️</div>
+          <h4>Logros y Medallas</h4>
+          <p>Gana medallas por tus contribuciones.</p>
+          <a href="{{ url_for('profile') }}" class="btn">Ver Perfil</a>
+        </div>
+      </div>
+    </section>
+  {% endif %}
 {% endblock %}

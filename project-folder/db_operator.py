@@ -98,16 +98,16 @@ def delete_my_user(student_code):
     return success
 
 #ORG REGISTRATION
-def register_org(user_type, creator_student_code, password, name, email, description=None, interests=None):
+def register_org(user_type, creator_student_code, password, name, email, description=None, interests=None, photo=None):
     org_id = None
     conn = db_conn.create_connection()
     if conn is not None:
         try:
             cursor = conn.cursor()
             cursor.execute('''
-            INSERT INTO organizations (user_type, creator_student_code, password, name, email, description, interests)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (user_type, creator_student_code, password, name, email, description, interests)) 
+            INSERT INTO organizations (user_type, creator_student_code, password, name, email, description, interests, photo)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (user_type, creator_student_code, password, name, email, description, interests, photo))
             conn.commit()
             org_id = cursor.lastrowid
         except sqlite3.Error as e:
@@ -116,7 +116,7 @@ def register_org(user_type, creator_student_code, password, name, email, descrip
             conn.close()
     return org_id is not None
 
-def update_org_profile(org_id, creator_student_code=None, password=None, name=None, email=None, description=None, interests=None):
+def update_org_profile(org_id, creator_student_code=None, password=None, name=None, email=None, description=None, interests=None, photo=None):
     success = False
     conn = db_conn.create_connection()
     if conn is not None:
@@ -148,6 +148,10 @@ def update_org_profile(org_id, creator_student_code=None, password=None, name=No
             if interests:
                 updates.append("interests = ?")
                 params.append(interests)
+
+            if photo:
+                updates.append("photo = ?")
+                params.append(photo)
             
             params.append(org_id)
             
@@ -472,7 +476,7 @@ def get_user_by_student_code(student_code):
         try:
             cursor = conn.cursor()
             cursor.execute('''
-            SELECT user_id, user_type, student_code, name, email, password, career, interests, points, creation_date
+            SELECT user_id, user_type, student_code, name, email, password, career, interests, photo, points, creation_date
             FROM users
             WHERE student_code = ?
             ''', (student_code,))
@@ -487,8 +491,9 @@ def get_user_by_student_code(student_code):
                     'password': user[5],
                     'career': user[6],
                     'interests': user[7],
-                    'points': user[8],
-                    'creation_date': user[9]
+                    'photo': user[8],
+                    'points': user[9],
+                    'creation_date': user[10]
                 }
         except sqlite3.Error as e:
             print(f"Error retrieving user by student code: {e}")
@@ -1189,8 +1194,8 @@ def create_item(user_id, name, description, item_type, item_terms):
         name (str): Name of the item
         description (str): Description of the item
         item_type (str): Type of item --ropa, libros, hogar, otros
-        item_terms (str): Terms for the item --regalo, prestamo, intercambio (NO SE PUEDEN VENDER)
-    
+        item_terms (str): (regalo, intercambio)
+
     Returns:
         int: ID of the created item if successful, None otherwise
     """

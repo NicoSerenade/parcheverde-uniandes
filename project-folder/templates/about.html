@@ -1,16 +1,58 @@
 {% extends "base.html" %}
 
+{% block styles %}
+<style>
+:root {
+  --green-dark: #2C5F2D;
+  --green-medium: #97BC62;
+  --green-light: #D9E5D9;
+  --text-dark: #333333;
+  --bg-light: #F7F9F7;
+  --radius: 12px;
+  --shadow-light: rgba(0, 0, 0, 0.04);
+}
+
+.container.about-section {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: var(--bg-light);
+  border-radius: var(--radius);
+  box-shadow: 0 2px 8px var(--shadow-light);
+  font-family: 'Montserrat', sans-serif;
+  color: var(--text-dark);
+}
+
+.about-content p {
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.about-content p strong {
+  display: block;
+  font-size: 1.4rem;
+  color: var(--green-dark);
+  border-bottom: 2px solid var(--green-medium);
+  padding-bottom: 0.3rem;
+  margin-bottom: 0.5rem;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container about-section">
-    <div class="about-content">
-        <p><strong>¿Qué es Parche Verde?</strong> <br>Es una plataforma digital que centraliza iniciativas sostenibles para que cada Uniandino pueda actuar de forma sencilla por el planeta. Más allá de su impacto local, este proyecto abre las puertas a nuevos horizontes de participación y sienta las bases para ser replicado en otras comunidades. Así, damos un primer paso hacia un futuro más consciente, colectivo e, inevitablemente, más feliz.</p>
+  <div class="about-content">
+    <p><strong>¿Qué es Parche Verde?</strong>
+       Es una plataforma digital que centraliza iniciativas sostenibles para que cada Uniandino pueda actuar de forma sencilla por el planeta. Más allá de su impacto local, este proyecto abre las puertas a nuevos horizontes de participación y sienta las bases para ser replicado en otras comunidades. Así, damos un primer paso hacia un futuro más consciente, colectivo e, inevitablemente, más feliz.</p>
 
-        <p><strong>¿Cómo nace esta iniciativa?</strong> <br>Parche Verde nace como una respuesta a la desconexión entre el interés ambiental de la comunidad Uniandina y la falta de herramientas efectivas para actuar. A través de una metodología centrada en el usuario, desarrollamos una plataforma que facilita la participación sostenible, fomenta vínculos significativos y consolida una cultura ambiental colaborativa dentro de la universidad.</p>
+    <p><strong>¿Cómo nace esta iniciativa?</strong>
+       Parche Verde nace como una respuesta a la desconexión entre el interés ambiental de la comunidad Uniandina y la falta de herramientas efectivas para actuar. A través de una metodología centrada en el usuario, desarrollamos una plataforma que facilita la participación sostenible, fomenta vínculos significativos y consolida una cultura ambiental colaborativa dentro de la universidad.</p>
 
-        <p><strong>¿Qué se puede hacer y cómo empiezo en la plataforma?</strong> <br>"(insertar video)"</p>
+    <p><strong>¿Qué puedo hacer y cómo empiezo en la plataforma?</strong>
+       "(insertar video)"</p>
 
-    
-        <p><strong>Contacto</strong> <br>parcheconsciencia.contacto@gmail.com
-    </div>
+    <p><strong>Contacto</strong>
+       parcheconsciencia.contacto@gmail.com</p>
+  </div>
 </div>
 {% endblock %}

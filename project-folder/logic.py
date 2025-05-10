@@ -82,7 +82,7 @@ def register_user(name, email, student_code, password, interests=None, career=No
     else:
         return {"status": "error", "message": "Database error."}
 
-def register_organization(creator_email, creator_student_code, name, email, description, password, interests=None):
+def register_organization(creator_email, creator_student_code, name, email, description, password, interests=None, photo="photo-org"):
     """
     Registers a new organization.
     Requires the student code of the creating user.
@@ -95,6 +95,7 @@ def register_organization(creator_email, creator_student_code, name, email, desc
         description (str): Organization description.
         password (str): Organization password.
         interests (str, optional): Organization interests.
+        photo (str, optional): Organization photo.
     """
 
     if not db_operator.check_user_exists(creator_email, creator_student_code):
@@ -231,7 +232,7 @@ def update_my_profile_logic(entity_id, entity_type, new_data):
         del new_data['old_password']
     
     if entity_type == 'user' or entity_type == 'admin':
-        valid_fields = ['name', 'email', 'student_code', 'password', 'career', 'interests']
+        valid_fields = ['name', 'email', 'student_code', 'password', 'career', 'interests', 'photo']
         
         # Create a clean dict with only valid fields
         update_payload = {k: v for k, v in new_data.items() if k in valid_fields and v}
@@ -244,7 +245,7 @@ def update_my_profile_logic(entity_id, entity_type, new_data):
     
     elif entity_type == 'organization':
         # Valid fields for organization profile update
-        valid_fields = ['name', 'email', 'creator_student_code', 'password', 'description', 'interests']
+        valid_fields = ['name', 'email', 'creator_student_code', 'password', 'description', 'interests', 'photo']
         
         # Create a clean dict with only valid fields
         update_payload = {k: v for k, v in new_data.items() if k in valid_fields and v}
@@ -803,14 +804,14 @@ def add_item_logic(owner_id, name, description, item_type, item_terms):
         name (str): Item name.
         description (str): Item description.
         item_type (str): Item type (ropa, libros, hogar, otros).
-        item_terms (str): Item terms (gift, loan, exchange).
+        item_terms (str): Item terms (regalo, intercambio).
     """
     # Removed _get_session_details call
     # Type check (ensuring it's a user) should happen in app.py
     if not owner_id:
         return {"status": "error", "message": "Owner ID is required."}
-    
-    valid_terms = ['gift', 'loan', 'exchange']
+
+    valid_terms = ['regalo', 'intercambio']
     if item_terms not in valid_terms:
         return {"status": "error", "message": f"Invalid item terms. Must be one of: {', '.join(valid_terms)}"}
     
