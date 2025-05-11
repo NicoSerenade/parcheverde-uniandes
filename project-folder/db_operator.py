@@ -9,7 +9,7 @@ import db_conn
 #USER REGISTRATION
 def check_user_exists(email, student_code):
     conn = db_conn.create_connection()
-    if conn is None:
+    if conn is not None:
         try:
             cursor = conn.cursor()
             cursor.execute("SELECT user_id FROM users WHERE email = ? OR student_code = ?", (email, student_code))
