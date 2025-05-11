@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container search-page">
+  <div class="top-strip card">
+    <h1>Buscar Usuarios</h1>
+    <form method="get" action="{{ url_for('search_users') }}" class="search-form">
+      <input type="text" name="q" value="{{ query }}" placeholder="Nombre de usuario..." class="search-input" />
+      <input type="text" name="interests" value="{{ interests }}" placeholder="Intereses (separados por comas)" class="search-input" />
+      <input type="text" name="career" value="{{ career }}" placeholder="Carrera" class="search-input" />
+      <button type="submit" class="btn btn-primary">Buscar</button>
+    </form>
+  </div>
+
+  {% if users %}
+  <div class="results-grid">
+    {% for u in users %}
+    <div class="card user-card">
+      <div class="user-photo">
+        {% if u.photo and u.photo != 'default-photo.svg' %}
+          <img src="{{ url_for('static', filename='profile-photos-mvp/' ~ u.photo) }}" alt="{{ u.name }}" />
+        {% else %}
+          <img src="{{ url_for('static', filename='profile-photos-mvp/default-photo.svg') }}" alt="{{ u.name }}" class="default-photo" />
+        {% endif %}
+      </div>
+      <div class="user-info">
+        <h2>{{ u.name }}</h2>
+        <p><strong>Código:</strong> {{ u.student_code }}</p>
+        <p><strong>Carrera:</strong> {{ u.career or '—' }}</p>
+        <p><strong>Intereses:</strong> {{ u.interests or '—' }}</p>
+        <a href="{{ url_for('view_user_profile', user_id=u.user_id) }}" class="btn btn-secondary">Ver Perfil</a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card no-results">
+    <p>No se encontraron usuarios.</p>
+  </div>
+  {% endif %}
+</div>
+
+<style>
+:root {
+  --green-dark:   #2C5F2D;
+  --green-medium: #97BC62;
+  --green-light:  #D9E5D9;
+  --bg-light:     #F7F9F7;
+  --text-dark:    #333333;
+  --danger:       #D64545;
+  --radius:       12px;
+  --shadow-light: rgba(0,0,0,0.05);
+}
+
+.container.search-page {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  font-family: 'Montserrat', sans-serif;
+  color: var(--text-dark);
+  background: var(--bg-light);
+}
+
+.top-strip {
+  background: var(--green-light);
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px var(--shadow-light);
+  margin-bottom: 2rem;
+}
+
+.top-strip h1 {
+  margin: 0 0 1rem;
+  color: var(--green-dark);
+  font-size: 2rem;
+}
+
+.search-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  align-items: center;
+}
+
+.search-input {
+  padding: 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: var(--radius);
+  font-family: 'Montserrat', sans-serif;
+}
+
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  justify-items: center;
+}
+
+.user-card {
+  width: 100%;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: 0 2px 8px var(--shadow-light);
+  overflow: hidden;
+}
+
+.user-photo {
+  background: var(--green-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 180px;
+  overflow: hidden;
+}
+
+.user-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.user-photo img.default-photo {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+}
+
+.user-info {
+  padding: 1rem;
+  text-align: center;
+}
+
+.user-info h2 {
+  margin: 0 0 0.5rem;
+  color: var(--green-dark);
+  font-size: 1.4rem;
+}
+
+.user-info p {
+  margin: 0.3rem 0;
+}
+
+.btn-secondary {
+  background: var(--green-medium);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  text-decoration: none;
+  display: inline-block;
+  margin-top: 0.75rem;
+}
+
+.no-results {
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  text-align: center;
+  box-shadow: 0 2px 8px var(--shadow-light);
+}
+</style>
+{% endblock %}

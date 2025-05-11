@@ -412,19 +412,20 @@ def delete_my_account_logic(entity_id, entity_type, password):
         return {"status": "error", "message": "Failed to delete account. Please check your password."}
 
 # --- Search users Functions ---
-def search_users_logic(query=None, interests=None, sort_by=None):
+def search_users_logic(query=None, interests=None, career=None):
     """
     Searches users based on criteria.
     
     Args:
         query (str, optional): Search in name or description fields
         interests (str, optional): Filter by interests (partial match)
+        career (str, optional): Filter by career (partial match)
         sort_by (str, optional): Sort by field ('name', 'points', 'creation_date')
-        
+
     Returns:
         dict: A dictionary with status, message, and data if successful
     """
-    users = db_operator.search_users(query=query, interests=interests, sort_by=sort_by)
+    users = db_operator.search_users(query=query, career=career, interests=interests)
     if users is None:
          return {"status": "error", "message": "Error searching users."}
     else:

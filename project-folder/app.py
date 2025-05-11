@@ -526,6 +526,22 @@ def view_my_requests():
                               requests=[], 
                               request_type=request_type)
 
+@app.route('/search/users')
+@login_required
+def search_users():
+    q = request.args.get('q', '')
+    career = request.args.get('career', '')
+    interests = request.args.get('interests', '')
+    result = logic.search_users_logic(query=q, career=career, interests=interests)
+    users = result.get('data', []) if result.get('status')=='success' else []
+    return render_template(
+        'search_users.html',
+        users=users,
+        query=q,
+        career=career,
+        interests=interests
+    )
+
 
 # --- Organization Routes ---
 @app.route('/organizations')
@@ -900,7 +916,7 @@ def view_items():
     item_terms = request.args.get('terms')
     
     # Call the logic function with optional filter
-    result = logic.view_items_logic(item_terms)
+    result = logic.view_items_logic(item_terms=item_terms)
     
     if result['status'] == 'success':
         items = result.get('data', [])
@@ -915,15 +931,18 @@ def view_items():
 def request_item(item_id):
     requester_id = session.get('entity_id')
     if not requester_id:
-        flash("Could not identify user session.", "error")
+        flash("Debe iniciar sesión para solicitar un ítem.", "error")
         return redirect(url_for('login'))
 
-    # Get message from form if added
-    message = request.form.get('message', "") 
-
-    # Call the updated logic function (using original item terms)
-    result = logic.request_item_logic(requester_id, item_id, message)
+    # Llama a la lógica
+    result = logic.request_item_logic(requester_id, item_id, "")
     flash(result['message'], result['status'])
+
+    if result['status'] == 'success':
+        # Obtener el owner_id para redirigir al chat
+        item = db_operator.get_item_details(item_id)
+        owner_id = item.get('owner_id')
+        return redirect(url_for('private_chat', user_id=owner_id))
 
     return redirect(url_for('view_items'))
 
@@ -1435,7 +1454,51 @@ def chat_test():
     print(f"[Workaround] Sesión establecida manualmente para user_id: {1}")
     current_user_id = session.get('entity_id')
     return render_template('index_prueba_messages.html', current_user_id=current_user_id)
-###
+
+
+# 2. View another user's profile
+@app.route('/user/<int:user_id>')
+@login_required
+def view_user_profile(user_id):
+    # get basic user info
+    res = logic.get_entity_by_id(user_id, 'user')
+    if res['status']!='success': 
+        flash(res['message'], 'error')
+        return redirect(url_for('search_users'))
+    user_data = res['data']
+    # badges & orgs
+    badges = logic.get_entity_achievements(user_id, 'user').get('data', [])
+    user_orgs = logic.get_user_orgs_logic(user_id).get('data', [])
+    points = user_data.get('points', 0)
+    return render_template('user_profile.html',
+                           user_data=user_data,
+                           badges=badges,
+                           user_orgs=user_orgs,
+                           points=points)
+
+# 3. Private chat page
+@app.route('/chat/<int:user_id>')
+@login_required
+def private_chat(user_id):
+    my_id = session['entity_id']
+    # Carga los últimos 50 mensajes
+    msgs = logic.get_conversation_logic(
+        my_id, session['entity_type'],
+        user_id, 'user',
+        limit=50
+    ).get('data', [])
+
+    # Obtiene datos del destinatario
+    recipient = logic.get_entity_by_id(user_id, 'user').get('data', {})
+    recipient_name = recipient.get('name', 'Usuario')
+
+    return render_template(
+        'chat.html',
+        recipient_id=user_id,
+        recipient_name=recipient_name,
+        messages=msgs
+    )
+
 # --- initialize the app ---
 
 if __name__ == '__main__':

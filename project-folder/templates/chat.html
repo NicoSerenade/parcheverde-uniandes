@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="chat-page">
+  <div class="chat-header card">
+    <h2>Converación con {{ recipient_name }}</h2>
+  </div>
+
+  <div id="chat-window" class="chat-window card"
+       data-recipient-id="{{ recipient_id }}"
+       data-recipient-name="{{ recipient_name }}"
+       data-my-id="{{ session.entity_id }}">
+    {% for m in messages %}
+      <div class="message-item {{ 'mine' if m.sender_id==session.entity_id else 'theirs' }}">
+        <span class="message-sender">{{ 'Yo' if m.sender_id==session.entity_id else recipient_name }}:</span>
+        <span class="message-content">{{ m.content }}</span>
+      </div>
+    {% endfor %}
+  </div>
+
+  <form id="chat-form" class="chat-form">
+    <input id="msg-input" class="msg-input" autocomplete="off" placeholder="Escribe un mensaje…" />
+    <button type="submit" class="btn btn-primary">Enviar</button>
+  </form>
+</div>
+
+<script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const socket    = io();
+    const container = document.getElementById('chat-window');
+    const rid       = Number(container.dataset.recipientId);
+    const myId      = Number(container.dataset.myId);
+    const recipientName = container.dataset.recipientName;
+
+    container.scrollTop = container.scrollHeight;
+
+    socket.on('new_message', data => {
+      const isMine   = data.sender_id === myId   && data.recipient_id === rid;
+      const isTheirs = data.sender_id === rid    && data.recipient_id === myId;
+      if (!isMine && !isTheirs) return;
+
+      const d = document.createElement('div');
+      d.className = 'message-item ' + (data.sender_id===myId ? 'mine' : 'theirs');
+      const who = data.sender_id === myId ? 'Yo' : recipientName;
+      d.innerHTML = `<span class="message-sender">${who}:</span> <span class="message-content">${data.content}</span>`;
+      container.appendChild(d);
+      container.scrollTop = container.scrollHeight;
+    });
+
+    document.getElementById('chat-form').addEventListener('submit', e => {
+      e.preventDefault();
+      const input = document.getElementById('msg-input');
+      const txt = input.value.trim();
+      if (!txt) return;
+      socket.emit('private_message', { recipient_id: rid, content: txt });
+      input.value = '';
+    });
+  });
+</script>
+
+<style>
+:root {
+  --green-dark:   #2C5F2D;
+  --green-medium: #97BC62;
+  --green-light:  #D9E5D9;
+  --bg-light:     #F7F9F7;
+  --text-dark:    #333333;
+  --danger:       #D64545;
+  --radius:       12px;
+  --shadow-light: rgba(0,0,0,0.05);
+}
+
+.chat-page {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  font-family: 'Montserrat', sans-serif;
+  background: var(--bg-light);
+  color: var(--text-dark);
+}
+
+.chat-header {
+  background: var(--green-light);
+  padding: 1rem;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px var(--shadow-light);
+  margin-bottom: 1.5rem;
+}
+
+.chat-header h2 {
+  margin: 0;
+  color: var(--green-dark);
+  font-size: 1.6rem;
+}
+
+.chat-window {
+  background: #fff;
+  padding: 1rem;
+  height: 400px;
+  overflow-y: auto;
+  border-radius: var(--radius);
+  box-shadow: 0 2px 8px var(--shadow-light);
+  margin-bottom: 1rem;
+}
+
+.message-item {
+  margin-bottom: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.message-item.mine .message-sender {
+  color: var(--green-dark);
+  font-weight: 600;
+}
+
+.message-item.theirs .message-sender {
+  color: var(--green-medium);
+  font-weight: 600;
+}
+
+.message-content {
+  line-height: 1.4;
+}
+
+.chat-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.msg-input {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: var(--radius);
+  font-family: 'Montserrat', sans-serif;
+}
+
+.btn {
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  border-radius: var(--radius);
+}
+
+.btn-primary {
+  background: var(--green-medium);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  text-decoration: none;
+}
+</style>
+
+{% endblock %}

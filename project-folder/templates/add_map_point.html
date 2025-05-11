@@ -80,6 +80,22 @@
             color: white;
             border-color: #007bff;
         }
+        .btn-primary {
+            background: var(--green-dark);
+            color: #fff;
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+        }
+        .btn-secondary {
+            background: var(--green-medium);
+            color: #fff;
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+        }
     </style>
 {% endblock %}
 
@@ -152,9 +168,9 @@
                       placeholder="Describe this point - what can be found here? Why is it important?"></textarea>
         </div>
         
-        <div>
-            <button type="submit" id="submit-btn">Add Map Point</button>
-            <a href="{{ url_for('view_map') }}" class="btn-cancel">Cancel</a>
+        <div style="margin-top:1.5rem;">
+            <button type="submit" class="btn-primary">Add Map Point</button>
+            <a href="{{ url_for('view_map') }}" class="btn-secondary">Cancel</a>
         </div>
     </form>
 {% endblock %}
@@ -163,93 +179,60 @@
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Initialize map centered on Bogotá
             var map = L.map('map-picker').setView([4.6097, -74.0817], 13);
-            
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                attribution: '&copy; OpenStreetMap contributors'
             }).addTo(map);
             
-            var marker = null;
-            var coordsHelp = document.getElementById('coords-help');
-            var coordsSet = document.getElementById('coords-set');
-            var coordsDisplay = document.getElementById('coords-display');
-            var latInput = document.getElementById('latitude');
-            var lngInput = document.getElementById('longitude');
-            var hasSetCoords = false;
+            var marker = null,
+                coordsHelp = document.getElementById('coords-help'),
+                coordsSet  = document.getElementById('coords-set'),
+                latInput   = document.getElementById('latitude'),
+                lngInput   = document.getElementById('longitude'),
+                hasSet = false;
             
-            // Handle map clicks to set marker and update coordinates
             map.on('click', function(e) {
-                var lat = e.latlng.lat.toFixed(6);
-                var lng = e.latlng.lng.toFixed(6);
-                
-                // Update input fields
-                latInput.value = lat;
-                lngInput.value = lng;
-                
-                // Update or create marker
-                if (marker) {
-                    marker.setLatLng(e.latlng);
-                } else {
-                    marker = L.marker(e.latlng).addTo(map);
-                }
-                
-                // Show success message, hide help message
+                hasSet = true;
                 coordsHelp.classList.add('hidden');
                 coordsSet.classList.add('visible');
-                coordsDisplay.classList.add('has-values');
-                hasSetCoords = true;
+                latInput.value = e.latlng.lat.toFixed(6);
+                lngInput.value = e.latlng.lng.toFixed(6);
+                if (!marker) {
+                    marker = L.marker(e.latlng).addTo(map);
+                } else {
+                    marker.setLatLng(e.latlng);
+                }
             });
             
-            // Handle point type selection
-            var typeOptions = document.querySelectorAll('.point-type-option');
-            var typeInput = document.getElementById('point_type');
-            var typeError = document.getElementById('point-type-error');
-            var hasSelectedType = false;
+            var typeOptions = document.querySelectorAll('.point-type-option'),
+                typeInput   = document.getElementById('point_type'),
+                typeError   = document.getElementById('point-type-error'),
+                hasType = false;
             
-            typeOptions.forEach(function(option) {
-                option.addEventListener('click', function() {
-                    // Remove selected class from all options
-                    typeOptions.forEach(function(opt) {
-                        opt.classList.remove('selected');
-                    });
-                    
-                    // Add selected class to clicked option
+            typeOptions.forEach(function(opt) {
+                opt.addEventListener('click', function() {
+                    typeOptions.forEach(o => o.classList.remove('selected'));
                     this.classList.add('selected');
-                    
-                    // Update hidden input
-                    typeInput.value = this.getAttribute('data-value');
-                    hasSelectedType = true;
+                    typeInput.value = this.dataset.value;
+                    hasType = true;
                     typeError.style.display = 'none';
                 });
             });
             
-            // Form validation
             document.getElementById('map-form').addEventListener('submit', function(e) {
-                var isValid = true;
-                
-                // Check if coordinates are set
-                if (!hasSetCoords) {
-                    coordsHelp.classList.remove('hidden');
-                    coordsHelp.scrollIntoView({behavior: 'smooth'});
-                    isValid = false;
-                }
-                
-                // Check if point type is selected
-                if (!hasSelectedType) {
-                    typeError.style.display = 'block';
-                    isValid = false;
-                }
-                
-                if (!isValid) {
+                if (!hasSet || !hasType) {
+                    if (!hasSet) {
+                        coordsHelp.classList.remove('hidden');
+                        coordsHelp.scrollIntoView({behavior:'smooth'});
+                    }
+                    if (!hasType) {
+                        typeError.style.display = 'block';
+                    }
                     e.preventDefault();
                 }
             });
             
-            // Make map refresh when shown (fixes sizing issues)
-            setTimeout(function() {
-                map.invalidateSize();
-            }, 100);
+            setTimeout(() => map.invalidateSize(), 100);
         });
     </script>
-{% endblock %} 
+{% endblock %}
