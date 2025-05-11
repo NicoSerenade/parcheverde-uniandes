@@ -1502,7 +1502,8 @@ def private_chat(user_id):
 # --- initialize the app ---
 
 if __name__ == '__main__':
-    import db_conn 
+    import db_conn
+    import db_operator
     db_conn.setup_database()
     
     #To test the database connection and operations, uncomment the following lines:
