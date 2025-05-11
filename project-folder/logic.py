@@ -3,11 +3,16 @@ import db_conn # Used occasionally for direct DB access
 import sqlite3 # For error handling
 import bcrypt  # bcrypt is a hashing algorithm
 import datetime # For datetime operations
-from flask import Flask, render_template, session, request
+from flask import Flask, render_template, session, request, url_for
 from flask_socketio import SocketIO, emit, join_room, leave_room
-from datetime import datetime
+from datetime import datetime, timedelta
+from flask_mail import Mail, Message
+import secrets
+import uuid
+
 socketio = SocketIO()
 connected_users = {}
+mail = None  # This will be set by app.py
 
 """
 Main business logic module for the Comunidad Verde application.
@@ -45,6 +50,7 @@ The points system encourages participation and community engagement.
 def register_user(name, email, student_code, password, interests=None, career=None, photo=None):
     """
     Registers a new user whether Student, professor or admin in the system.
+    Now includes email verification.
     Args:
         name (str): User's name.
         email (str): User's email.
@@ -73,14 +79,158 @@ def register_user(name, email, student_code, password, interests=None, career=No
     if password:
         password_bytes = password.encode('utf-8') #encode the password so that bcrypt module can handle it.
         salt = bcrypt.gensalt()  # Generates random salt; value that get combined with the password before hashing
-        hashed_password = bcrypt.hashpw(password_bytes, 
-        salt) #hash the password
+        hashed_password = bcrypt.hashpw(password_bytes, salt) #hash the password
 
-    success = db_operator.register_user(user_type, student_code, hashed_password, name, email, career, interests, photo)
-    if success:
-        return {"status": "success", "message": f"User '{name}' registered successfully."}
+    # Generate a verification token and expiration date (24 hours from now)
+    verification_token = str(uuid.uuid4())
+    token_expiry = datetime.now() + timedelta(hours=24)
+    token_expiry_str = token_expiry.strftime('%Y-%m-%d %H:%M:%S')
+
+    # Register user with verification token
+    user_id = db_operator.register_user(
+        user_type, student_code, hashed_password, name, email, 
+        career, interests, photo, verification_token, token_expiry_str
+    )
+
+    if user_id:
+        # Send verification email
+        if user_type != "admin":  # Skip verification for admin users
+            send_verification_email(name, email, verification_token)
+            return {"status": "success", "message": f"User '{name}' registered successfully. Please check your email to verify your account."}
+        return {"status": "success", "message": f"Admin user '{name}' registered successfully."}
     else:
         return {"status": "error", "message": "Database error."}
+
+def send_verification_email(name, email, token):
+    """
+    Sends a verification email to the user.
+    """
+    if mail is None:
+        print("Error: Mail configuration is not available.")
+        return False
+
+    try:
+        # Build the verification URL manually instead of using url_for
+        # This avoids issues with SERVER_NAME configuration
+        verification_url = f"http://localhost:5000/verify/{token}"
+        
+        msg = Message(
+            subject="Verify your Comunidad Verde account",
+            recipients=[email]
+        )
+        
+        msg.html = f"""
+        <h1>Welcome to Comunidad Verde, {name}!</h1>
+        <p>Thank you for registering. Please click the link below to verify your email address:</p>
+        <p><a href="{verification_url}">Verify My Email</a></p>
+        <p>This link will expire in 24 hours.</p>
+        <p>If you did not register for Comunidad Verde, please ignore this email.</p>
+        """
+        
+        mail.send(msg)
+        return True
+    except Exception as e:
+        print(f"Error sending verification email: {e}")
+        return False
+
+def verify_email_token(token):
+    """
+    Verifies a user's email using the verification token.
+    """
+    user_data = db_operator.get_user_by_verification_token(token)
+    
+    if not user_data:
+        return {"status": "error", "message": "Invalid verification token."}
+    
+    # Check if token has expired
+    if user_data.get('verification_token_expires'):
+        expiry_date = datetime.strptime(user_data['verification_token_expires'], '%Y-%m-%d %H:%M:%S')
+        if datetime.now() > expiry_date:
+            return {"status": "error", "message": "Verification token has expired. Please request a new one."}
+    
+    # Mark user as verified
+    success = db_operator.mark_user_as_verified(user_data['user_id'])
+    
+    if success:
+        return {"status": "success", "message": "Email verified successfully!"}
+    else:
+        return {"status": "error", "message": "Failed to verify email."}
+
+def resend_verification_email(email):
+    """
+    Resends the verification email to the user.
+    """
+    user_data = db_operator.get_user_by_email(email)
+    
+    if not user_data:
+        return {"status": "error", "message": "No user found with this email address."}
+    
+    if user_data.get('is_verified'):
+        return {"status": "error", "message": "Your account is already verified."}
+    
+    # Generate new token and expiration
+    verification_token = str(uuid.uuid4())
+    token_expiry = datetime.now() + timedelta(hours=24)
+    token_expiry_str = token_expiry.strftime('%Y-%m-%d %H:%M:%S')
+    
+    # Update token in database
+    success = db_operator.update_verification_token(email, verification_token, token_expiry_str)
+    
+    if success:
+        # Send new verification email
+        send_result = send_verification_email(user_data['name'], email, verification_token)
+        if send_result:
+            return {"status": "success", "message": "Verification email resent successfully."}
+        else:
+            return {"status": "error", "message": "Failed to send verification email."}
+    else:
+        return {"status": "error", "message": "Failed to generate new verification token."}
+
+def login(code, password):
+    """
+    Authenticates normal users (students, professors or admins)
+    args:
+        code int: student, professor or admin code
+        password str: password of the user
+    Returns a dictionary containing status and entity data on success,
+    or status and error message on failure.
+    """
+    # First try to authenticate as a user
+    user = db_operator.get_user_by_student_code(code)
+    if user:
+        # Check if account is verified (skip check for admin users)
+        if not user.get('is_verified'):
+            print(user.get('is_verified'), type(user.get('is_verified')))
+            return {"status": "error", "message": "Please verify your email before logging in. Check your inbox or request a new verification email."}
+        password_bytes = password.encode('utf-8')
+        stored_password = user['password']
+        if bcrypt.checkpw(password_bytes, stored_password):
+            if user.get('user_type') == 'admin':
+                print(f"Logic: Admin user '{user.get('name')}' authenticated.")
+                return {
+                    "status": "success",
+                    "entity_type": "admin",
+                    "user_id": user.get('user_id'),
+                    "name": user.get('name'),
+                    "email": user.get('email')
+                }
+                
+            return {
+                "status": "success",
+                "entity_type": "user",
+                "entity_id": user.get('user_id'),
+                "student_code": user.get('student_code'),
+                "name": user.get('name'),
+                "email": user.get('email'),
+                "points": user.get('points'),
+                "interests": user.get('interests'),
+                "career": user.get('career'),
+                "photo": user.get('photo'),
+                "creation_date": user.get("creation_date")
+            }
+
+    print(f"Logic: Login failed for code '{code}'")
+    return {"status": "error", "message": "Invalid credentials or entity not found."}
 
 def register_organization(creator_email, creator_student_code, name, email, description, password, interests=None, photo="photo-org"):
     """
@@ -113,48 +263,6 @@ def register_organization(creator_email, creator_student_code, name, email, desc
         return {"status": "success", "message": f"Organization '{name}' registered successfully."}
     else:
         return {"status": "error", "message": "Organization registration failed. Email might already exist."}
-
-def login(code, password):
-    """
-    Authenticates normal users (students, professors or admins)
-    args:
-        code int: student, professor or admin code
-        password str: password of the user
-    Returns a dictionary containing status and entity data on success,
-    or status and error message on failure.
-    """
-    # First try to authenticate as a user
-    user = db_operator.get_user_by_student_code(code)
-    if user:
-        password_bytes = password.encode('utf-8')
-        stored_password = user['password']
-        if bcrypt.checkpw(password_bytes, stored_password):
-            if user.get('user_type') == 'admin':
-                print(f"Logic: Admin user '{user.get('name')}' authenticated.")
-                return {
-                    "status": "success",
-                    "entity_type": "admin",
-                    "user_id": user.get('user_id'),
-                    "name": user.get('name'),
-                    "email": user.get('email')
-                }
-                
-            return {
-                "status": "success",
-                "entity_type": "user",
-                "entity_id": user.get('user_id'),
-                "student_code": user.get('student_code'),
-                "name": user.get('name'),
-                "email": user.get('email'),
-                "points": user.get('points'),
-                "interests": user.get('interests'),
-                "career": user.get('career'),
-                "photo": user.get('photo'),
-                "creation_date": user.get("creation_date")
-            }
-
-    print(f"Logic: Login failed for code '{code}'")
-    return {"status": "error", "message": "Invalid credentials or entity not found."}
 
 def login_orgs(creator_code, password):
     """
@@ -459,7 +567,6 @@ def leave_org_logic(user_id, org_id):
         
         return {"status": "success", "message": "Successfully left the organization."}
     else:
-        # Possible reasons: not a member, org doesn't exist, DB error
         return {"status": "error", "message": "Failed to leave organization. You might not be a member or the organization may not exist."}
 
 

@@ -9,32 +9,35 @@ import db_conn
 #USER REGISTRATION
 def check_user_exists(email, student_code):
     conn = db_conn.create_connection()
-    if conn is None:
+    if conn is not None:
         try:
             cursor = conn.cursor()
             cursor.execute("SELECT user_id FROM users WHERE email = ? OR student_code = ?", (email, student_code))
             existing_user = cursor.fetchone()
+            conn.close()
             return existing_user is not None #not None is used for clarity
         except sqlite3.Error as e:
             print(f"Error checking user existence: {e}")
+            conn.close()
             return False
+    return False
 
-def register_user(user_type, student_code, password, name, email, career=None, interests=None, photo=None):
+def register_user(user_type, student_code, password, name, email, career=None, interests=None, photo=None, verification_token=None, verification_token_expires=None):
     user_id = None
     try:
         conn = db_conn.create_connection()
         cursor = conn.cursor()
         cursor.execute('''
-        INSERT INTO users (user_type, student_code, password, name, email, career, interests, photo)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (user_type, student_code, password, name, email, career, interests, photo)) 
+        INSERT INTO users (user_type, student_code, password, name, email, career, interests, photo, verification_token, verification_token_expires)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (user_type, student_code, password, name, email, career, interests, photo, verification_token, verification_token_expires)) 
         conn.commit()
         user_id = cursor.lastrowid #returns the id of the last manipulated row 
     except sqlite3.Error as e:
         print(f"Error registering user: {e}")
     finally:
         conn.close() 
-    return user_id is not None
+    return user_id
 
 def update_user_profile(user_id, student_code=None, password=None, name=None, email=None, career=None, interests=None):
     success = False
@@ -476,7 +479,7 @@ def get_user_by_student_code(student_code):
         try:
             cursor = conn.cursor()
             cursor.execute('''
-            SELECT user_id, user_type, student_code, name, email, password, career, interests, photo, points, creation_date
+            SELECT user_id, user_type, student_code, name, email, password, career, interests, photo, points, creation_date, is_verified, verification_token, verification_token_expires
             FROM users
             WHERE student_code = ?
             ''', (student_code,))
@@ -493,7 +496,10 @@ def get_user_by_student_code(student_code):
                     'interests': user[7],
                     'photo': user[8],
                     'points': user[9],
-                    'creation_date': user[10]
+                    'creation_date': user[10],
+                    'is_verified': user[11],
+                    'verification_token': user[11],
+                    'verification_token_expires': user[12]
                 }
         except sqlite3.Error as e:
             print(f"Error retrieving user by student code: {e}")
@@ -2654,3 +2660,116 @@ def get_group_conversation (org_id: int, limit: int = 50) -> dict:
         finally:
             conn.close()
     return response
+
+# New functions for email verification
+def get_user_by_verification_token(token):
+    """
+    Retrieves a user by their verification token.
+    Returns user data dictionary if found, None otherwise.
+    """
+    user_data = None
+    conn = db_conn.create_connection()
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+            SELECT user_id, user_type, student_code, name, email, verification_token_expires
+            FROM users
+            WHERE verification_token = ?
+            ''', (token,))
+            
+            user = cursor.fetchone()
+            if user:
+                user_data = {
+                    'user_id': user[0],
+                    'user_type': user[1],
+                    'student_code': user[2],
+                    'name': user[3],
+                    'email': user[4],
+                    'verification_token_expires': user[5]
+                }
+        except sqlite3.Error as e:
+            print(f"Error retrieving user by verification token: {e}")
+        finally:
+            conn.close()
+    return user_data
+
+def mark_user_as_verified(user_id):
+    """
+    Marks a user as verified and clears their verification token.
+    Returns bool indicating success.
+    """
+    success = False
+    conn = db_conn.create_connection()
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+            UPDATE users
+            SET is_verified = True, verification_token = NULL, verification_token_expires = NULL
+            WHERE user_id = ?
+            ''', (user_id,))
+            
+            conn.commit()
+            success = cursor.rowcount > 0
+        except sqlite3.Error as e:
+            print(f"Error marking user as verified: {e}")
+        finally:
+            conn.close()
+    return success
+
+def update_verification_token(email, token, token_expires):
+    """
+    Updates the verification token and expiry time for a user.
+    Returns bool indicating success.
+    """
+    success = False
+    conn = db_conn.create_connection()
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+            UPDATE users
+            SET verification_token = ?, verification_token_expires = ?
+            WHERE email = ?
+            ''', (token, token_expires, email))
+            
+            conn.commit()
+            success = cursor.rowcount > 0
+        except sqlite3.Error as e:
+            print(f"Error updating verification token: {e}")
+        finally:
+            conn.close()
+    return success
+
+def get_user_by_email(email):
+    """
+    Retrieves user information by email.
+    Returns dict with user data if found, None otherwise.
+    """
+    user_data = None
+    conn = db_conn.create_connection()
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+            SELECT user_id, user_type, student_code, name, email, is_verified
+            FROM users
+            WHERE email = ?
+            ''', (email,))
+            
+            user = cursor.fetchone()
+            if user:
+                user_data = {
+                    'user_id': user[0],
+                    'user_type': user[1],
+                    'student_code': user[2],
+                    'name': user[3],
+                    'email': user[4],
+                    'is_verified': user[5]
+                }
+        except sqlite3.Error as e:
+            print(f"Error retrieving user by email: {e}")
+        finally:
+            conn.close()
+    return user_data

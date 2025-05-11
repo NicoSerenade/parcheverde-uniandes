@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 import logic
 import os
 from logic import socketio
+from flask_mail import Mail, Message
 from functools import wraps # Import wraps for decorators
 
 # --- Flask App Setup ---
@@ -9,6 +10,21 @@ app = Flask(__name__)
 # SECRET_KEY is crucial for session security. Use a strong, random key.
 # Keep this key secret in production (e.g., use environment variables).
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24)) 
+
+# Mail configuration - Update with proper credentials
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USE_SSL'] = False
+app.config['MAIL_USERNAME'] = 'parcheconsciencia.contacto@gmail.com'
+app.config['MAIL_PASSWORD'] = 'uzqb ilsf dwrk gfdc'
+app.config['MAIL_DEFAULT_SENDER'] = ('Comunidad Verde Uniandes', 'parcheconsciencia.contacto@gmail.com')
+
+# Remove the SERVER_NAME configuration - it's causing issues with url_for
+# app.config['SERVER_NAME'] = 'localhost:5000'
+
+mail = Mail(app)
+logic.mail = mail  # Pass the mail object to the logic module
 
 socketio.init_app(app)
 
@@ -79,13 +95,14 @@ def register_user():
         career = request.form.get('career')
         photo = request.form.get('photo')
 
-        # Call logic function (unchanged)
+        # Call logic function with verification
         result = logic.register_user(name, email, student_code, password, interests, career, photo)
 
-        flash(result['message'], result['status'])
         if result['status'] == 'success':
+            flash("Registration successful! Please check your email to verify your account.", "success")
             return redirect(url_for('login'))
         else:
+            flash(result['message'], result['status'])
             return redirect(url_for('register_user'))
 
     # For GET request, just show the registration form
@@ -215,6 +232,41 @@ def logout():
     session.clear()
     flash("You have been successfully logged out.", 'success')
     return redirect(url_for('index'))
+
+
+# --- Email Verification Routes ---
+# IMPORTANT: These routes must be defined BEFORE the if __name__ == '__main__': block
+
+@app.route('/verify/<token>')
+def verify_email(token):
+    """
+    Route to verify a user's email address with the given token.
+    """
+    result = logic.verify_email_token(token)
+    
+    if result['status'] == 'success':
+        flash("Your email has been successfully verified! You can now log in.", "success")
+    else:
+        flash(result['message'], result['status'])
+    
+    return redirect(url_for('login'))
+
+@app.route('/resend-verification', methods=['GET', 'POST'])
+def resend_verification():
+    """
+    Route to resend a verification email to the user.
+    """
+    if request.method == 'POST':
+        email = request.form.get('email')
+        result = logic.resend_verification_email(email)
+        
+        if result['status'] == 'success':
+            flash("Verification email has been resent. Please check your inbox.", "success")
+            return redirect(url_for('login'))
+        else:
+            flash(result['message'], result['status'])
+    
+    return render_template('resend_verification.html')
 
 
 # --- Profile Routes ---
@@ -1389,7 +1441,6 @@ def chat_test():
 if __name__ == '__main__':
     import db_conn 
     db_conn.setup_database()
-    import db_operator
     
     #To test the database connection and operations, uncomment the following lines:
     #db_operator.register_user('user', '202510939', '12345678', 'Edy', 'es.martinez@uniandes.edu.co', 'ISIS', 'Study')

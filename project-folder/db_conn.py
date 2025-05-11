@@ -44,7 +44,10 @@ def setup_database():
                 interests TEXT, --siembra, reciclaje, caridad, enseñanza, software
                 points INTEGER DEFAULT 0,
                 photo TEXT, --photo-male, photo-female, photo-turtle
-                creation_date TEXT DEFAULT CURRENT_TIMESTAMP
+                creation_date TEXT DEFAULT CURRENT_TIMESTAMP,
+                is_verified BOOLEAN DEFAULT 0,
+                verification_token TEXT,
+                verification_token_expires TEXT
             )
             ''')
             
