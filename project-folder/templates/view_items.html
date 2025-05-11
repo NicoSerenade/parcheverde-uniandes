@@ -1,123 +1,117 @@
 {% extends "base.html" %}
-
 {% block content %}
-<div class="items-container">
-    <!-- Botón en la esquina superior derecha -->
-    <div class="add-item-button">
-        <a href="{{ url_for('add_item') }}" class="btn btn-primary">Añadir Item</a>
-    </div>
+<div class="container items-page">
+  <div class="top-strip card">
+    <h1>Ítems disponibles</h1>
+    <p class="motivational-phrase">💡 Comparte lo que no usas y encuentra lo que necesitas.</p>
+  </div>
 
-    <h2>Items disponibles</h2>
-    
-    <!-- Frase motivadora -->
-    <p class="motivational-phrase">💡Comparte lo que no usas, y encuentra lo que necesitas. ¡Todo sin gastar!</p>
-    
-    <div class="filter-section">
-        <p>Filtros:</p>
-        <div class="filter-buttons">
-            <a href="{{ url_for('view_items') }}" class="btn">Todos los Items</a>
-            <a href="{{ url_for('view_items', terms='gift') }}" class="btn">Regalos</a>
-            <a href="{{ url_for('view_items', terms='loan') }}" class="btn">Préstamos</a>
-            <a href="{{ url_for('view_items', terms='exchange') }}" class="btn">Intercambios</a>
-        </div>
+  {% if items %}
+  <div class="items-grid">
+    {% for item in items %}
+    <div class="card item-card">
+      <h3 class="item-title">{{ item.name }}</h3>
+      <p class="item-desc"><strong>Descripción:</strong> {{ item.description }}</p>
+      <p class="item-type"><strong>Tipo:</strong> {{ item.item_type }}</p>
+      <p class="item-terms"><strong>Términos:</strong> {{ item.item_terms }}</p>
+      <form method="POST" action="{{ url_for('request_item', item_id=item.item_id) }}" class="request-form">
+        <button type="submit" class="btn btn-primary">Solicitar Ítem</button>
+      </form>
     </div>
-
-    {% if items %}
-    <div class="items-grid">
-        {% for item in items %}
-        <div class="item-card">
-            <h3 class="item-title">{{ item.name }}</h3>
-            <p><strong>Tipo:</strong> {{ item.type }}</p>
-            <p><strong>Dueño:</strong> {{ item.owner }}</p>
-            <p><strong>Descripción:</strong> {{ item.description }}</p>
-            <p><strong>Terms:</strong> {{ item.terms }}</p>
-            <p><strong>Listado en:</strong> {{ item.listed_on }}</p>
-        </div>
-        {% endfor %}
-    </div>
-    {% else %}
-    <p>No items found.</p>
-    {% endif %}
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card no-items-message">
+    <p>No hay ítems disponibles.</p>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}
 
 {% block styles %}
 <style>
-    .items-container {
-        position: relative;
-        padding: 20px;
-    }
+:root {
+  --green-dark:   #2C5F2D;
+  --green-medium: #97BC62;
+  --green-light:  #D9E5D9;
+  --bg-light:     #F7F9F7;
+  --text-dark:    #333333;
+  --radius:       12px;
+  --shadow-light: rgba(0,0,0,0.05);
+}
 
-    .add-item-button {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-    }
+.container.items-page {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  font-family: 'Montserrat', sans-serif;
+  background: var(--bg-light);
+  color: var(--text-dark);
+}
 
-    .btn {
-        background-color: #4CAF50;
-        color: white;
-        padding: 10px 20px;
-        text-decoration: none;
-        border-radius: 5px;
-        font-size: 1em;
-    }
+.top-strip {
+  background: var(--green-light);
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px var(--shadow-light);
+  margin-bottom: 2rem;
+  text-align: center;
+}
+.top-strip h1 {
+  margin: 0 0 0.5rem;
+  color: var(--green-dark);
+  font-size: 2rem;
+}
+.top-strip .motivational-phrase {
+  margin: 0;
+  font-style: italic;
+}
 
-    .btn:hover {
-        background-color: #45a049;
-    }
+.items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
 
-    .filter-section {
-        margin-bottom: 20px;
-    }
+.item-card {
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: 0 2px 8px var(--shadow-light);
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
 
-    .filter-buttons .btn {
-        margin-right: 10px;
-    }
+.item-title {
+  margin: 0 0 0.75rem;
+  color: var(--green-dark);
+  font-size: 1.4rem;
+}
 
-    .motivational-phrase {
-        font-size: 1.1em;
-        font-style: italic;
-        color: #555;
-        margin: 10px 0 20px;
-        text-align: center;
-    }
+.item-type,
+.item-terms,
+.item-desc {
+  margin: 0.5rem 0;
+}
 
-    .items-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 20px;
-        margin-top: 20px;
-    }
+.request-form {
+  margin-top: auto;
+  text-align: center;
+}
+.request-form .btn-primary {
+  background: var(--green-medium);
+  padding: 0.6rem 1.2rem;
+}
+.request-form .btn-primary:hover {
+  background: var(--green-dark);
+}
 
-    .item-card {
-        background: #f9f9f9;
-        border: 1px solid #ddd;
-        border-radius: 10px;
-        padding: 15px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        text-align: left;
-    }
-
-    .item-title {
-        font-size: 1.5em;
-        color: #333;
-        margin-bottom: 10px;
-    }
-
-    .item-card p {
-        font-size: 0.9em;
-        color: #555;
-        margin: 5px 0;
-    }
-
-    /* Estilo para el título principal */
-    h2 {
-        font-size: 2.5em; /* Aumentar tamaño */
-        color: #4CAF50; /* Verde */
-        text-align: center; /* Centrado */
-        margin-bottom: 30px; /* Más espacio debajo */
-        font-weight: bold; /* Hacerlo más amigable */
-    }
+.no-items-message {
+  background: #fff;
+  padding: 2rem;
+  border-radius: var(--radius);
+  box-shadow: 0 2px 8px var(--shadow-light);
+  text-align: center;
+}
 </style>
 {% endblock %}

@@ -1,146 +1,105 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="organizations-container">
-    <h2 class="form-title">Buscar Organizaciones</h2>
-    <p class="form-description">Encuentra organizaciones por nombre, intereses o puntos destacados.</p>
-    
-    <div class="search-section">
-        <form action="{{ url_for('view_organizations') }}" method="get" class="search-form">
-            <div class="form-row">
-                <label for="q">🔍 Nombre/Descripción:</label>
-                <input type="text" id="q" name="q" value="{{ query }}" placeholder="Ejemplo: Reciclaje">
-            </div>
-            
-            <div class="form-row">
-                <label for="interests">🏷️ Intereses:</label>
-                <input type="text" id="interests" name="interests" value="{{ interests }}" placeholder="Ejemplo: Medio Ambiente">
-            </div>
-            
-            <div class="form-row">
-                <label for="sort_by">Ordenar por:</label>
-                <select id="sort_by" name="sort_by">
-                    <option value="name" {% if sort_by == 'name' %}selected{% endif %}>Nombre</option>
-                    <option value="points" {% if sort_by == 'points' %}selected{% endif %}>Puntos</option>
-                    <option value="creation_date" {% if sort_by == 'creation_date' %}selected{% endif %}>Fecha de creación</option>
-                </select>
-            </div>
-            
-            <button type="submit" class="btn-submit">Buscar</button>
-        </form>
-    </div>
-</div>
+<div class="container orgs-list-page">
+  <div class="top-strip card">
+    <h1>Organizaciones</h1>
+    <form action="{{ url_for('view_organizations') }}" method="get" class="search-form">
+      <input type="text" name="q" class="search-input" placeholder="Nombre o descripción" value="{{ query }}">
+      <input type="text" name="interests" class="search-input" placeholder="Intereses" value="{{ interests }}">
+      <select name="sort_by" class="sort-select">
+        <option value="name"{% if sort_by=='name' %} selected{% endif %}>Nombre</option>
+        <option value="points"{% if sort_by=='points' %} selected{% endif %}>Puntos</option>
+        <option value="creation_date"{% if sort_by=='creation_date' %} selected{% endif %}>Fecha</option>
+      </select>
+      <button type="submit" class="btn btn-primary">Buscar</button>
+    </form>
+  </div>
 
-{% if orgs %}
-<div class="results-section">
-    <h3>Resultados ({{ orgs|length }} encontrados)</h3>
-    <ul class="orgs-list">
-        {% for org in orgs %}
-        <li class="org-item">
-            <div class="org-header">
-                <h4>{{ org.name }}</h4>
-                <span class="points-badge">{{ org.points }} puntos</span>
-            </div>
-            <div class="org-details">
-                <p><strong>Email:</strong> {{ org.email }}</p>
-                <p><strong>Descripción:</strong> {{ org.description }}</p>
-                {% if org.interests %}
-                <p><strong>Intereses:</strong> {{ org.interests }}</p>
-                {% endif %}
-                <p><strong>Creado:</strong> {{ org.creation_date }}</p>
-            </div>
-        </li>
-        {% endfor %}
-    </ul>
+  {% if orgs %}
+  <div class="results-grid grid-cards">
+    {% for org in orgs %}
+    <div class="card org-item">
+      <h2>{{ org.name }}</h2>
+      <p>{{ org.description }}</p>
+      <p><strong>Email:</strong> {{ org.email }}</p>
+      {% if org.interests %}<p><strong>Intereses:</strong> {{ org.interests }}</p>{% endif %}
+      <p><small>Creado: {{ org.creation_date }}</small></p>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card no-results">
+    <p>😕 No encontramos organizaciones. ¡Intenta otros criterios!</p>
+  </div>
+  {% endif %}
 </div>
-{% else %}
-<div class="no-results">
-    <p class="no-results-message">😕 No encontramos organizaciones con esos criterios.</p>
-    <p class="suggestion-message">🌿 ¡Intenta buscar por otros intereses como "reciclaje" o "educación ambiental"!</p>
-</div>
-{% endif %}
 {% endblock %}
 
 {% block styles %}
 <style>
-    .organizations-container {
-        max-width: 600px;
-        margin: 50px auto;
-        padding: 20px;
-        background: #f9f9f9;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        text-align: center;
-    }
+container.orgs-list-page {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  font-family: 'Montserrat', sans-serif;
+}
 
-    .form-title {
-        font-size: 2.5em;
-        color: #4CAF50;
-        margin-bottom: 10px;
-    }
+.top-strip {
+  background: var(--green-light);
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px var(--shadow-light);
+  margin-bottom: 2rem;
+  text-align: center;
+}
+.top-strip h1 {
+  margin: 0;
+  color: var(--green-dark);
+  font-size: 2rem;
+}
 
-    .form-description {
-        font-size: 1.1em;
-        color: #555;
-        margin-bottom: 20px;
-    }
+.search-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
 
-    .search-section {
-        background-color: #f8f9fa;
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        margin-bottom: 20px;
-    }
+.search-input, .sort-select {
+  padding: 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: var(--radius);
+}
 
-    .search-form {
-        display: flex;
-        flex-direction: column;
-        gap: 15px;
-    }
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
 
-    .form-row {
-        text-align: left;
-    }
+.org-item {
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: 0 2px 8px var(--shadow-light);
+  padding: 1.5rem;
+}
 
-    .form-row label {
-        display: block;
-        font-size: 1em;
-        color: #333;
-        margin-bottom: 5px;
-    }
+.org-item h2 {
+  margin: 0 0 0.5rem;
+  color: var(--green-dark);
+}
 
-    .form-row input,
-    .form-row select {
-        width: 100%;
-        padding: 10px;
-        border: 1px solid #ddd;
-        border-radius: 5px;
-        font-size: 1em;
-        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
-        transition: border-color 0.3s ease, box-shadow 0.3s ease;
-    }
+.org-item p {
+  margin: 0.3rem 0;
+}
 
-    .form-row input:focus,
-    .form-row select:focus {
-        border-color: #4CAF50;
-        box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
-        outline: none;
-    }
-
-    .btn-submit {
-        background-color: #4CAF50;
-        color: white;
-        padding: 15px 25px;
-        border: none;
-        border-radius: 5px;
-        font-size: 1.2em;
-        cursor: pointer;
-        transition: background-color 0.3s ease;
-    }
-
-    .btn-submit:hover {
-        background-color: #45a049;
-    }
+.no-results {
+  background: #fff;
+  padding: 2rem;
+  border-radius: var(--radius);
+  box-shadow: 0 2px 8px var(--shadow-light);
+  text-align: center;
+}
 </style>
 {% endblock %}

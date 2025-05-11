@@ -29,15 +29,13 @@
             <a href="{{ url_for('about') }}">Acerca de nosotros</a>
             
             {% if 'entity_type' in session %}
-                <span class="user-info">
-                    Usuario: <strong>{{ session.name }}</strong> ({{ session.entity_type }}) |
-                    Puntos: {{ session.points | default('N/A') }} |
-                    <a href="{{ url_for('logout') }}">Cerrar sesión</a>
                 </span>
+                <a href="{{ url_for('logout') }}">Cerrar sesión</a>
                 <a href="{{ url_for('profile') }}">Mi perfil</a>
+                <a href="{{ url_for('search_users') }}">Buscar usuarios</a>
                 <a href="{{ url_for('view_events') }}">Eventos</a>
                 <a href="{{ url_for('view_items') }}">Items</a>
-                <a href="{{ url_for('view_organizations') }}">Organizaciones</a>
+                <a href="{{ url_for('search_orgs') }}">Buscar organizaciones</a>
                 <a href="{{ url_for('view_map') }}">Mapa</a>
                 {% if session.entity_type == 'user' %}
                     <!-- <a href="{{ url_for('add_item') }}" class="nav-button">Añadir Item</a> -->

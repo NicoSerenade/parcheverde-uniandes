@@ -140,3 +140,5 @@ document.addEventListener('DOMContentLoaded', function() {
         changeBackground('../static/fondo_acerca_de.png');
     }
 });
+
+

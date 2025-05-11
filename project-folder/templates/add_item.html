@@ -1,43 +1,41 @@
 {% extends "base.html" %}
-
 {% block content %}
-<div class="page">
-  <div class="card add-item-card">
-    <h2 class="card-title">Añadir Nuevo Ítem</h2>
-    <p class="card-description">Completa los campos para compartir un nuevo ítem con la comunidad.</p>
-    
+<div class="container add-page">
+  <div class="top-strip card">
+    <h1>Compartir nuevo ítem</h1>
+    <p class="subtitle">Ingresa los detalles del ítem para publicarlo en la comunidad.</p>
+  </div>
+  <div class="card form-card">
     <form method="POST" action="{{ url_for('add_item') }}" class="add-item-form">
       <div class="form-group">
-        <label for="name">Nombre del Ítem:</label>
-        <input type="text" id="name" name="name" placeholder="Ejemplo: Bicicleta" required>
+        <label for="name">Nombre:</label>
+        <input type="text" id="name" name="name" placeholder="Ej. Bicicleta" required>
       </div>
-
       <div class="form-group">
         <label for="description">Descripción:</label>
-        <textarea id="description" name="description" placeholder="Describe el ítem..." rows="4" required></textarea>
+        <textarea id="description" name="description" rows="4" placeholder="Describe tu ítem" required></textarea>
       </div>
-
-      <div class="form-group">
-        <label for="item_type">Tipo de Ítem:</label>
-        <select id="item_type" name="item_type" required>
-          <option value="" disabled selected>Selecciona un tipo</option>
-          <option value="ropa">ropa</option>
-          <option value="libros">libros</option>
-          <option value="hogar">hogar</option>
-          <option value="otros">otros</option>
-        </select>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="item_type">Tipo:</label>
+          <select id="item_type" name="item_type" required>
+            <option value="" disabled selected>Selecciona</option>
+            <option value="ropa">Ropa</option>
+            <option value="libros">Libros</option>
+            <option value="hogar">Hogar</option>
+            <option value="otros">Otros</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="item_terms">Términos:</label>
+          <select id="item_terms" name="item_terms" required>
+            <option value="" disabled selected>Selecciona</option>
+            <option value="regalo">Regalo</option>
+            <option value="intercambio">Intercambio</option>
+          </select>
+        </div>
       </div>
-
-      <div class="form-group">
-        <label for="item_terms">Términos:</label>
-        <select id="item_terms" name="item_terms" required>
-          <option value="" disabled selected>Selecciona los términos</option>
-          <option value="regalo">regalo</option>
-          <option value="intercambio">intercambio</option>
-        </select>
-      </div>
-
-      <button type="submit" class="btn btn-primary">Añadir Ítem</button>
+      <button type="submit" class="btn btn-primary">Publicar ítem</button>
     </form>
   </div>
 </div>
@@ -46,54 +44,59 @@
 {% block styles %}
 <style>
 :root {
-  --green-dark: #2C5F2D;
+  --green-dark:   #2C5F2D;
   --green-medium: #97BC62;
-  --green-light: #D9E5D9;
-  --text-dark: #333333;
-  --bg-light: #F7F9F7;
-  --radius: 12px;
+  --green-light:  #D9E5D9;
+  --bg-light:     #F7F9F7;
+  --text-dark:    #333333;
+  --radius:       12px;
+  --shadow-light: rgba(0,0,0,0.05);
 }
 
-.page {
+.container.add-page {
   max-width: 700px;
   margin: 2rem auto;
   padding: 0 1rem;
   font-family: 'Montserrat', sans-serif;
+  background: var(--bg-light);
   color: var(--text-dark);
 }
 
-.add-item-card {
-  background: var(--bg-light);
+.top-strip {
+  background: var(--green-light);
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px var(--shadow-light);
+  margin-bottom: 2rem;
+  text-align: center;
+}
+.top-strip h1 {
+  margin: 0;
+  color: var(--green-dark);
+  font-size: 2rem;
+}
+.top-strip .subtitle {
+  margin: 0.5rem 0 0;
+  font-style: italic;
+}
+
+.form-card {
+  background: #fff;
   padding: 2rem;
   border-radius: var(--radius);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-.card-title {
-  margin: 0;
-  font-size: 1.8rem;
-  color: var(--green-dark);
-  border-bottom: 2px solid var(--green-medium);
-  padding-bottom: 0.5rem;
-}
-
-.card-description {
-  margin-top: 0.5rem;
-  font-size: 1rem;
-  color: var(--text-dark);
+  box-shadow: 0 2px 8px var(--shadow-light);
 }
 
 .add-item-form {
-  margin-top: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
+  gap: 1.5rem;
 }
 
 .form-group label {
-  display: block;
   font-weight: 500;
   margin-bottom: 0.3rem;
+  display: block;
 }
 
 .form-group input,
@@ -101,28 +104,28 @@
 .form-group select {
   width: 100%;
   padding: 0.8rem;
-  border: 1px solid #ddd;
+  border: 1px solid #ccc;
   border-radius: var(--radius);
   font-size: 1rem;
   box-sizing: border-box;
 }
 
-.form-group textarea {
-  resize: vertical;
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
 }
 
 .btn-primary {
+  align-self: flex-end;
+  padding: 0.8rem 1.2rem;
   background: var(--green-medium);
   color: #fff;
-  padding: 0.8rem 1.2rem;
   border: none;
   border-radius: var(--radius);
-  font-size: 1rem;
   cursor: pointer;
-  align-self: flex-start;
-  transition: background-color 0.3s ease;
+  transition: background 0.3s ease;
 }
-
 .btn-primary:hover {
   background: var(--green-dark);
 }

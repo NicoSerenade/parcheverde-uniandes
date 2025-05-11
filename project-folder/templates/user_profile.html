@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="profile-page">
+  <div class="profile-hero">
+    <div class="profile-photo">
+      {% set photo = user_data.photo or 'default-photo.svg' %}
+      <img src="{{ url_for('static', filename='profile-photos-mvp/' ~ photo) }}" alt="Foto">
+    </div>
+    <div class="profile-intro">
+      <h1 class="profile-name">{{ user_data.name }}</h1>
+      <a href="{{ url_for('private_chat', user_id=user_data.user_id) }}" class="btn btn-edit">
+        Mensajes
+      </a>
+    </div>
+  </div>
+
+  <div class="profile-sections">
+    <section class="card">
+      <h2>Información de Usuario</h2>
+      <ul class="info-list">
+        <li><strong>Correo:</strong> {{ user_data.email }}</li>
+        <li><strong>Código:</strong> {{ user_data.student_code }}</li>
+        <li><strong>Carrera:</strong> {{ user_data.career or '—' }}</li>
+        <li><strong>Intereses:</strong> {{ user_data.interests or '—' }}</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Puntos y Logros</h2>
+      <p class="points"><span>{{ points }}</span> Puntos</p>
+      {% if badges %}
+        <div class="badges">
+          {% for b in badges %}
+            <div class="badge-item">
+              <img src="{{ url_for('static', filename='badges/' ~ b.badge_icon) }}" alt="{{ b.name }}">
+              <span>{{ b.name }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p>Sin logros.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Organizaciones</h2>
+      {% if user_orgs %}
+        <ul class="org-list">
+          {% for o in user_orgs %}
+            <li>{{ o.name }}</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>Sin organizaciones.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="profile-footer">
+    <div class="card contact-card">
+      <h2>Contacto</h2>
+      <p>¿Quieres contactar con {{ user_data.name }}?</p>
+      <a href="{{ url_for('private_chat', user_id=user_data.user_id) }}" class="btn btn-primary">Enviar Mensaje</a>
+    </div>
+  </div>
+</div>
+
+<style>
+:root {
+  --green-dark:   #2C5F2D;
+  --green-medium: #97BC62;
+  --green-light:  #D9E5D9;
+  --bg-light:     #F7F9F7;
+  --text-dark:    #333333;
+  --danger:       #D64545;
+  --radius:       12px;
+  --shadow-light: rgba(0,0,0,0.05);
+}
+
+.profile-page {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  font-family: 'Montserrat', sans-serif;
+  color: var(--text-dark);
+  background: var(--bg-light);
+}
+
+.profile-hero {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  background: var(--green-light);
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px var(--shadow-light);
+}
+
+.profile-photo img {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 4px solid var(--green-medium);
+  object-fit: cover;
+}
+
+.profile-intro { flex: 1; }
+
+.profile-name {
+  margin: 0;
+  font-size: 2rem;
+  line-height: 1.2;
+  color: var(--green-dark);
+}
+
+.btn-edit {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  background: var(--green-dark);
+  color: #fff;
+  border-radius: var(--radius);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.profile-sections {
+  margin-top: 2rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.card {
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  box-shadow: 0 2px 8px var(--shadow-light);
+}
+
+.card h2 {
+  margin-top: 0;
+  color: var(--green-dark);
+  font-size: 1.4rem;
+  border-bottom: 2px solid var(--green-medium);
+  padding-bottom: 0.3rem;
+}
+
+.info-list,
+.org-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0 0;
+}
+
+.info-list li,
+.org-list li {
+  margin-bottom: 0.8rem;
+}
+
+.points {
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--green-medium);
+  margin-bottom: 1rem;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.badge-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 80px;
+}
+
+.badge-item img {
+  width: 48px;
+  height: 48px;
+}
+
+.badge-item span {
+  margin-top: 0.4rem;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.btn {
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: var(--green-medium);
+  color: #fff;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  text-decoration: none;
+  display: inline-block;
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.profile-footer {
+  margin-top: 2rem;
+}
+
+.contact-card {
+  text-align: center;
+}
+
+.contact-card p {
+  margin: 1rem 0;
+}
+</style>
+{% endblock %}

@@ -371,7 +371,7 @@ def get_user_by_id(user_id):
         try:
             cursor = conn.cursor()
             cursor.execute('''
-            SELECT user_id, user_type, student_code, name, email, password, career, interests, points
+            SELECT user_id, user_type, student_code, name, email, password, career, photo, interests, points, creation_date
             FROM users
             WHERE user_id = ?
             ''', (user_id,))
@@ -383,10 +383,12 @@ def get_user_by_id(user_id):
                     'student_code': user[2],
                     'name': user[3],
                     'email': user[4],
-                    "password": user[5], #TRY, QUIT
+                    "password": user[5],
                     'career': user[6],
-                    'interests': user[7],
-                    'points': user[8]
+                    'photo': user[7],
+                    'interests': user[8],
+                    'points': user[9],
+                    'creation_date': user[10]
                 }
         except sqlite3.Error as e:
             print(f"Error retrieving user: {e}")
@@ -2042,7 +2044,7 @@ def search_users(query=None, career=None, interests=None):
             cursor = conn.cursor()
             
             sql_query = '''
-            SELECT user_id, student_code, name, email, career, interests, points, creation_date
+            SELECT user_id, student_code, name, email, career, photo, interests, points, creation_date
             FROM users
             WHERE user_type != 'admin'
             '''
@@ -2073,9 +2075,10 @@ def search_users(query=None, career=None, interests=None):
                     'name': row[2],
                     'email': row[3],
                     'career': row[4],
-                    'interests': row[5],
-                    'points': row[6],
-                    'creation_date': row[7]
+                    'photo': row[5],
+                    'interests': row[6],
+                    'points': row[7],
+                    'creation_date': row[8]
                 }
                 users.append(user)
                 
