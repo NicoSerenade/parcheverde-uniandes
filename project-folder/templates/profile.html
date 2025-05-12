@@ -12,6 +12,7 @@
         {% if entity_type == 'user' %}{{ user_data.name }}{% else %}{{ org_data.name }}{% endif %}
       </h1>
       <a href="{{ url_for('update_profile') }}" class="btn btn-edit">Editar Perfil</a>
+      <a href="{{ url_for('logout') }}" class="btn btn-primary">Cerrar sesión</a>
     </div>
   </div>
 
@@ -97,6 +98,7 @@
   --green-light: #D9E5D9;
   --text-dark: #333333;
   --bg-light: #F7F9F7;
+  --danger: #f38f8f;
   --radius: 12px;
 }
 
@@ -142,6 +144,22 @@
   margin-top: 0.5rem;
   padding: 0.6rem 1.2rem;
   background: var(--green-dark);
+  color: #fff;
+  border-radius: var(--radius);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+/* Style for the logout button when it's next to the edit button */
+.profile-intro .btn-edit + .btn-primary {
+  margin-left: 0.75rem; /* Adjust this value for desired spacing */
+}
+
+.btn-primary {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  background: var(--danger);
   color: #fff;
   border-radius: var(--radius);
   text-decoration: none;

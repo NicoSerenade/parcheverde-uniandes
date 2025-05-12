@@ -44,14 +44,13 @@
 
 .map-controls {
   display: flex;
-  justify-content: flex-start;
+  justify-content: flex-start;  /* align children at start */
   align-items: center;
+  width: 100%;
   margin-bottom: 1rem;
 }
-
-/* Push the add-point button to the far right */
-#addPointBtn {
-  margin-left: auto;
+.map-controls #addPointBtn {
+  margin-left: auto;           /* push this button to the right edge */
 }
 
 .map-statistic {

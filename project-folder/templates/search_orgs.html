@@ -1,38 +1,38 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container orgs-page">
+<div class="container search-page">
   <div class="top-strip card">
     <h1>Buscar Organizaciones</h1>
     <form method="get" action="{{ url_for('search_orgs') }}" class="search-form">
-      <input type="text" name="q" class="search-input" placeholder="Nombre o interés..." value="{{ request.args.get('q','') }}">
+      <input type="text" name="q" value="{{ query }}" placeholder="Nombre de organización..." class="search-input" />
+      <input type="text" name="interests" value="{{ interests }}" placeholder="Intereses (separados por comas)" class="search-input" />
       <button type="submit" class="btn btn-primary">Buscar</button>
     </form>
   </div>
 
-  {% if organizations is defined %}
-    {% if organizations %}
-      <div class="results-grid grid-cards">
-        {% for org in organizations %}
-        <div class="card org-card">
-          <h2>{{ org.name }}</h2>
-          <p class="org-desc">{{ org.description }}</p>
-          {% if org.is_member %}
-            <form method="post" action="{{ url_for('leave_org', org_id=org.id) }}">
-              <button class="btn btn-danger">Salir</button>
-            </form>
-          {% else %}
-            <form method="post" action="{{ url_for('join_org', org_id=org.id) }}">
-              <button class="btn btn-primary">Unirse</button>
-            </form>
-          {% endif %}
+  {% if orgs %}
+    <div class="results-grid">
+      {% for org in orgs %}
+      <div class="card org-card">
+        <div class="org-photo">
+          {% set photo = org.photo or 'default-photo.svg' %}
+          <img src="{{ url_for('static', filename='profile-photos-mvp/' ~ photo) }}" alt="{{ org.name }}" />
         </div>
-        {% endfor %}
+        <div class="org-name">
+          {{ org.name }}
+        </div>
+        <div class="card-body">
+          <p><strong>Email:</strong> {{ org.email }}</p>
+          <p><strong>Intereses:</strong> {{ org.interests or '—' }}</p>
+          <a href="{{ url_for('view_org_profile', org_id=org.org_id) }}" class="btn btn-secondary">Ver Perfil</a>
+        </div>
       </div>
-    {% else %}
-      <div class="card no-results">
-        <p>No se encontraron organizaciones.</p>
-      </div>
-    {% endif %}
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="card no-results">
+      <p>No se encontraron organizaciones.</p>
+    </div>
   {% endif %}
 </div>
 {% endblock %}
@@ -50,97 +50,19 @@
   --shadow-light: rgba(0,0,0,0.05);
 }
 
-.container.orgs-page {
-  max-width: 900px;
-  margin: 2rem auto;
-  padding: 0 1rem;
-  font-family: 'Montserrat', sans-serif;
-  background: var(--bg-light);
-  color: var(--text-dark);
-}
-
-.top-strip {
-  background: var(--green-light);
-  padding: 1.5rem;
-  border-radius: var(--radius);
-  box-shadow: 0 4px 12px var(--shadow-light);
-  margin-bottom: 2rem;
-  text-align: center;
-}
-.top-strip h1 {
-  margin: 0;
-  color: var(--green-dark);
-  font-size: 2rem;
-}
-
-.search-form {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-  margin-top: 1rem;
-}
-
-.search-input {
-  flex: 1;
-  max-width: 300px;
-  padding: 0.6rem;
-  border: 1px solid #ccc;
-  border-radius: var(--radius);
-}
-
-.results-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
-}
-
-.org-card {
-  background: #fff;
-  padding: 1.5rem;
-  border-radius: var(--radius);
-  box-shadow: 0 2px 8px var(--shadow-light);
-  display: flex;
-  flex-direction: column;
-  text-align: center;
-}
-
-.org-card h2 {
-  margin: 0 0 0.5rem;
-  color: var(--green-dark);
-}
-
-.org-desc {
-  flex: 1;
-  margin: 0 0 1rem;
-}
-
-.btn-danger {
-  background: var(--danger);
-  color: #fff;
-  padding: 0.6rem 1.2rem;
-  border: none;
-  border-radius: var(--radius);
-  cursor: pointer;
-}
-
-.btn-primary {
-  background: var(--green-medium);
-  color: #fff;
-  padding: 0.6rem 1.2rem;
-  border: none;
-  border-radius: var(--radius);
-  cursor: pointer;
-}
-.btn-primary:hover, .btn-danger:hover {
-  filter: brightness(0.9);
-}
-
-.no-results {
-  background: #fff;
-  padding: 2rem;
-  border-radius: var(--radius);
-  box-shadow: 0 2px 8px var(--shadow-light);
-  text-align: center;
-}
+.container.search-page { max-width: 900px; margin: 2rem auto; padding: 0 1rem; font-family: 'Montserrat', sans-serif; color: var(--text-dark); background: var(--bg-light);}
+.top-strip { background: var(--green-light); padding: 1.5rem; border-radius: var(--radius); box-shadow: 0 4px 12px var(--shadow-light); margin-bottom: 2rem;}
+.top-strip h1 { margin: 0 0 1rem; color: var(--green-dark); font-size: 2rem;}
+.search-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; align-items: center;}
+.search-input { padding: 0.6rem; border: 1px solid #ccc; border-radius: var(--radius); font-family: 'Montserrat', sans-serif;}
+.results-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; justify-items: center;}
+.org-card { width: 100%; max-width: 280px; display: flex; flex-direction: column; background: #fff; border-radius: var(--radius); box-shadow: 0 2px 8px var(--shadow-light); overflow: hidden;}
+.org-photo { width: 100%; margin: 0; height: 180px; background: var(--green-light); display: flex; align-items: center; justify-content: center; overflow: hidden; border-top-left-radius: var(--radius); border-top-right-radius: var(--radius);}
+.org-photo img { width: 100%; height: 100%; object-fit: cover;}
+.org-name { background: var(--green-light); width: 100%; padding: 0.5rem 0; text-align: center; font-weight: 600; color: var(--green-dark); border-bottom: 1px solid var(--green-medium);}
+.card-body { padding: 1rem; text-align: center;}
+.card-body p { margin: 0.5rem 0; color: var(--text-dark);}
+.btn-secondary { background: var(--green-dark); color: #fff; padding: 0.5rem 1rem; border-radius: var(--radius); text-decoration: none; margin-top: 0.75rem; display: inline-block;}
+.no-results { background: #fff; padding: 1.5rem; border-radius: var(--radius); text-align: center; box-shadow: 0 2px 8px var(--shadow-light);}
 </style>
 {% endblock %}

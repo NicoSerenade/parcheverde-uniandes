@@ -11,39 +11,31 @@
     {% block styles %}{% endblock %}
 </head>
 <body data-logged-in="{% if 'entity_type' in session %}true{% else %}false{% endif %}">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="flash-message {{ category }}">
-                    <p class="message-text">{{ message }}</p>
-                </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
+    <!-- Create a dedicated flash messages section -->
+    {% if get_flashed_messages() %}
+    <div class="flash-container">
+        {% for category, message in get_flashed_messages(with_categories=true) %}
+        <div class="flash-message {{ category }}">
+            <span class="message-text">{{ message }}</span>
+            <button class="close-btn" onclick="this.parentElement.remove()">&times;</button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     <div id="background-container"></div>
     <nav>
-    
-        </div>
-        <div class="nav-right">
+        <div class="nav-left">
             <a href="{{ url_for('index') }}">Inicio</a>
             <a href="{{ url_for('about') }}">Acerca de nosotros</a>
-            
+        </div>
+        <div class="nav-right">
             {% if 'entity_type' in session %}
-                </span>
-                <a href="{{ url_for('logout') }}">Cerrar sesión</a>
+                ¡Hola, {{ session.name }}!
                 <a href="{{ url_for('profile') }}">Mi perfil</a>
-                <a href="{{ url_for('search_users') }}">Buscar usuarios</a>
-                <a href="{{ url_for('view_events') }}">Eventos</a>
-                <a href="{{ url_for('view_items') }}">Items</a>
-                <a href="{{ url_for('search_orgs') }}">Buscar organizaciones</a>
-                <a href="{{ url_for('view_map') }}">Mapa</a>
-                {% if session.entity_type == 'user' %}
-                    <!-- <a href="{{ url_for('add_item') }}" class="nav-button">Añadir Item</a> -->
-                    <a href="{{ url_for('register_org') }}">Registrar Org</a>
-                {% endif %}
-                <!-- <a href="{{ url_for('create_event') }}" class="nav-button">Crear Evento</a> -->
+                <a href="{{ url_for('view_achievements') }}">Ver Logros</a>
             {% else %}
-                <span class="user-info">No conectado</span>
+                No conectado
                 <a href="{{ url_for('login') }}">Iniciar sesión</a>
                 <a href="{{ url_for('register_user') }}">Registrar usuario</a>
             {% endif %}
@@ -56,5 +48,20 @@
     
     {% block scripts %}{% endblock %}
     <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const flashMessages = document.querySelectorAll('.flash-message');
+            flashMessages.forEach(message => {
+                setTimeout(() => {
+                    message.style.opacity = '0';
+                    message.style.transform = 'translateY(-20px)';
+                    message.style.transition = 'opacity 0.3s, transform 0.3s';
+                    setTimeout(() => {
+                        message.remove();
+                    }, 300);
+                }, 5000);
+            });
+        });
+    </script>
 </body>
 </html>

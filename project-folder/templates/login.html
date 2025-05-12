@@ -75,6 +75,19 @@
   background: var(--green-dark);
 }
 
+.auth-links {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.auth-links a {
+  color: var(--green-dark);
+  text-decoration: none;
+}
+
+.auth-links a:hover {
+  text-decoration: underline;
+}
 </style>
 {% endblock %}
 
@@ -93,6 +106,10 @@
 
       <button type="submit" class="btn-primary">Iniciar sesión</button>
     </form>
+    
+    <div class="auth-links">
+      <a href="{{ url_for('login_org') }}">Iniciar sesión como organización</a>
+    </div>
   </div>
 </div>
 {% endblock %}

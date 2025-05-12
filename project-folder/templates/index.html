@@ -5,186 +5,257 @@
 :root {
   --green-dark: #2C5F2D;
   --green-medium: #97BC62;
-  --green-light: #D9E5D9;
+  --green-light: #b8e6b8;
+  --text-light: #ffffff;
   --text-dark: #333333;
-  --bg-light: #F7F9F7;
   --radius: 12px;
   --shadow-light: rgba(0, 0, 0, 0.05);
 }
 
-/* Global body style */
+/* Base styles */
 body {
   font-family: 'Montserrat', sans-serif;
-  color: var(--text-dark);
-  background: var(--bg-light);
   margin: 0;
   padding: 0;
+  background: url("{{ url_for('static', filename='backgrounds/bg-inicio.png') }}") center/cover no-repeat fixed;
+  color: var(--text-light);
 }
 
-/* Hero section */
+/* Content wrapper */
+.content-wrapper {
+  background: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  height: auto;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+/* Hero */
 .hero {
   text-align: center;
-  padding: 3rem 1rem;
-  background: var(--green-light);
-  margin: 2rem auto;
   max-width: 800px;
-  border-radius: var(--radius);
-  box-shadow: 0 4px 12px var(--shadow-light);
-}
-
-.logo-container {
-  margin-bottom: 1.5rem;
+  width: 100%;
 }
 
 .app-logo {
-  max-width: 300px;
+  max-width: 90%;
   width: 100%;
-  height: auto;
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 .hero-title {
   font-size: 2.5rem;
+  font-weight: 700;
   color: var(--green-dark);
+  position: relative;
+  display: inline-block;
   margin: 0.5rem 0;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+}
+.hero-title::after {
+  content: '';
+  display: block;
+  width: 80px;
+  height: 4px;
+  background: var(--green-medium);
+  margin: 0.5rem auto 0;
+  border-radius: var(--radius);
 }
 
 .hero-subtitle {
-  font-size: 1.2rem;
-  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+  margin-top: 1rem;
+  line-height: 1.5;
+  color: var(--green-dark);
 }
 
+/* Buttons */
 .btn-hero {
   display: inline-block;
-  padding: 0.8rem 1.6rem;
-  background: var(--green-medium);
-  color: #fff;
-  font-size: 1rem;
-  border: none;
+  margin-top: 2rem;
+  padding: 0.75rem 1.5rem;
+  background: none;
+  border: 2px solid var(--green-medium);
+  color: var(--green-medium);
+  font-size: 1.1rem;
+  font-weight: 600;
   border-radius: var(--radius);
   text-decoration: none;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
-
 .btn-hero:hover {
-  background: var(--green-dark);
+  background: var(--green-medium);
+  color: var(--text-light);
 }
 
-/* Benefits section for logged-in users */
+/* Benefits Section */
 .benefits-section {
-  max-width: 1000px;
-  margin: 2rem auto;
-  padding: 0 1rem;
+  width: 100%;
+  max-width: 1200px;
+  margin-top: 1rem;
 }
 
 .section-title {
   text-align: center;
   font-size: 2rem;
-  color: var(--green-dark);
-  margin-bottom: 1.5rem;
+  font-weight: 700;
+  color: var(--green-medium);
+  letter-spacing: 0.5px;
   position: relative;
-}
-
-.section-title::after {
-  content: '';
-  display: block;
-  width: 60px;
-  height: 3px;
-  background: var(--green-medium);
-  margin: 0.5rem auto 0;
 }
 
 .benefits-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(4, 1fr); /* Fixed 4 columns instead of auto-fit */
+  gap: 1.25rem; /* Slightly reduced gap to fit more items */
+  margin-top: 1.5rem;
 }
 
+/* Make cards a bit more compact to fit 4 in a row */
 .benefit-card {
-  background: #fff;
-  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text-dark);
+  padding: 1.25rem; /* Slightly reduced padding */
   border-radius: var(--radius);
-  box-shadow: 0 2px 8px var(--shadow-light);
   text-align: center;
+  box-shadow: 0 4px 8px var(--shadow-light);
+  transition: transform 0.3s ease;
+}
+.benefit-card:hover {
+  transform: translateY(-5px);
 }
 
 .benefit-card .icon {
   font-size: 2.5rem;
-  margin-bottom: 0.8rem;
-  color: var(--green-dark);
+  margin-bottom: 1rem;
+  color: var(--green-medium);
 }
 
 .benefit-card h4 {
   font-size: 1.2rem;
-  margin-bottom: 0.5rem;
-  color: var(--green-dark);
+  margin: 0.5rem 0;
+  color: var(--green-dark); /* Ensure heading color matches */
 }
 
 .benefit-card p {
   font-size: 0.95rem;
   margin-bottom: 1rem;
-  color: #555;
+  color: var(--text-dark); /* Ensure paragraph color matches */
 }
 
 .benefit-card .btn {
   display: inline-block;
   padding: 0.6rem 1.2rem;
   background: var(--green-medium);
-  color: #fff;
-  font-size: 0.9rem;
+  color: var(--text-light);
   border-radius: var(--radius);
   text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
   transition: background-color 0.3s ease;
 }
-
 .benefit-card .btn:hover {
   background: var(--green-dark);
+  color: var(--text-light);
+}
+
+/* Add media query for responsive behavior */
+@media (max-width: 1200px) {
+  .benefits-grid {
+    grid-template-columns: repeat(3, 1fr); /* 3 columns on medium screens */
+  }
+}
+
+@media (max-width: 900px) {
+  .benefits-grid {
+    grid-template-columns: repeat(2, 1fr); /* 2 columns on smaller screens */
+  }
+}
+
+@media (max-width: 600px) {
+  .benefits-grid {
+    grid-template-columns: 1fr; /* 1 column on mobile */
+  }
 }
 </style>
 {% endblock %}
 
 {% block content %}
-  <div class="hero">
-    <div class="logo-container">
-      <img src="{{ url_for('static', filename='logo-name-landscape.png') }}" alt="Comunidad Parche Verde Uniandes Logo" class="app-logo">
+  <div class="content-wrapper">
+      <img src="{{ url_for('static', filename='app-logos/logo-name-landscape.png') }}"
+            alt="Parche Verde Logo" class="app-logo">
+      {% if 'entity_type' not in session %}
+        <p class="hero-subtitle">Por un futuro más consciente, colectivo e inevitablemente, más feliz.</p>
+        <a href="{{ url_for('login') }}" class="btn-hero">Iniciar Sesión</a>
+      {% endif %}
     </div>
-    <h1 class="hero-title">Comunidad Parche Verde Uniandes</h1>
-    <p class="hero-subtitle">Participa en eventos ecológicos, conecta con la comunidad y actúa por el planeta.</p>
 
-    {% if 'entity_type' not in session %}
-      <a href="{{ url_for('login') }}" class="btn-hero">Iniciar Sesión</a>
+    {% if 'entity_type' in session %}
+      <section class="benefits-section">
+        <h2 class="section-title">¡Es un placer tenerte de vuelta, {{ session.get('nickname', 'Miembro') }}!</h2>
+        <p style="text-align: center; color: var(--green-dark)">Explora las funcionalidades de Parche Verde:</p>
+        <div class="benefits-grid">
+          <div class="benefit-card">
+            <div class="icon">🧘🏽</div>
+            <h4>Personas</h4>
+            <p>Explora perfiles y conecta con otros miembros.</p>
+            <a href="{{ url_for('search_users') }}" class="btn">Ver Personas</a>
+          </div>
+          <div class="benefit-card">
+            <div class="icon">🛖</div>
+            <h4>Organizaciones</h4>
+            <p>Descubre y únete a grupos ambientales.</p>
+            <a href="{{ url_for('search_orgs') }}" class="btn">Organizaciones</a>
+          </div>
+          <div class="benefit-card">
+            <div class="icon">🌱</div>
+            <h4>Eventos</h4>
+            <p>Participa en actividades y suma puntos.</p>
+            <a href="{{ url_for('view_events') }}" class="btn">Ver Eventos</a>
+          </div>
+          <div class="benefit-card">
+            <div class="icon">♻️</div>
+            <h4>Objetos</h4>
+            <p>Intercambia o encuentra objetos sostenibles.</p>
+            <a href="{{ url_for('view_items') }}" class="btn">Ver Objetos</a>
+          </div>
+          <div class="benefit-card">
+            <div class="icon">🗺️</div>
+            <h4>Mapa Interactivo</h4>
+            <p>Descubre puntos de interés ecológico en el campus.</p>
+            <a href="{{ url_for('view_map') }}" class="btn">Ver Mapa</a>
+          </div>
+          {% if session.entity_type == 'user' %}
+          <div class="benefit-card">
+            <div class="icon">🪶🛖</div>
+            <h4>Registrar Organización</h4>
+            <p>Crea y administra tu propia organización ambiental.</p>
+            <a href="{{ url_for('register_org') }}" class="btn">Registrar Org</a>
+          </div>
+          <div class="benefit-card">
+            <div class="icon">🪶🌱</div>
+            <h4>Crear Evento</h4>
+            <p>Organiza una nueva actividad para la comunidad.</p>
+            <a href="{{ url_for('create_event') }}" class="btn">Crear Evento</a>
+          </div>
+          <div class="benefit-card">
+            <div class="icon">🪶♻️</div>
+            <h4>Añadir Objeto</h4>
+            <p>Publica un objeto para intercambio o donación.</p>
+            <a href="{{ url_for('add_item') }}" class="btn">Añadir Objeto</a>
+          </div>
+          {% endif %}
+
+          </div>
+        </div>
+      </section>
     {% endif %}
   </div>
-
-  {% if 'entity_type' in session %}
-    <section class="benefits-section">
-      <h2 class="section-title">¡Bienvenido a la Comunidad!</h2>
-      <div class="benefits-grid">
-        <div class="benefit-card">
-          <div class="icon">♻️</div>
-          <h4>Gana Puntos</h4>
-          <p>Participa en actividades y acumula reconocimientos.</p>
-          <a href="{{ url_for('view_events') }}" class="btn">Explorar Eventos</a>
-        </div>
-        <div class="benefit-card">
-          <div class="icon">🌍</div>
-          <h4>Conecta Organizaciones</h4>
-          <p>Descubre grupos locales y colabora con ellos.</p>
-          <a href="{{ url_for('view_organizations') }}" class="btn">Ver Organizaciones</a>
-        </div>
-        <div class="benefit-card">
-          <div class="icon">🌱</div>
-          <h4>Únete a Eventos</h4>
-          <p>Encuentra y participa en eventos ecológicos activos.</p>
-          <a href="{{ url_for('view_events') }}" class="btn">Explorar Eventos</a>
-        </div>
-        <div class="benefit-card">
-          <div class="icon">🎖️</div>
-          <h4>Logros y Medallas</h4>
-          <p>Gana medallas por tus contribuciones.</p>
-          <a href="{{ url_for('profile') }}" class="btn">Ver Perfil</a>
-        </div>
-      </div>
-    </section>
-  {% endif %}
 {% endblock %}

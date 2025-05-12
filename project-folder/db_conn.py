@@ -13,11 +13,15 @@ datetime format ISO 8601 YYYY-MM-DD HH:MM:SS
 '''
 
 import sqlite3
+import os
 
 def create_connection():
     conn = None
     try:
-        conn = sqlite3.connect('comunidad_verde.db')
+        # Use absolute path for the database file
+        db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'comunidad_verde.db')
+        conn = sqlite3.connect(db_path)
+        print(f"Database created/connected at: {db_path}")
     except sqlite3.Error as e:
         print(f"Error connecting to database: {e}")
     return conn
@@ -39,15 +43,19 @@ def setup_database():
                 student_code TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
                 name TEXT NOT NULL,
+                nickname TEXT UNIQUE NOT NULL,
                 email TEXT UNIQUE NOT NULL,
                 career TEXT,
                 interests TEXT, --siembra, reciclaje, caridad, enseñanza, software
                 points INTEGER DEFAULT 0,
                 photo TEXT, --photo-male, photo-female, photo-turtle
+                is_verified BOOLEAN DEFAULT 0,
+                verification_token TEXT,
+                verification_token_expires TEXT,
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP
             )
             ''')
-            
+
             # Organizations table
             cursor.execute('''
             CREATE TABLE IF NOT EXISTS organizations (
