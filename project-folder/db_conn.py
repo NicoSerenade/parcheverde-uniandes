@@ -43,7 +43,7 @@ def setup_database():
                 student_code TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
                 name TEXT NOT NULL,
-                nickname TEXT UNIQUE NOT NULL,
+                nickname TEXT NOT NULL,
                 email TEXT UNIQUE NOT NULL,
                 career TEXT,
                 interests TEXT, --siembra, reciclaje, caridad, enseñanza, software
@@ -138,9 +138,10 @@ def setup_database():
                 user_id INTEGER,
                 name TEXT NOT NULL,
                 description TEXT NOT NULL,
-                item_type TEXT NOT NULL, -- ropa, libros, hogar, otros
-                item_terms TEXT NOT NULL, --gift, loan, exchange (CAN'T BE SOLD)
-                item_status TEXT DEFAULT 'available', --available, borrowed, unavailable
+                photo TEXT,
+                item_type TEXT NOT NULL,
+                item_terms TEXT NOT NULL,
+                item_status TEXT DEFAULT 'available', --available, unavailable
                 creation_date TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE,
                 UNIQUE (user_id, name, item_type)
@@ -341,8 +342,3 @@ def drop_table():
         print("Operation cancelled. Table was not dropped.")
 
 setup_database()
-
-
-
-
-

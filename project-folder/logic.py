@@ -527,13 +527,14 @@ def delete_event_logic(entity_id, entity_type, event_id):
         # db_operator might print specific errors (not found, not authorized)
         return {"status": "error", "message": "Error al eliminar el evento. Puede que no exista o que no seas el organizador."}
 
-def search_events_logic(event_id=None, query=None, event_type=None, event_status=None, organizer_type=None, organizer_id=None, start_date=None, end_date=None):
+def search_events_logic(event_id=None, query=None, location=None, event_type=None, event_status=None, organizer_type=None, organizer_id=None, start_date=None, end_date=None):
     """
     Searches for events based on various criteria.
     
     Params:
       event_id (int, optional): Filter by event ID.
       query (str, optional): Search term for name or description.
+      location (str, optional): Filter by event location.
       event_type (str, optional): Filter by event type.
       event_status (str, optional): Filter by event status. (active, completed)
       organizer_type (str, optional): Organizer type ('user' or 'org').
@@ -548,6 +549,7 @@ def search_events_logic(event_id=None, query=None, event_type=None, event_status
     events = db_operator.search_events(
         event_id=event_id,
         query=query,
+        location=location,
         event_type=event_type,
         event_status=event_status,
         organizer_type=organizer_type,
@@ -791,7 +793,7 @@ def get_org_confirmed_count(event_id, org_id):
 
 
 # --- Item Functions ---
-def add_item_logic(owner_id, name, description, item_type, item_terms):
+def add_item_logic(owner_id, name, description, photo, item_type, item_terms):
     """
     Allows a specified user to add an item for exchange, gift or borrowing.
     Returns a status message, including points awarded.
@@ -801,6 +803,7 @@ def add_item_logic(owner_id, name, description, item_type, item_terms):
         owner_type (str): The type of the owner (user or organization).
         name (str): Item name.
         description (str): Item description.
+        photo (str): Item photo filename.
         item_type (str): Item type (ropa, libros, hogar, otros).
         item_terms (str): Item terms (regalo, intercambio).
     """
@@ -813,7 +816,7 @@ def add_item_logic(owner_id, name, description, item_type, item_terms):
     if item_terms not in valid_terms:
         return {"status": "error", "message": f"Términos del artículo inválidos. Debe ser uno de: {', '.join(valid_terms)}"}
     
-    item_id = db_operator.create_item(owner_id, name, description, item_type, item_terms)
+    item_id = db_operator.create_item(owner_id, name, description, photo, item_type, item_terms)
 
     if item_id:
         points_to_award = 1  # Just 1 point for listing an item
@@ -853,21 +856,22 @@ def delete_my_item_logic(user_id, item_id):
     else:
         return {"status": "error", "message": "Error al eliminar el artículo."}
 
-def view_items_logic(item_type=None, item_terms=None, user_id=None):
+def view_items_logic(search_term=None, item_type=None, item_terms=None, user_id=None):
     """
     Retrieves items currently available for exchange, gift or borrowing.
     Items can be filtered by their terms.
     
     Args:
+        search_term (str, optional): Search in name and description
         item_type (str, optional): Filter by item type (ropa, libros, hogar, otros).
         item_terms (str, optional): Filter by item terms (gift, loan, exchange).
         user_id (int, optional): items from the specific owner.
         If None, all items are returned.
     
     Returns:
-        dict: Dictionary with status and data.  
-    """ 
-    items = db_operator.get_available_items(item_type=item_type, item_terms=item_terms, user_id=user_id)
+        dict: Dictionary with status and data.
+    """
+    items = db_operator.get_available_items(search_term=search_term, item_type=item_type, item_terms=item_terms, user_id=user_id)
     if items is None:
         return {"status": "error", "message": "Error al recuperar artículos."}
     else:

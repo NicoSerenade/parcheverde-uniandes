@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container search-page">
+  <div class="top-strip card">
+    <h1>Buscar Eventos</h1>
+    <form method="get" action="{{ url_for('search_events') }}" class="search-form">
+      <input type="text" name="q" value="{{ query }}" placeholder="Nombre o descripción..." class="search-input" />
+      <input type="text" name="location" value="{{ location }}" placeholder="Ubicación" class="search-input" />
+      <input type="text" name="event_type" value="{{ event_type }}" placeholder="Tipo de evento" class="search-input" />
+      <input type="date" name="start_date" value="{{ start_date }}" placeholder="Fecha inicio" class="search-input" />
+      <input type="date" name="end_date" value="{{ end_date }}" placeholder="Fecha fin" class="search-input" />
+      <button type="submit" class="btn btn-primary">Buscar</button>
+    </form>
+  </div>
+
+  {% if events %}
+  <div class="results-grid">
+    {% for event in events %}
+    <div class="card event-card">
+      <div class="event-header">
+        <h3>{{ event.name }}</h3>
+      </div>
+      <div class="card-body">
+        <p><i class="fa fa-calendar"></i> <strong>Fecha:</strong> {{ event.event_datetime }}</p>
+        <p><i class="fa fa-map-marker"></i> <strong>Ubicación:</strong> {{ event.location }}</p>
+        <p><strong>Tipo:</strong> {{ event.event_type }}</p>
+        <p>{{ event.description }}</p>
+        <div class="event-actions">
+          {% if session.get('entity_type') == 'user' %}
+          <form action="{{ url_for('register_for_event', event_id=event.event_id) }}" method="post" class="action-form">
+            <button type="submit" class="btn btn-primary btn-sm">Participar</button>
+          </form>
+          {% endif %}
+          <a href="{{ url_for('view_event_participants', event_id=event.event_id) }}" class="btn btn-secondary">Ver Más</a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card no-results">
+    <p>No se encontraron eventos que coincidan con tu búsqueda.</p>
+  </div>
+  {% endif %}
+</div>
+
+<style>
+:root {
+  --green-dark:   #2C5F2D;
+  --green-medium: #97BC62;
+  --green-light:  #D9E5D9;
+  --bg-light:     #F7F9F7;
+  --text-dark:    #333333;
+  --danger:       #D64545;
+  --radius:       12px;
+  --shadow-light: rgba(0,0,0,0.05);
+}
+
+/* Contenedor y header */
+.container.search-page {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  font-family: 'Montserrat', sans-serif;
+  color: var(--text-dark);
+  background: var(--bg-light);
+}
+
+.top-strip {
+  background: var(--green-light);
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px var(--shadow-light);
+  margin-bottom: 2rem;
+}
+
+.top-strip h1 {
+  margin: 0 0 1rem;
+  color: var(--green-dark);
+  font-size: 2rem;
+}
+
+/* Formulario */
+.search-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  align-items: center;
+}
+
+.search-input {
+  padding: 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: var(--radius);
+  font-family: 'Montserrat', sans-serif;
+}
+
+/* Resultados */
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  justify-items: center;
+}
+
+.event-card {
+  width: 100%;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: 0 2px 8px var(--shadow-light);
+  overflow: hidden;
+  transition: transform 0.3s ease;
+}
+
+.event-card:hover {
+  transform: translateY(-5px);
+}
+
+.event-header {
+  background: var(--green-dark);
+  padding: 1rem;
+}
+
+.event-header h3 {
+  margin: 0;
+  font-size: 1.4rem;
+  color: #fff;
+  text-align: center;
+}
+
+.card-body {
+  padding: 1rem;
+}
+
+.card-body p {
+  margin: 0.5rem 0;
+  color: var(--text-dark);
+}
+
+.event-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+
+.btn-sm {
+  padding: 0.4rem 0.8rem;
+}
+
+/* Botones */
+.btn-secondary {
+  background: var(--green-light);
+  color: var(--text-dark);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  text-decoration: none;
+  display: inline-block;
+  margin-top: 0.75rem;
+}
+
+/* No hay resultados */
+.no-results {
+  background: var(--bg-light);
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  text-align: center;
+  box-shadow: 0 2px 8px var(--shadow-light);
+}
+
+@media (max-width: 768px) {
+  .search-form {
+    grid-template-columns: 1fr;
+  }
+  
+  .results-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+{% endblock %}

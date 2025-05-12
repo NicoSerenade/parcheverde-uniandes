@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container detail-page">
+  <div class="top-strip card event-hero">
+    <div class="event-intro">
+      <h1 class="event-name">{{ event.name }}</h1>
+      <div class="event-meta">
+        <span class="event-datetime"><i class="fa fa-calendar"></i> {{ event.event_datetime }}</span>
+        <span class="event-location"><i class="fa fa-map-marker"></i> {{ event.location }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="event-sections">
+    <section class="card">
+      <h2>Detalles del Evento</h2>
+      <div class="event-description">
+        <p>{{ event.description }}</p>
+      </div>
+      <div class="event-info">
+        <p><strong>Tipo de evento:</strong> {{ event.event_type }}</p>
+        <p><strong>Organizador:</strong>
+          {% if event.organizer_type == 'user' %} Usuario
+          {% elif event.organizer_type == 'org' %} Organización
+          {% endif %}
+        </p>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Participantes</h2>
+      {% if participants %}
+        <div class="participant-count">
+          <span>{{ participants|length }}</span> participantes registrados
+        </div>
+        <ul class="participant-list">
+          {% for p in participants %}
+            <li>{{ p.name }}</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>No hay participantes registrados.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="event-actions">
+    {% if session.get('entity_type') == 'user' %}
+      <form action="{{ url_for('register_for_event', event_id=event.event_id) }}" method="post">
+        <button type="submit" class="btn btn-primary">Participar en este evento</button>
+      </form>
+    {% elif 'entity_type' not in session %}
+      <a href="{{ url_for('login') }}" class="btn btn-secondary">Inicia sesión para participar</a>
+    {% endif %}
+    <a href="{{ url_for('search_events') }}" class="btn btn-secondary">Volver a la búsqueda</a>
+  </div>
+</div>
+
+<style>
+:root {
+  --green-dark:   #2C5F2D;
+  --green-medium: #97BC62;
+  --green-light:  #D9E5D9;
+  --bg-light:     #F7F9F7;
+  --text-dark:    #333333;
+  --danger:       #D64545;
+  --radius:       12px;
+  --shadow-light: rgba(0,0,0,0.05);
+}
+
+/* Contenedor principal */
+.container.detail-page {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  font-family: 'Montserrat', sans-serif;
+  color: var(--text-dark);
+  background: var(--bg-light);
+}
+
+/* Hero */
+.top-strip.event-hero {
+  background: var(--green-light);
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px var(--shadow-light);
+  margin-bottom: 2rem;
+}
+
+.event-name {
+  margin: 0 0 1rem;
+  font-size: 2rem;
+  color: var(--green-dark);
+}
+
+.event-meta {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 1.1rem;
+}
+
+/* Secciones */
+.event-sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Tarjetas */
+.card {
+  background: #fff;
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  box-shadow: 0 2px 8px var(--shadow-light);
+}
+
+.card h2 {
+  margin-top: 0;
+  color: var(--green-dark);
+  font-size: 1.4rem;
+  border-bottom: 2px solid var(--green-medium);
+  padding-bottom: 0.3rem;
+}
+
+.event-description p {
+  line-height: 1.6;
+}
+
+.event-info p {
+  margin: 0.8rem 0;
+}
+
+/* Participantes */
+.participant-count {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: var(--green-medium);
+  margin-bottom: 0.5rem;
+}
+
+.participant-count span {
+  font-size: 1.5rem;
+}
+
+.participant-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.participant-list li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--green-light);
+}
+
+/* Acciones */
+.event-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+.btn {
+  padding: 0.8rem 1.5rem;
+  border-radius: var(--radius);
+  font-weight: 500;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-primary {
+  background: var(--green-dark);
+  color: #fff;
+}
+
+.btn-secondary {
+  background: var(--green-light);
+  color: var(--text-dark);
+}
+
+.btn:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+}
+</style>
+{% endblock %}

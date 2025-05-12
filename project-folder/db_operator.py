@@ -781,7 +781,7 @@ def leave_org(org_id, user_id):
     return success
 
 #EVENTS
-def search_events(event_id=None, query=None, event_type=None, event_status=None, organizer_type=None, organizer_id=None, start_date=None, end_date=None):
+def search_events(event_id=None, query=None, location=None, event_type=None, event_status=None, organizer_type=None, organizer_id=None, start_date=None, end_date=None):
     """
     Searches for events based on various criteria.
     
@@ -794,7 +794,8 @@ def search_events(event_id=None, query=None, event_type=None, event_status=None,
         organizer_id (int, optional): Filter by organizer ID
         start_date (str, optional): Filter events on or after this date (ISO format)
         end_date (str, optional): Filter events on or before this date (ISO format)
-    
+        location (str, optional): Filter by event location
+
     Returns:
         list: List of dictionaries containing event data
     """
@@ -817,7 +818,11 @@ def search_events(event_id=None, query=None, event_type=None, event_status=None,
             if query:
                 sql_query += " AND (name LIKE ? OR description LIKE ?)"
                 params.extend([f"%{query}%", f"%{query}%"])
-            
+
+            if location:
+                sql_query += " AND location = ?"
+                params.append(location)
+
             if event_id:
                 sql_query += " AND event_id = ?"
                 params.append(event_id)
@@ -1129,11 +1134,12 @@ def mark_event_attendance(event_id, entity_id, entity_type):
 
 
 #ITEMS
-def get_available_items(item_type=None, item_terms=None, user_id=None):
+def get_available_items(search_term=None, item_type=None, item_terms=None, user_id=None):
     """
     Retrieves available items with optional filtering.
     
     Args:
+        search_term (str, optional): Search in name and description
         item_type (str, optional): Filter by item type
         item_terms (str, optional): Filter by item terms
         user_id (int, optional): Filter by user ID
@@ -1148,7 +1154,7 @@ def get_available_items(item_type=None, item_terms=None, user_id=None):
         try:
             cursor = conn.cursor()
             
-            query = '''
+            sql_query = '''
             SELECT i.item_id, i.user_id, i.name, i.description, 
                    i.item_type, i.item_terms, i.item_status, i.creation_date,
                    u.name as user_name
@@ -1159,22 +1165,27 @@ def get_available_items(item_type=None, item_terms=None, user_id=None):
             
             params = []
             
+            if search_term:
+               sql_query += " AND (i.name LIKE ? OR i.description LIKE ?)"
+               params.append(f"%{search_term}%")
+               params.append(f"%{search_term}%")
+
             if item_type:
-                query += " AND i.item_type = ?"
+                sql_query += " AND i.item_type = ?"
                 params.append(item_type)
                 
             if item_terms:
-                query += " AND i.item_terms = ?"
+                sql_query += " AND i.item_terms = ?"
                 params.append(item_terms)
                 
             if user_id:
-                query += " AND i.user_id = ?"
+                sql_query += " AND i.user_id = ?"
                 params.append(user_id)
                 
             # Order by creation date (newest first)
-            query += " ORDER BY i.creation_date DESC"
+            sql_query += " ORDER BY i.creation_date DESC"
             
-            cursor.execute(query, params)
+            cursor.execute(sql_query, params)
             
             for row in cursor.fetchall():
                 item = {
@@ -1198,7 +1209,7 @@ def get_available_items(item_type=None, item_terms=None, user_id=None):
             
     return items
 
-def create_item(user_id, name, description, item_type, item_terms):
+def create_item(user_id, name, description, photo, item_type, item_terms):
     """
     Creates a new item for exchange.
     
@@ -1206,6 +1217,7 @@ def create_item(user_id, name, description, item_type, item_terms):
         user_id (int): ID of the user creating the item
         name (str): Name of the item
         description (str): Description of the item
+        photo (str): Filename of the item photo
         item_type (str): Type of item --ropa, libros, hogar, otros
         item_terms (str): (regalo, intercambio)
 
@@ -1219,10 +1231,10 @@ def create_item(user_id, name, description, item_type, item_terms):
         try:
             cursor = conn.cursor()
             cursor.execute('''
-            INSERT INTO items (user_id, name, description, item_type, item_terms)
-            VALUES (?, ?, ?, ?, ?)
-            ''', (user_id, name, description, item_type, item_terms))
-            
+            INSERT INTO items (user_id, name, description, photo, item_type, item_terms)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ''', (user_id, name, description, photo, item_type, item_terms))
+
             conn.commit()
             item_id = cursor.lastrowid
             
@@ -1272,7 +1284,7 @@ def get_item_details(item_id):
         if conn is not None:
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT user_id, name, description, item_type, item_terms, item_status
+                SELECT user_id, name, description, photo, item_type, item_terms, item_status
                 FROM items
                 WHERE item_id = ?
             ''', (item_id,))
@@ -1285,9 +1297,10 @@ def get_item_details(item_id):
                     'owner_id': item[0],  # Map user_id to owner_id for compatibility
                     'name': item[1],
                     'description': item[2],
-                    'item_type': item[3],
-                    'item_terms': item[4],
-                    'status': item[5]  # Map item_status to status for compatibility
+                    'photo': item[3],
+                    'item_type': item[4],
+                    'item_terms': item[5],
+                    'status': item[6]  # Map item_status to status for compatibility
                 }
             else:
                 return None
