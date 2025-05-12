@@ -47,12 +47,13 @@ The points system encourages participation and community engagement.
 """
 
 # --- Authentication Functions ---
-def register_user(name, email, student_code, password, interests=None, career=None, photo=None):
+def register_user(name, nickname, email, student_code, password, interests=None, career=None, photo=None):
     """
     Registers a new user whether Student, professor or admin in the system.
     Now includes email verification.
     Args:
         name (str): User's name.
+        nickname (str): User's nickname.
         email (str): User's email.
         student_code (str): Student code or Professor code or Admin code.
         password (str): User's password.
@@ -81,6 +82,7 @@ def register_user(name, email, student_code, password, interests=None, career=No
         salt = bcrypt.gensalt()  # Generates random salt; value that get combined with the password before hashing
         hashed_password = bcrypt.hashpw(password_bytes, salt) #hash the password
 
+<<<<<<< HEAD
     # Generate a verification token and expiration date (24 hours from now)
     verification_token = str(uuid.uuid4())
     token_expiry = datetime.now() + timedelta(hours=24)
@@ -196,11 +198,10 @@ def login(code, password):
     or status and error message on failure.
     """
     # First try to authenticate as a user
-    user = db_operator.get_user_by_student_code(code)
+    user = db_operator.get_user_by_student_code_verification(code)
     if user:
         # Check if account is verified (skip check for admin users)
         if not user.get('is_verified'):
-            print(user.get('is_verified'), type(user.get('is_verified')))
             return {"status": "error", "message": "Please verify your email before logging in. Check your inbox or request a new verification email."}
         password_bytes = password.encode('utf-8')
         stored_password = user['password']
@@ -233,6 +234,15 @@ def login(code, password):
     return {"status": "error", "message": "Invalid credentials or entity not found."}
 
 def register_organization(creator_email, creator_student_code, name, email, description, password, interests=None, photo="photo-org"):
+=======
+    success = db_operator.register_user(user_type, student_code, hashed_password, name, nickname, email, career, interests, photo)
+    if success:
+        return {"status": "success", "message": f"User '{name}' registered successfully."}
+    else:
+        return {"status": "error", "message": "Database error."}
+
+def register_organization(creator_email, creator_student_code, name, email, description, password, interests=None, photo=None):
+>>>>>>> 58fd8235a9c681de0dcc366cec350b10f43e75ee
     """
     Registers a new organization.
     Requires the student code of the creating user.
@@ -258,12 +268,52 @@ def register_organization(creator_email, creator_student_code, name, email, desc
         salt = bcrypt.gensalt()
         hashed_password = bcrypt.hashpw(password_bytes, salt)
         
-    success = db_operator.register_org(user_type, creator_student_code, hashed_password, name, email, description, interests)
+    success = db_operator.register_org(user_type, creator_student_code, hashed_password, name, email, description, interests, photo)
     if success:
         return {"status": "success", "message": f"Organization '{name}' registered successfully."}
     else:
         return {"status": "error", "message": "Organization registration failed. Email might already exist."}
 
+<<<<<<< HEAD
+=======
+def login(code, password):
+    """
+    Authenticates normal users (students, professors or admins)
+    args:
+        code int: student, professor or admin code
+        password str: password of the user
+    Returns a dictionary containing entity data on success,
+    or status and error message on failure.
+    """
+    # First try to authenticate as a user
+    user = db_operator.get_user_by_student_code(code)
+    if user:
+        #if not user.get('is_verified'):
+            #return {"status": "error", "message": "User not verified."}
+        password_bytes = password.encode('utf-8')
+        stored_password = user['password']
+        if bcrypt.checkpw(password_bytes, stored_password):
+            if user.get('user_type') == 'admin':
+                print(f"Logic: Admin user '{user.get('name')}' authenticated.")
+            return {
+                "status": "success",
+                "entity_type": "user",
+                "entity_id": user.get('user_id'),
+                "student_code": user.get('student_code'),
+                "name": user.get('name'),
+                "nickname": user.get('nickname'),
+                "email": user.get('email'),
+                "points": user.get('points'),
+                "interests": user.get('interests'),
+                "career": user.get('career'),
+                "photo": user.get('photo'),
+                "creation_date": user.get("creation_date")
+            }
+
+    print(f"Logic: Login failed for code '{code}'")
+    return {"status": "error", "message": "Invalid credentials or entity not found."}
+
+>>>>>>> 58fd8235a9c681de0dcc366cec350b10f43e75ee
 def login_orgs(creator_code, password):
     """
     Authenticates organizations.
@@ -286,6 +336,7 @@ def login_orgs(creator_code, password):
                 "description": org.get('description'),
                 "points": org.get('points'),
                 "interests": org.get('interests'),
+                "photo": org.get('photo'),
                 "creation_date": org.get("creation_date")
             }
     print(f"Logic: Login failed for code '{creator_code}'")
@@ -637,7 +688,7 @@ def delete_event_logic(entity_id, entity_type, event_id):
         # db_operator might print specific errors (not found, not authorized)
         return {"status": "error", "message": "Failed to delete event. It might not exist or you are not the organizer."}
 
-def search_events_logic(event_id=None, query=None, event_type=None, status=None, organizer_type=None, organizer_id=None, start_date=None, end_date=None):
+def search_events_logic(event_id=None, query=None, event_type=None, event_status=None, organizer_type=None, organizer_id=None, start_date=None, end_date=None):
     """
     Searches for events based on various criteria.
     
@@ -645,7 +696,7 @@ def search_events_logic(event_id=None, query=None, event_type=None, status=None,
       event_id (int, optional): Filter by event ID.
       query (str, optional): Search term for name or description.
       event_type (str, optional): Filter by event type.
-      status (str, optional): Filter by event status. (active, completed)
+      event_status (str, optional): Filter by event status. (active, completed)
       organizer_type (str, optional): Organizer type ('user' or 'org').
       organizer_id (int, optional): Filter by organizer ID.
       start_date (str, optional): Filter events on or after this date.
@@ -659,7 +710,7 @@ def search_events_logic(event_id=None, query=None, event_type=None, status=None,
         event_id=event_id,
         query=query,
         event_type=event_type,
-        status=status,
+        event_status=event_status,
         organizer_type=organizer_type,
         organizer_id=organizer_id,
         start_date=start_date,
@@ -741,7 +792,7 @@ def leave_event_logic(entity_id, entity_type, event_id):
     else:
         return {"status": "error", "message": "Failed to leave event. Maybe you were not registered or the event doesn't exist."}
 
-def mark_event_attendance_logic(marker_id, event_id, participant_id, participant_type):
+def mark_event_attendance_logic(event_id, marker_id, participant_id, participant_type):
     """
     Allows the specified event organizer to mark attendance for a participant.
     
@@ -983,6 +1034,25 @@ def view_items_logic(item_type=None, item_terms=None, user_id=None):
     else:
         return {"status": "success", "data": items}
 
+def get_item_details_logic(item_id):
+    """
+    Retrieves details of a specific item.
+    
+    Args:
+        item_id (int): The ID of the item to retrieve.
+        
+    Returns:
+        dict: A dictionary with status, message, and data if successful
+    """
+    if not item_id:
+        return {"status": "error", "message": "Item ID is required."}
+    
+    item_details = db_operator.get_item_details(item_id)
+    if item_details is None:
+        return {"status": "error", "message": "Item not found."}
+    
+    return {"status": "success", "data": item_details}
+
 def request_item_logic(requester_id, item_id, message=""):
     """
     Allows a user to request an item.
@@ -1196,9 +1266,12 @@ def search_challenges_logic(entity_type):
 
     Args:
         entity_type (str): 'user' or 'organization'.
+
+    Returns:
+        dict: Status message and list of dictionaries, each containing challenge data
     """
     if entity_type not in ['user', 'organization']:
-         return {"status": "error", "message": "Invalid entity type for challenges."}
+        return {"status": "error", "message": "Invalid entity type for challenges."}
     db_type = 'org' if entity_type == 'organization' else 'user'
     print(f"Logic: Searching challenges for {entity_type}s")
     challenges = db_operator.search_challenges(user_type=db_type)
@@ -1250,7 +1323,7 @@ def search_achievements_logic(entity_type):
      Args:
         entity_type (str): 'user' or 'organization'.
     Returns:
-        dict: Status message and list of dictionaries, each containing achievement data (id, name, description, points, icon).
+        dict: Status message and list of dictionaries, each containing achievement data (achievement_id, name, description, points, badge_icon).
     """
     if entity_type == 'user':
         db_type = 'user'

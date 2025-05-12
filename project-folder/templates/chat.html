@@ -2,7 +2,7 @@
 {% block content %}
 <div class="chat-page">
   <div class="chat-header card">
-    <h2>Converación con {{ recipient_name }}</h2>
+    <h2>Conversación con {{ recipient_name }}</h2>
   </div>
 
   <div id="chat-window" class="chat-window card"
@@ -13,6 +13,7 @@
       <div class="message-item {{ 'mine' if m.sender_id==session.entity_id else 'theirs' }}">
         <span class="message-sender">{{ 'Yo' if m.sender_id==session.entity_id else recipient_name }}:</span>
         <span class="message-content">{{ m.content }}</span>
+        <span class="message-timestamp">{{ m.timestamp }}</span>
       </div>
     {% endfor %}
   </div>
@@ -34,25 +35,58 @@
 
     container.scrollTop = container.scrollHeight;
 
+    // Function to format timestamp
+    function formatTimestamp() {
+      const now = new Date();
+      return now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    }
+
+    // Function to add message to chat window
+    function addMessageToChat(message, isMine) {
+      const d = document.createElement('div');
+      d.className = 'message-item ' + (isMine ? 'mine' : 'theirs');
+      const who = isMine ? 'Yo' : recipientName;
+      const timestamp = message.timestamp || formatTimestamp();
+      
+      d.innerHTML = `
+        <span class="message-sender">${who}:</span>
+        <span class="message-content">${message.content}</span>
+        <span class="message-timestamp">${timestamp}</span>
+      `;
+      container.appendChild(d);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    // Listen for new messages from server
     socket.on('new_message', data => {
       const isMine   = data.sender_id === myId   && data.recipient_id === rid;
       const isTheirs = data.sender_id === rid    && data.recipient_id === myId;
       if (!isMine && !isTheirs) return;
-
-      const d = document.createElement('div');
-      d.className = 'message-item ' + (data.sender_id===myId ? 'mine' : 'theirs');
-      const who = data.sender_id === myId ? 'Yo' : recipientName;
-      d.innerHTML = `<span class="message-sender">${who}:</span> <span class="message-content">${data.content}</span>`;
-      container.appendChild(d);
-      container.scrollTop = container.scrollHeight;
+      
+      addMessageToChat(data, isMine);
     });
 
+    // Handle form submission
     document.getElementById('chat-form').addEventListener('submit', e => {
       e.preventDefault();
       const input = document.getElementById('msg-input');
       const txt = input.value.trim();
       if (!txt) return;
-      socket.emit('private_message', { recipient_id: rid, content: txt });
+      
+      // Create message object
+      const message = {
+        recipient_id: rid, 
+        content: txt,
+        timestamp: formatTimestamp()
+      };
+      
+      // Send to server
+      socket.emit('private_message', message);
+      
+      // Add message to chat immediately (don't wait for server response)
+      addMessageToChat(message, true);
+      
+      // Clear input
       input.value = '';
     });
   });
@@ -105,27 +139,49 @@
 
 .message-item {
   margin-bottom: 0.75rem;
-  display: flex;
-  gap: 0.5rem;
+  padding: 0.5rem 0.8rem;
+  border-radius: var(--radius);
+  position: relative;
+  max-width: 80%;
+  clear: both;
 }
 
-.message-item.mine .message-sender {
+.message-item.mine {
+  background-color: var(--green-light);
+  float: right;
+  text-align: right;
+  margin-left: 20%;
+}
+
+.message-item.theirs {
+  background-color: #f1f1f1;
+  float: left;
+  margin-right: 20%;
+}
+
+.message-item .message-sender {
   color: var(--green-dark);
   font-weight: 600;
-}
-
-.message-item.theirs .message-sender {
-  color: var(--green-medium);
-  font-weight: 600;
+  display: block;
+  margin-bottom: 0.25rem;
 }
 
 .message-content {
   line-height: 1.4;
+  word-wrap: break-word;
+}
+
+.message-timestamp {
+  display: block;
+  font-size: 0.75rem;
+  color: #666;
+  margin-top: 0.25rem;
 }
 
 .chat-form {
   display: flex;
   gap: 0.5rem;
+  margin-top: 1rem;
 }
 
 .msg-input {

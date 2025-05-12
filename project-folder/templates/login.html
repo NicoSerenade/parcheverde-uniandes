@@ -75,6 +75,19 @@
   background: var(--green-dark);
 }
 
+.auth-links {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.auth-links a {
+  color: var(--green-dark);
+  text-decoration: none;
+}
+
+.auth-links a:hover {
+  text-decoration: underline;
+}
 </style>
 {% endblock %}
 
@@ -93,8 +106,14 @@
 
       <button type="submit" class="btn-primary">Iniciar sesión</button>
     </form>
+<<<<<<< HEAD
     <div class="mt-3">
       <p>Haven't received verification email? <a href="{{ url_for('resend_verification') }}">Resend verification email</a></p>
+=======
+    
+    <div class="auth-links">
+      <a href="{{ url_for('login_org') }}">Iniciar sesión como organización</a>
+>>>>>>> 58fd8235a9c681de0dcc366cec350b10f43e75ee
     </div>
   </div>
 </div>

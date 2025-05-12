@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h2>Mis logros</h2>
+  <div class="grid-cards">
+    {% set has_unlocked = false %}
+    {% for ach in achievements %}
+      {% if ach.achievement_id in unlocked_achievements %}
+        {% set has_unlocked = true %}
+        <div class="card">
+          <img src="{{ url_for('static', filename='badges/' ~ ach.badge_icon) }}"
+               alt="{{ ach.name }} badge"
+               class="icons">
+          <h3>{{ ach.name }}</h3>
+          <p>{{ ach.description }}</p>
+          <span class="badge unlocked">✔ Desbloqueado</span>
+        </div>
+      {% endif %}
+    {% endfor %}
+    
+    {% if not has_unlocked %}
+      <p class="empty-message">Aún no has desbloqueado ningún logro. ¡Sigue participando!</p>
+    {% endif %}
+  </div>
+
+  <h2>Todos los logros</h2>
+  <div class="grid-cards">
+    {% for ach in achievements %}
+      <div class="card {% if ach.achievement_id in unlocked_achievements %}unlocked-card{% else %}locked-card{% endif %}">
+        <img src="{{ url_for('static', filename='badges/' ~ ach.badge_icon) }}"
+             alt="{{ ach.name }} badge"
+             class="icons">
+        <h3>{{ ach.name }}</h3>
+        <p>{{ ach.description }}</p>
+        <p class="achievement-points">Puntos requeridos: {{ ach.points_required }}</p>
+        {% if ach.achievement_id in unlocked_achievements %}
+          <span class="badge unlocked">✔ Desbloqueado</span>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+{% endblock %}

@@ -22,8 +22,10 @@
           <img src="{{ url_for('static', filename='profile-photos-mvp/default-photo.svg') }}" alt="{{ u.name }}" class="default-photo" />
         {% endif %}
       </div>
-      <div class="user-info">
-        <h2>{{ u.name }}</h2>
+      <div class="user-name">
+        {{ u.name }}
+      </div>
+      <div class="card-body">
         <p><strong>Código:</strong> {{ u.student_code }}</p>
         <p><strong>Carrera:</strong> {{ u.career or '—' }}</p>
         <p><strong>Intereses:</strong> {{ u.interests or '—' }}</p>
@@ -107,10 +109,10 @@
 }
 
 .user-photo {
-  background: var(--green-light);
   display: flex;
   align-items: center;
   justify-content: center;
+  background: var(--green-medium);
   height: 180px;
   overflow: hidden;
 }
@@ -127,24 +129,30 @@
   object-fit: contain;
 }
 
-.user-info {
+/* Name bar below photo */
+.user-name {
+  background: var(--green-light);
+  width: 100%;
+  text-align: center;
+  font-weight: 600;
+  color: var(--green-dark);
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--green-medium);
+}
+
+/* Cuerpo */
+.card-body {
   padding: 1rem;
   text-align: center;
 }
-
-.user-info h2 {
-  margin: 0 0 0.5rem;
-  color: var(--green-dark);
-  font-size: 1.4rem;
-}
-
-.user-info p {
-  margin: 0.3rem 0;
+.card-body p {
+  margin: 0.5rem 0;
+  color: var(--text-dark);
 }
 
 .btn-secondary {
-  background: var(--green-medium);
-  color: #fff;
+  background: var(--green-light);
+  color: var(--text-dark);
   padding: 0.5rem 1rem;
   border-radius: var(--radius);
   text-decoration: none;
@@ -153,7 +161,7 @@
 }
 
 .no-results {
-  background: #fff;
+  background: var(--bg-light);
   padding: 1.5rem;
   border-radius: var(--radius);
   text-align: center;

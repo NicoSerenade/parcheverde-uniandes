@@ -1,27 +1,33 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="container items-page">
-  <div class="top-strip card">
-    <h1>Ítems disponibles</h1>
-    <p class="motivational-phrase">💡 Comparte lo que no usas y encuentra lo que necesitas.</p>
+  <div class="page-header">
+    <h1>Ítems Disponibles</h1>
+    <p class="subtitle">💡 Comparte lo que no usas y encuentra lo que necesitas.</p>
   </div>
 
   {% if items %}
   <div class="items-grid">
     {% for item in items %}
-    <div class="card item-card">
-      <h3 class="item-title">{{ item.name }}</h3>
-      <p class="item-desc"><strong>Descripción:</strong> {{ item.description }}</p>
-      <p class="item-type"><strong>Tipo:</strong> {{ item.item_type }}</p>
-      <p class="item-terms"><strong>Términos:</strong> {{ item.item_terms }}</p>
-      <form method="POST" action="{{ url_for('request_item', item_id=item.item_id) }}" class="request-form">
-        <button type="submit" class="btn btn-primary">Solicitar Ítem</button>
-      </form>
+    <div class="item-card">
+      <div class="card-header">
+        <h3>{{ item.name }}</h3>
+      </div>
+      <div class="card-body">
+        <p><strong>Descripción:</strong> {{ item.description }}</p>
+        <p><strong>Tipo:</strong> {{ item.item_type }}</p>
+        <p><strong>Términos:</strong> {{ item.item_terms }}</p>
+      </div>
+      <div class="card-footer">
+        <form method="POST" action="{{ url_for('request_item', item_id=item.item_id) }}">
+          <button type="submit" class="btn btn-primary">Solicitar</button>
+        </form>
+      </div>
     </div>
     {% endfor %}
   </div>
   {% else %}
-  <div class="card no-items-message">
+  <div class="no-items-message">
     <p>No hay ítems disponibles.</p>
   </div>
   {% endif %}
@@ -40,78 +46,90 @@
   --shadow-light: rgba(0,0,0,0.05);
 }
 
-.container.items-page {
-  max-width: 900px;
-  margin: 2rem auto;
-  padding: 0 1rem;
-  font-family: 'Montserrat', sans-serif;
-  background: var(--bg-light);
-  color: var(--text-dark);
+/* Layout de página */
+.items-page {
+  padding: 3rem 1rem;
 }
-
-.top-strip {
-  background: var(--green-light);
-  padding: 1.5rem;
-  border-radius: var(--radius);
-  box-shadow: 0 4px 12px var(--shadow-light);
-  margin-bottom: 2rem;
+.page-header {
   text-align: center;
+  margin-bottom: 2rem;
 }
-.top-strip h1 {
-  margin: 0 0 0.5rem;
+.page-header h1 {
+  font-size: 2.5rem;
   color: var(--green-dark);
-  font-size: 2rem;
-}
-.top-strip .motivational-phrase {
   margin: 0;
-  font-style: italic;
+  text-transform: titlecase;
+}
+.subtitle {
+  font-size: 1.1rem;
+  color: var(--text-dark);
+  opacity: 0.8;
+  margin-top: 0.5rem;
 }
 
+/* Grid: 3 columnas fijas */
 .items-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
 }
 
+/* Card de ítem */
 .item-card {
   background: #fff;
   border-radius: var(--radius);
-  box-shadow: 0 2px 8px var(--shadow-light);
-  padding: 1.5rem;
+  box-shadow: 0 4px 12px var(--shadow-light);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  transition: transform 0.3s ease;
+}
+.item-card:hover {
+  transform: translateY(-5px);
 }
 
-.item-title {
-  margin: 0 0 0.75rem;
-  color: var(--green-dark);
+/* Encabezado de card */
+.card-header {
+  background: var(--green-medium);
+  padding: 1rem;
+}
+.card-header h3 {
+  margin: 0;
   font-size: 1.4rem;
-}
-
-.item-type,
-.item-terms,
-.item-desc {
-  margin: 0.5rem 0;
-}
-
-.request-form {
-  margin-top: auto;
+  color: #fff;
   text-align: center;
 }
-.request-form .btn-primary {
-  background: var(--green-medium);
-  padding: 0.6rem 1.2rem;
+
+/* Cuerpo de card */
+.card-body {
+  padding: 1rem;
+  flex-grow: 1;
 }
-.request-form .btn-primary:hover {
-  background: var(--green-dark);
+.card-body p {
+  margin: 0.5rem 0;
+  color: var(--text-dark);
 }
 
+/* Pie de card */
+.card-footer {
+  padding: 1rem;
+  background: var(--bg-light);
+  text-align: center;
+}
+.card-footer .btn {
+  width: 100%;
+}
+
+/* Mensaje “sin ítems” */
 .no-items-message {
   background: #fff;
+  max-width: 400px;
+  margin: 2rem auto;
   padding: 2rem;
   border-radius: var(--radius);
   box-shadow: 0 2px 8px var(--shadow-light);
   text-align: center;
+  color: var(--text-dark);
 }
 </style>
 {% endblock %}

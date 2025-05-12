@@ -14,23 +14,37 @@ def check_user_exists(email, student_code):
             cursor = conn.cursor()
             cursor.execute("SELECT user_id FROM users WHERE email = ? OR student_code = ?", (email, student_code))
             existing_user = cursor.fetchone()
+<<<<<<< HEAD
             conn.close()
             return existing_user is not None #not None is used for clarity
+=======
+            return existing_user is not None #If is something
+>>>>>>> 58fd8235a9c681de0dcc366cec350b10f43e75ee
         except sqlite3.Error as e:
             print(f"Error checking user existence: {e}")
             conn.close()
             return False
     return False
 
+<<<<<<< HEAD
 def register_user(user_type, student_code, password, name, email, career=None, interests=None, photo=None, verification_token=None, verification_token_expires=None):
+=======
+def register_user(user_type, student_code, password, name, nickname, email, career=None, interests=None, photo=None):
+>>>>>>> 58fd8235a9c681de0dcc366cec350b10f43e75ee
     user_id = None
     try:
         conn = db_conn.create_connection()
         cursor = conn.cursor()
         cursor.execute('''
+<<<<<<< HEAD
         INSERT INTO users (user_type, student_code, password, name, email, career, interests, photo, verification_token, verification_token_expires)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (user_type, student_code, password, name, email, career, interests, photo, verification_token, verification_token_expires)) 
+=======
+        INSERT INTO users (user_type, student_code, password, name, nickname, email, career, interests, photo)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (user_type, student_code, password, name, nickname, email, career, interests, photo))
+>>>>>>> 58fd8235a9c681de0dcc366cec350b10f43e75ee
         conn.commit()
         user_id = cursor.lastrowid #returns the id of the last manipulated row 
     except sqlite3.Error as e:
@@ -39,7 +53,7 @@ def register_user(user_type, student_code, password, name, email, career=None, i
         conn.close() 
     return user_id
 
-def update_user_profile(user_id, student_code=None, password=None, name=None, email=None, career=None, interests=None):
+def update_user_profile(user_id, student_code=None, password=None, name=None, nickname=None, email=None, career=None, interests=None):
     success = False
     conn = db_conn.create_connection()
     if conn is not None:
@@ -59,6 +73,10 @@ def update_user_profile(user_id, student_code=None, password=None, name=None, em
             if name:
                 updates.append("name = ?")
                 params.append(name)
+                
+            if nickname:
+                updates.append("nickname = ?")
+                params.append(nickname)
                 
             if email:
                 updates.append("email = ?")
@@ -101,7 +119,7 @@ def delete_my_user(student_code):
     return success
 
 #ORG REGISTRATION
-def register_org(user_type, creator_student_code, password, name, email, description=None, interests=None, photo=None):
+def register_org(user_type, creator_student_code, password, name, email, description=None, interests=None, photo="photo-org.png"):
     org_id = None
     conn = db_conn.create_connection()
     if conn is not None:
@@ -374,7 +392,7 @@ def get_user_by_id(user_id):
         try:
             cursor = conn.cursor()
             cursor.execute('''
-            SELECT user_id, user_type, student_code, name, email, password, career, photo, interests, points, creation_date
+            SELECT user_id, user_type, student_code, name, nickname, email, password, career, photo, interests, points, creation_date
             FROM users
             WHERE user_id = ?
             ''', (user_id,))
@@ -385,13 +403,14 @@ def get_user_by_id(user_id):
                     'user_type': user[1],
                     'student_code': user[2],
                     'name': user[3],
-                    'email': user[4],
-                    "password": user[5],
-                    'career': user[6],
-                    'photo': user[7],
-                    'interests': user[8],
-                    'points': user[9],
-                    'creation_date': user[10]
+                    'nickname': user[4],
+                    'email': user[5],
+                    "password": user[6],
+                    'career': user[7],
+                    'photo': user[8],
+                    'interests': user[9],
+                    'points': user[10],
+                    'creation_date': user[11]
                 }
         except sqlite3.Error as e:
             print(f"Error retrieving user: {e}")
@@ -426,7 +445,7 @@ def get_org_by_id(org_id):
         try:
             cursor = conn.cursor()
             cursor.execute('''
-            SELECT org_id, user_type, creator_student_code, name, email, description, interests, points, creation_date
+            SELECT org_id, user_type, creator_student_code, name, email, password, description, interests, photo, points, creation_date
             FROM organizations
             WHERE org_id = ?
             ''', (org_id,))
@@ -439,10 +458,12 @@ def get_org_by_id(org_id):
                     'creator_student_code': org[2],
                     'name': org[3],
                     'email': org[4],
-                    'description': org[5],
-                    'interests': org[6],
-                    'points': org[7],
-                    'creation_date': org[8]
+                    'password': org[5],
+                    'description': org[6],
+                    'interests': org[7],
+                    'photo': org[8],
+                    'points': org[9],
+                    'creation_date': org[10]
                 }
         except sqlite3.Error as e:
             print(f"Error retrieving organization: {e}")
@@ -481,7 +502,7 @@ def get_user_by_student_code(student_code):
         try:
             cursor = conn.cursor()
             cursor.execute('''
-            SELECT user_id, user_type, student_code, name, email, password, career, interests, photo, points, creation_date, is_verified, verification_token, verification_token_expires
+            SELECT user_id, user_type, student_code, name, nickname, email, password, career, interests, photo, points, creation_date, is_verified
             FROM users
             WHERE student_code = ?
             ''', (student_code,))
@@ -492,16 +513,15 @@ def get_user_by_student_code(student_code):
                     'user_type': user[1],
                     'student_code': user[2],
                     'name': user[3],
-                    'email': user[4],
-                    'password': user[5],
-                    'career': user[6],
-                    'interests': user[7],
-                    'photo': user[8],
-                    'points': user[9],
-                    'creation_date': user[10],
-                    'is_verified': user[11],
-                    'verification_token': user[11],
-                    'verification_token_expires': user[12]
+                    'nickname': user[4],
+                    'email': user[5],
+                    'password': user[6],
+                    'career': user[7],
+                    'interests': user[8],
+                    'photo': user[9],
+                    'points': user[10],
+                    'creation_date': user[11],
+                    'is_verified': user[12]
                 }
         except sqlite3.Error as e:
             print(f"Error retrieving user by student code: {e}")
@@ -606,7 +626,7 @@ def search_orgs(query=None, interests=None, sort_by=None, user_id=None):
                 # Query to get organizations where the user is a member
                 sql_query = '''
                 SELECT o.org_id, o.user_type, o.creator_student_code, o.name, o.email, 
-                       o.description, o.interests, o.points, o.creation_date
+                       o.description, o.interests, o.points, o.photo, o.creation_date
                 FROM organizations o
                 JOIN organization_members m ON o.org_id = m.org_id
                 WHERE m.user_id = ?
@@ -634,7 +654,7 @@ def search_orgs(query=None, interests=None, sort_by=None, user_id=None):
             else:
                 # Original query without user filter
                 sql_query = '''
-                SELECT org_id, user_type, creator_student_code, name, email, description, interests, points, creation_date
+                SELECT org_id, user_type, creator_student_code, name, email, description, interests, points, photo, creation_date
                 FROM organizations
                 WHERE 1=1
                 '''
@@ -671,10 +691,11 @@ def search_orgs(query=None, interests=None, sort_by=None, user_id=None):
                     'description': row[5],
                     'interests': row[6],
                     'points': row[7],
-                    'creation_date': row[8]
+                    'photo': row[8],
+                    'creation_date': row[9]
                 }
                 orgs.append(org)
-                
+
         except sqlite3.Error as e:
             print(f"Error searching organizations: {e}")
         finally:
@@ -695,7 +716,7 @@ def get_org_members(org_id):
         try:
             cursor = conn.cursor()
             cursor.execute('''
-            SELECT u.user_id, u.name, u.email, u.career, u.interests, m.registered_date
+            SELECT u.user_id, u.name, u.email, u.career, u.interests, u.photo, m.registered_date
             FROM organization_members m
             JOIN users u ON m.user_id = u.user_id
             WHERE m.org_id = ?
@@ -709,10 +730,11 @@ def get_org_members(org_id):
                     'email': row[2],
                     'career': row[3],
                     'interests': row[4],
-                    'registered_date': row[5]
+                    'photo': row[5],
+                    'registered_date': row[6]
                 }
                 members.append(member)
-                
+
         except sqlite3.Error as e:
             print(f"Error retrieving organization members: {e}")
         finally:
@@ -776,7 +798,7 @@ def leave_org(org_id, user_id):
     return success
 
 #EVENTS
-def search_events(event_id=None, query=None, event_type=None, status=None, organizer_type=None, organizer_id=None, start_date=None, end_date=None):
+def search_events(event_id=None, query=None, event_type=None, event_status=None, organizer_type=None, organizer_id=None, start_date=None, end_date=None):
     """
     Searches for events based on various criteria.
     
@@ -784,7 +806,7 @@ def search_events(event_id=None, query=None, event_type=None, status=None, organ
         event_id (int, optional): ID of the event
         query (str, optional): Search in name or description fields
         event_type (str, optional): Filter by event type
-        status (str, optional): Filter by event status ('active', 'completed', etc.)
+        event_status (str, optional): Filter by event status ('active', 'completed', etc.)
         organizer_type (str, optional): Filter by organizer type ('user' or 'org')
         organizer_id (int, optional): Filter by organizer ID
         start_date (str, optional): Filter events on or after this date (ISO format)
@@ -802,7 +824,7 @@ def search_events(event_id=None, query=None, event_type=None, status=None, organ
             
             sql_query = '''
             SELECT event_id, organizer_id, organizer_type, name, description, 
-                   event_type, location, event_datetime, status, points_value, creation_date
+                   event_type, location, event_datetime, event_status, points_value, creation_date
             FROM events
             WHERE 1=1
             '''
@@ -820,11 +842,11 @@ def search_events(event_id=None, query=None, event_type=None, status=None, organ
             if event_type:
                 sql_query += " AND event_type = ?"
                 params.append(event_type)
-                
-            if status:
-                sql_query += " AND status = ?"
-                params.append(status)
-                
+
+            if event_status:
+                sql_query += " AND event_status = ?"
+                params.append(event_status)
+
             if organizer_type:
                 sql_query += " AND organizer_type = ?"
                 params.append(organizer_type)
@@ -852,7 +874,7 @@ def search_events(event_id=None, query=None, event_type=None, status=None, organ
                     'event_type': row[5],
                     'location': row[6],
                     'event_datetime': row[7],
-                    'status': row[8],
+                    'event_status': row[8],
                     'points_value': row[9],
                     'creation_date': row[10]
                 }
@@ -2773,6 +2795,44 @@ def get_user_by_email(email):
                 }
         except sqlite3.Error as e:
             print(f"Error retrieving user by email: {e}")
+        finally:
+            conn.close()
+    return user_data
+def get_user_by_student_code_verification(student_code):
+    """
+    Retrieves user information by student code.
+    Returns user data if found, None otherwise.
+    """
+    user_data = None
+    conn = db_conn.create_connection()
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            cursor.execute('''
+            SELECT user_id, user_type, student_code, name, email, password, career, interests, photo, points, creation_date, is_verified, verification_token, verification_token_expires
+            FROM users
+            WHERE student_code = ?
+            ''', (student_code,))
+            user = cursor.fetchone()
+            if user:
+                user_data = {
+                    'user_id': user[0],
+                    'user_type': user[1],
+                    'student_code': user[2],
+                    'name': user[3],
+                    'email': user[4],
+                    'password': user[5],
+                    'career': user[6],
+                    'interests': user[7],
+                    'photo': user[8],
+                    'points': user[9],
+                    'creation_date': user[10],
+                    'is_verified': user[11],
+                    'verification_token': user[11],
+                    'verification_token_expires': user[12]
+                }
+        except sqlite3.Error as e:
+            print(f"Error retrieving user by student code: {e}")
         finally:
             conn.close()
     return user_data

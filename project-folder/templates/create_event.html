@@ -1,117 +1,125 @@
 {% extends "index.html" %}
 
 {% block content %}
-<div class="create-event-container">
-    <h2 class="form-title">🎉 Crear Nuevo Evento</h2>
-    <p class="form-description">Organiza un evento para colaborar con la comunidad y sumar puntos verdes 🌱.</p>
-    
-    <form action="{{ url_for('create_event') }}" method="post" class="create-event-form">
-        <div class="form-group">
-            <label for="title">📝 Título del Evento:</label>
-            <input type="text" id="title" name="title" placeholder="Ejemplo: Jornada de Reciclaje" required>
+<div class="container">
+  <div class="top-strip mb-4">
+    <h2 class="mb-1">🎉 Crear Nuevo Evento</h2>
+    <p class="subtitle">Organiza un evento para colaborar con la comunidad y sumar puntos verdes 🌱</p>
+  </div>
+
+  <form action="{{ url_for('create_event') }}" method="post" class="card create-event-form">
+    <div class="card-body">
+      <div class="form-group">
+        <label for="title">📝 Título del Evento</label>
+        <input type="text" id="title" name="title" placeholder="Jornada de Reciclaje" required>
+      </div>
+      <div class="form-group">
+        <label for="description">📝 Descripción</label>
+        <textarea id="description" name="description" rows="4" placeholder="Describe el evento..." required></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group half">
+          <label for="event_datetime">📅 Fecha y Hora</label>
+          <input type="datetime-local" id="event_datetime" name="event_datetime" required>
         </div>
-        <div class="form-group">
-            <label for="description">📝 Descripción:</label>
-            <textarea id="description" name="description" rows="4" placeholder="Describe el evento..." required></textarea>
+        <div class="form-group half">
+          <label for="location">📍 Ubicación</label>
+          <input type="text" id="location" name="location" placeholder="Parque Central" required>
         </div>
-        <div class="form-group">
-            <label for="event_datetime">📅 Fecha y Hora:</label>
-            <input type="datetime-local" id="event_datetime" name="event_datetime" required>
-        </div>
-        <div class="form-group">
-            <label for="location">📍 Ubicación:</label>
-            <input type="text" id="location" name="location" placeholder="Ejemplo: Parque Central" required>
-        </div>
-        <div class="form-group">
-            <label for="event_type">🧩 Tipo de Evento:</label>
-            <input type="text" id="event_type" name="event_type" placeholder="Ejemplo: Charla, Voluntariado, Taller" required>
-        </div>
-        <button type="submit" class="btn-submit">🎉 Crear Evento Verde</button>
-    </form>
+      </div>
+      <div class="form-group">
+        <label for="event_type">🧩 Tipo de Evento</label>
+        <input type="text" id="event_type" name="event_type" placeholder="Charla, Voluntariado, Taller" required>
+      </div>
+    </div>
+
+    <div class="card-footer text-center">
+      <button type="submit" class="btn btn-primary">🎉 Crear Evento Verde</button>
+    </div>
+  </form>
 </div>
 {% endblock %}
 
 {% block styles %}
 <style>
-    .create-event-container {
-        max-width: 600px;
-        margin: 50px auto;
-        padding: 20px;
-        background: #f9f9f9;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        text-align: center;
-        overflow: hidden; /* Evita que los elementos se salgan del contenedor */
-    }
+:root {
+  --green-dark:   #2C5F2D;
+  --green-medium: #97BC62;
+  --green-light:  #D9E5D9;
+  --bg-light:     #F7F9F7;
+  --text-dark:    #333333;
+  --radius:       12px;
+  --shadow-light: rgba(0,0,0,0.05);
+}
 
-    .form-title {
-        font-size: 2.5em;
-        color: #4CAF50;
-        margin-bottom: 10px;
-    }
+/* Subtítulo bajo el top-strip */
+.subtitle {
+  font-size: 1rem;
+  color: var(--text-dark);
+  opacity: 0.85;
+  margin: 0;
+}
 
-    .form-description {
-        font-size: 1.1em;
-        color: #555;
-        margin-bottom: 20px;
-    }
+/* Formulario en card */
+.create-event-form {
+  max-width: 600px;
+  margin: 0 auto 4rem auto;
+  box-shadow: 0 2px 8px var(--shadow-light);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
 
-    .create-event-form {
-        display: flex;
-        flex-direction: column;
-        gap: 15px;
-    }
+/* Cuerpo de la card */
+.create-event-form .card-body {
+  background: #fff;
+  padding: 1.5rem;
+}
 
-    .form-group {
-        text-align: left;
-    }
+/* Grupos de campo */
+.form-group {
+  margin-bottom: 1.25rem;
+}
+.form-group label {
+  display: block;
+  font-weight: 600;
+  color: var(--green-dark);
+  margin-bottom: 0.5rem;
+}
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: var(--radius);
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+.form-group textarea {
+  resize: vertical;
+}
 
-    .form-group label {
-        display: block;
-        font-size: 1em;
-        color: #333;
-        margin-bottom: 5px;
-    }
+/* Dos columnas para fecha y ubicación */
+.form-row {
+  display: flex;
+  gap: 1rem;
+}
+.form-row .half {
+  flex: 1;
+}
 
-    .form-group input,
-    .form-group textarea,
-    .form-group select {
-        width: 100%; /* Asegura que los campos no excedan el ancho del contenedor */
-        max-width: 100%; /* Limita el ancho máximo */
-        padding: 10px;
-        border: 1px solid #ddd;
-        border-radius: 5px;
-        font-size: 1em;
-        box-sizing: border-box; /* Incluye padding y borde en el ancho total */
-    }
+/* Pie de la card */
+.create-event-form .card-footer {
+  background: var(--bg-light);
+  padding: 1rem;
+}
+.create-event-form .btn-primary {
+  width: 100%;
+}
 
-    .form-group textarea {
-        resize: none;
-    }
-
-    .form-group input:focus,
-    .form-group textarea:focus,
-    .form-group select:focus {
-        border-color: #4CAF50;
-        box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
-        outline: none;
-    }
-
-    .btn-submit {
-        background-color: #4CAF50;
-        color: white;
-        padding: 15px 25px;
-        border: none;
-        border-radius: 5px;
-        font-size: 1.2em;
-        cursor: pointer;
-        transition: background-color 0.3s ease, transform 0.2s ease;
-    }
-
-    .btn-submit:hover {
-        background-color: #45a049;
-        transform: scale(1.05); /* Efecto de escala */
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Sombra al hover */
-    }
+/* Márgenes utilitarios */
+.mb-1 { margin-bottom: 0.5rem; }
+.mb-4 { margin-bottom: 2rem; }
+.text-center { text-align: center; }
 </style>
 {% endblock %}
