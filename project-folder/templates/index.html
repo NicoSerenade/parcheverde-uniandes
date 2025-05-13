@@ -205,51 +205,51 @@ body {
           <div class="benefit-card">
             <div class="icon">🧘🏽</div>
             <h4>Personas</h4>
-            <p>Explora perfiles y conecta con otros miembros.</p>
+            <p>Conecta con personas que comparten tus intereses.</p>
             <a href="{{ url_for('search_users') }}" class="btn">Ver Personas</a>
           </div>
           <div class="benefit-card">
             <div class="icon">🛖</div>
             <h4>Organizaciones</h4>
-            <p>Descubre y únete a grupos ambientales.</p>
+            <p>Descubre y únete a comunidades sostenibles.</p>
             <a href="{{ url_for('search_orgs') }}" class="btn">Organizaciones</a>
           </div>
           <div class="benefit-card">
             <div class="icon">🌱</div>
             <h4>Eventos</h4>
             <p>Participa en actividades y suma puntos.</p>
-            <a href="{{ url_for('view_events') }}" class="btn">Ver Eventos</a>
+            <a href="{{ url_for('search_events') }}" class="btn">Ver Eventos</a>
           </div>
           <div class="benefit-card">
             <div class="icon">♻️</div>
             <h4>Objetos</h4>
-            <p>Intercambia o encuentra objetos sostenibles.</p>
-            <a href="{{ url_for('view_items') }}" class="btn">Ver Objetos</a>
+            <p>Regala o intercambia objetos.</p>
+            <a href="{{ url_for('search_items') }}" class="btn">Ver Objetos</a>
           </div>
           <div class="benefit-card">
             <div class="icon">🗺️</div>
             <h4>Mapa Interactivo</h4>
-            <p>Descubre puntos de interés ecológico en el campus.</p>
+            <p>Descubre puntos de interés ecológico dentro y fuera del campus.</p>
             <a href="{{ url_for('view_map') }}" class="btn">Ver Mapa</a>
           </div>
           {% if session.entity_type == 'user' %}
           <div class="benefit-card">
             <div class="icon">🪶🛖</div>
             <h4>Registrar Organización</h4>
-            <p>Crea y administra tu propia organización ambiental.</p>
-            <a href="{{ url_for('register_org') }}" class="btn">Registrar Org</a>
+            <p>Crea y administra tu propia organización.</p>
+            <a href="{{ url_for('register_org') }}" class="btn">Registrar organización</a>
           </div>
           <div class="benefit-card">
             <div class="icon">🪶🌱</div>
             <h4>Crear Evento</h4>
             <p>Organiza una nueva actividad para la comunidad.</p>
-            <a href="{{ url_for('create_event') }}" class="btn">Crear Evento</a>
+            <a href="{{ url_for('create_event') }}" class="btn">Crear evento</a>
           </div>
           <div class="benefit-card">
             <div class="icon">🪶♻️</div>
             <h4>Añadir Objeto</h4>
             <p>Publica un objeto para intercambio o donación.</p>
-            <a href="{{ url_for('add_item') }}" class="btn">Añadir Objeto</a>
+            <a href="{{ url_for('add_item') }}" class="btn">Añadir objeto</a>
           </div>
           {% endif %}
 

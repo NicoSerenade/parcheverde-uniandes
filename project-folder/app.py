@@ -2,27 +2,11 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 import logic
 import os
 from logic import socketio
-from flask_mail import Mail, Message
 from functools import wraps # Import wraps for decorators
 
 # --- Flask App Setup ---
 app = Flask(__name__)
 app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24)) 
-
-# Mail configuration - Update with proper credentials
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USE_SSL'] = False
-app.config['MAIL_USERNAME'] = 'parcheconsciencia.contacto@gmail.com'
-app.config['MAIL_PASSWORD'] = 'uzqb ilsf dwrk gfdc'
-app.config['MAIL_DEFAULT_SENDER'] = ('Comunidad Verde Uniandes', 'parcheconsciencia.contacto@gmail.com')
-
-# Remove the SERVER_NAME configuration - it's causing issues with url_for
-# app.config['SERVER_NAME'] = 'localhost:5000'
-
-mail = Mail(app)
-logic.mail = mail  # Pass the mail object to the logic module
 
 socketio.init_app(app)
 
@@ -93,19 +77,13 @@ def register_user():
         career = request.form.get('career')
         photo = request.form.get('photo')
 
-<<<<<<< HEAD
-        # Call logic function with verification
-        result = logic.register_user(name, email, student_code, password, interests, career, photo)
-=======
         # Call logic function (unchanged)
         result = logic.register_user(name, nickname, email, student_code, password, interests, career, photo)
->>>>>>> 58fd8235a9c681de0dcc366cec350b10f43e75ee
 
+        flash(result['message'], result['status'])
         if result['status'] == 'success':
-            flash("Registration successful! Please check your email to verify your account.", "success")
             return redirect(url_for('login'))
         else:
-            flash(result['message'], result['status'])
             return redirect(url_for('register_user'))
 
     # For GET request, just show the registration form
@@ -215,42 +193,6 @@ def logout():
     session.clear()
     flash("Has cerrado sesión exitosamente.", 'success')
     return redirect(url_for('index'))
-
-
-# --- Email Verification Routes ---
-# IMPORTANT: These routes must be defined BEFORE the if __name__ == '__main__': block
-
-@app.route('/verify/<token>')
-def verify_email(token):
-    """
-    Route to verify a user's email address with the given token.
-    """
-    result = logic.verify_email_token(token)
-    
-    if result['status'] == 'success':
-        flash("Your email has been successfully verified! You can now log in.", "success")
-    else:
-        flash(result['message'], result['status'])
-    
-    return redirect(url_for('login'))
-
-@app.route('/resend-verification', methods=['GET', 'POST'])
-def resend_verification():
-    """
-    Route to resend a verification email to the user.
-    """
-    if request.method == 'POST':
-        email = request.form.get('email')
-        result = logic.resend_verification_email(email)
-        
-        if result['status'] == 'success':
-            flash("Verification email has been resent. Please check your inbox.", "success")
-            return redirect(url_for('login'))
-        else:
-            flash(result['message'], result['status'])
-    
-    return render_template('resend_verification.html')
-
 
 # --- Profile Routes ---
 @app.route('/profile')
@@ -637,24 +579,51 @@ def delete_event(event_id):
     
     if not entity_id or not entity_type:
         flash("No se pudo identificar tu sesión.", "error")
-        return redirect(url_for('view_events'))
+        return redirect(url_for('search_events'))
     
     result = logic.delete_event_logic(entity_id, entity_type, event_id)
     flash(result['message'], result['status'])
 
-    return redirect(url_for('view_events'))
+    return redirect(url_for('search_events'))
 
-@app.route('/events')
-def view_events():
+@app.route('/events/search')
+def search_events():
     query = request.args.get('q', '')
-    result = logic.search_events_logic(query)
+    location = request.args.get('location', '')
+    event_type = request.args.get('event_type', '')
+    start_date = request.args.get('start_date', '')
+    end_date = request.args.get('end_date', '')
+    
+    result = logic.search_events_logic(
+        query=query,
+        location=location,
+        event_type=event_type,
+        start_date=start_date,
+        end_date=end_date
+    )
     
     if result['status'] == 'success':
         events = result.get('data', [])
-        return render_template('view_events.html', events=events)
+        return render_template(
+            'search_events.html',
+            events=events,
+            query=query,
+            location=location,
+            event_type=event_type,
+            start_date=start_date,
+            end_date=end_date
+        )
     else:
         flash(result['message'], result['status'])
-        return render_template('view_events.html', events=[])
+        return render_template(
+            'search_events.html',
+            events=[],
+            query=query,
+            location=location,
+            event_type=event_type,
+            start_date=start_date,
+            end_date=end_date
+        )
 
 @app.route('/event/participants/<int:event_id>')
 @login_required
@@ -664,13 +633,13 @@ def view_event_participants(event_id):
     
     if not entity_id or not entity_type:
         flash("No se pudo identificar tu sesión.", "error")
-        return redirect(url_for('view_events'))
+        return redirect(url_for('search_events'))
     
     result = logic.get_event_participants_logic(event_id)
     
     if result['status'] != 'success':
         flash(result['message'], result['status'])
-        return redirect(url_for('view_events'))
+        return redirect(url_for('search_events'))
     
     participants = result['data']
     
@@ -691,7 +660,7 @@ def view_event_participants(event_id):
     
     if not event_details:
         flash("Evento no encontrado.", "error")
-        return redirect(url_for('view_events'))
+        return redirect(url_for('search_events'))
     
     return render_template('event_participants.html', 
                            event_id=event_id,
@@ -717,7 +686,7 @@ def register_for_event(event_id):
              session['points'] = user_data['data'].get('points', session.get('points'))
              session.modified = True
 
-    return redirect(url_for('view_events'))
+    return redirect(url_for('search_events'))
 
 @app.route('/event/leave/<int:event_id>', methods=['POST'])
 @user_login_required
@@ -725,12 +694,12 @@ def leave_event(event_id):
     user_id = session.get('entity_id')
     if not user_id:
         flash("No se pudo identificar la sesión de usuario.", "error")
-        return redirect(url_for('view_events'))
+        return redirect(url_for('search_events'))
     
     result = logic.leave_event_logic(user_id, event_id)
     flash(result['message'], result['status'])
     
-    return redirect(url_for('view_events'))
+    return redirect(url_for('search_events'))
 
 @app.route('/event/mark_attendance', methods=['POST'])
 @login_required
@@ -740,7 +709,7 @@ def mark_attendance():
     
     if not marker_id or not marker_type:
         flash("No se pudo identificar tu sesión.", "error")
-        return redirect(url_for('view_events'))
+        return redirect(url_for('search_events'))
     
     event_id = request.form.get('event_id')
     participant_id = request.form.get('participant_id')
@@ -755,7 +724,7 @@ def mark_attendance():
         participant_id = int(participant_id)
     except ValueError:
         flash("ID de evento o participante inválido.", "error")
-        return redirect(url_for('view_events'))
+        return redirect(url_for('search_events'))
     
     result = logic.mark_event_attendance_logic(
         event_id, marker_id, participant_id, participant_type
@@ -764,8 +733,86 @@ def mark_attendance():
     flash(result['message'], result['status'])
     return redirect(url_for('view_event_participants', event_id=event_id))
 
+@app.route('/event/<int:event_id>')
+def view_event_detail(event_id):
+    result = logic.search_events_logic(event_id=event_id)
+    
+    if result['status'] != 'success' or not result.get('data'):
+        flash("Evento no encontrado.", "error")
+        return redirect(url_for('search_events'))
+    
+    event = result['data'][0]  # Get the first (and only) event
+    
+    # Get participants data
+    participants_result = logic.get_event_participants_logic(event_id)
+    participants = participants_result.get('data', []) if participants_result['status'] == 'success' else []
+    
+    return render_template(
+        'event_detail.html',
+        event=event,
+        participants=participants
+    )
+
 
 # --- Item Routes ---
+@app.route('/search/items')
+def search_items():
+    search_term = request.args.get('q', '')
+    item_type = request.args.get('item_type', '')
+    item_terms = request.args.get('item_terms', '')
+    
+    result = logic.view_items_logic(search_term=search_term, item_type=item_type, item_terms=item_terms)
+    
+    if result['status'] == 'success':
+        items = result.get('data', [])
+        return render_template(
+            'search_items.html',
+            items=items,
+            search_term=search_term,
+            item_type=item_type,
+            item_terms=item_terms
+        )
+    else:
+        flash(result['message'], result['status'])
+        return render_template(
+            'search_items.html',
+            items=[],
+            search_term=search_term,
+            item_type=item_type,
+            item_terms=item_terms
+        )
+
+@app.route('/item/<int:item_id>')
+def view_item_detail(item_id):
+    result = logic.get_item_details_logic(item_id)
+    
+    if not result or 'status' not in result or result['status'] != 'success':
+        flash("Artículo no encontrado.", "error")
+        return redirect(url_for('search_items'))
+    
+    # Get the actual item data from the result
+    item = result.get('data', {})
+    
+    # Get owner information
+    owner_id = item.get('owner_id')
+    owner_type = 'user'
+
+    owner_result = logic.get_entity_by_id(owner_id, owner_type)
+    owner_data = owner_result.get('data', {}) if owner_result.get('status') == 'success' else {}
+
+    # Check if current user is the owner
+    is_owner = False
+    if session.get('entity_type') == 'user' and session.get('entity_id') == owner_id:
+        is_owner = True
+    
+    return render_template(
+        'item_detail.html',
+        item=item,  # Pass the item data, not the entire result object
+        item_id=item_id,
+        owner=owner_data,
+        is_owner=is_owner
+    )
+
 @user_login_required
 @app.route('/item/add', methods=['GET', 'POST'])
 def add_item():
@@ -775,15 +822,12 @@ def add_item():
     if request.method == 'POST':
         name = request.form.get('name')
         description = request.form.get('description')
+        item_photo = "default-item.png"  # Default photo
         item_type = request.form.get('item_type')
         item_terms = request.form.get('item_terms')
-
-        if not all([name, description, item_type, item_terms]):
-            flash("Todos los campos son obligatorios.", "error")
-            return redirect(url_for('add_item'))
             
         result = logic.add_item_logic(
-            owner_id, name, description, item_type, item_terms
+            owner_id, name, description, item_photo, item_type, item_terms
         )
 
         flash(result['message'], result['status'])
@@ -794,7 +838,7 @@ def add_item():
                  session['points'] = user_data['data'].get('points', session.get('points')) 
                  session.modified = True 
 
-        return redirect(url_for('view_items'))
+        return redirect(url_for('search_items'))
 
     return render_template('add_item.html')
 
@@ -809,20 +853,7 @@ def delete_my_item(item_id):
     result = logic.delete_my_item_logic(user_id, item_id)
     flash(result['message'], result['status'])
     
-    return redirect(url_for('view_items'))
-
-@app.route('/items')
-def view_items():
-    item_terms = request.args.get('terms')
-    
-    result = logic.view_items_logic(item_terms=item_terms)
-    
-    if result['status'] == 'success':
-        items = result.get('data', [])
-        return render_template('view_items.html', items=items, current_filter=item_terms)
-    else:
-        flash(result['message'], result['status'])
-        return render_template('view_items.html', items=[], current_filter=item_terms)
+    return redirect(url_for('search_items'))
 
 @app.route('/item/request/<int:item_id>', methods=['POST'])
 @user_login_required
@@ -840,7 +871,7 @@ def request_item(item_id):
         owner_id = item.get('owner_id')
         return redirect(url_for('private_chat', user_id=owner_id))
 
-    return redirect(url_for('view_items'))
+    return redirect(url_for('search_items'))
 
 @app.route('/exchange/accept/<int:exchange_id>', methods=['POST'])
 @user_login_required
@@ -1302,23 +1333,8 @@ def private_chat(user_id):
 
 if __name__ == '__main__':
     import db_conn
-<<<<<<< HEAD
-    import db_operator
-    db_conn.setup_database()
-    
-    #To test the database connection and operations, uncomment the following lines:
-    #db_operator.register_user('user', '202510939', '12345678', 'Edy', 'es.martinez@uniandes.edu.co', 'ISIS', 'Study')
-    #db_operator.register_org('org', '202510939', '12345678', 'Edy', 'es.martinez@uniandes.edu.co', 'Non', 'Non')
-    #db_operator.join_org(1, 1)
-    
-    socketio.run(app, host = '0.0.0.0', port = 5000)
-    
-    # Uncomment the following line to test the chat functionality
-    #chat_test()
-=======
     print("Setting up database...")
     db_conn.setup_database()
     print("Database setup complete")
 
     socketio.run(app, host = '0.0.0.0', port = 5000)
->>>>>>> 58fd8235a9c681de0dcc366cec350b10f43e75ee

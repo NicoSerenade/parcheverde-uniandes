@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container search-page">
+  <div class="top-strip card">
+    <h1>Buscar Artículos</h1>
+    <form method="get" action="{{ url_for('search_items') }}" class="search-form">
+      <input type="text" name="q" value="{{ query }}" placeholder="Buscar por nombre o descripción..." class="search-input" />
+      <select name="item_type" class="search-input">
+        <option value="" {% if not item_type %}selected{% endif %}>Todos los tipos</option>
+        <option value="ropa" {% if item_type == 'ropa' %}selected{% endif %}>Ropa</option>
+        <option value="libros" {% if item_type == 'libros' %}selected{% endif %}>Libros</option>
+        <option value="hogar" {% if item_type == 'hogar' %}selected{% endif %}>Hogar</option>
+        <option value="otros" {% if item_type == 'otros' %}selected{% endif %}>Otros</option>
+      </select>
+      <select name="item_terms" class="search-input">
+        <option value="" {% if not item_terms %}selected{% endif %}>Todos los términos</option>
+        <option value="regalo" {% if item_terms == 'regalo' %}selected{% endif %}>Regalo</option>
+        <option value="intercambio" {% if item_terms == 'intercambio' %}selected{% endif %}>Intercambio</option>
+        <option value="préstamo" {% if item_terms == 'préstamo' %}selected{% endif %}>Préstamo</option>
+      </select>
+      <button type="submit" class="btn btn-primary">Buscar</button>
+    </form>
+  </div>
+
+  {% if items %}
+  <div class="results-grid">
+    {% for item in items %}
+    <div class="card item-card">
+      <div class="item-photo">
+        {% if item.photo %}
+          <img src="{{ url_for('static', filename='item-photos/' ~ item.photo) }}" alt="{{ item.name }}" />
+        {% else %}
+          <img src="{{ url_for('static', filename='item-photos/default-item.png') }}" alt="{{ item.name }}" class="default-photo" />
+        {% endif %}
+      </div>
+      <div class="item-name">
+        {{ item.name }}
+      </div>
+      <div class="card-body">
+        <p><strong>Tipo:</strong> {{ item.item_type }}</p>
+        <p><strong>Términos:</strong> {{ item.item_terms }}</p>
+        <p><strong>Descripción:</strong> {{ (item.description|truncate(60)) or '—' }}</p>
+        <a href="{{ url_for('view_item_detail', item_id=item.item_id) }}" class="btn btn-secondary">Ver Detalles</a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card no-results">
+    <p>No se encontraron artículos.</p>
+  </div>
+  {% endif %}
+</div>
+
+<style>
+:root {
+  --green-dark:   #2C5F2D;
+  --green-medium: #97BC62;
+  --green-light:  #D9E5D9;
+  --bg-light:     #F7F9F7;
+  --text-dark:    #333333;
+  --danger:       #D64545;
+  --radius:       12px;
+  --shadow-light: rgba(0,0,0,0.05);
+}
+
+.container.search-page {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  font-family: 'Montserrat', sans-serif;
+  color: var(--text-dark);
+  background: var(--bg-light);
+}
+
+.top-strip {
+  background: var(--green-light);
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px var(--shadow-light);
+  margin-bottom: 2rem;
+}
+
+.top-strip h1 {
+  margin: 0 0 1rem;
+  color: var(--green-dark);
+  font-size: 2rem;
+}
+
+.search-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  align-items: center;
+}
+
+.search-input {
+  padding: 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: var(--radius);
+  font-family: 'Montserrat', sans-serif;
+}
+
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+  justify-items: center;
+}
+
+.item-card {
+  width: 100%;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: 0 2px 8px var(--shadow-light);
+  overflow: hidden;
+}
+
+.item-photo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--green-medium);
+  height: 180px;
+  overflow: hidden;
+}
+
+.item-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.item-photo img.default-photo {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+}
+
+/* Name bar below photo */
+.item-name {
+  background: var(--green-light);
+  width: 100%;
+  text-align: center;
+  font-weight: 600;
+  color: var(--green-dark);
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--green-medium);
+}
+
+/* Cuerpo */
+.card-body {
+  padding: 1rem;
+  text-align: center;
+}
+.card-body p {
+  margin: 0.5rem 0;
+  color: var(--text-dark);
+}
+
+.btn-secondary {
+  background: var(--green-light);
+  color: var(--text-dark);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius);
+  text-decoration: none;
+  display: inline-block;
+  margin-top: 0.75rem;
+}
+
+.no-results {
+  background: var(--bg-light);
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  text-align: center;
+  box-shadow: 0 2px 8px var(--shadow-light);
+}
+
+@media (max-width: 768px) {
+  .results-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .results-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+{% endblock %}

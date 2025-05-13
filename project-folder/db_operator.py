@@ -14,44 +14,27 @@ def check_user_exists(email, student_code):
             cursor = conn.cursor()
             cursor.execute("SELECT user_id FROM users WHERE email = ? OR student_code = ?", (email, student_code))
             existing_user = cursor.fetchone()
-<<<<<<< HEAD
-            conn.close()
-            return existing_user is not None #not None is used for clarity
-=======
             return existing_user is not None #If is something
->>>>>>> 58fd8235a9c681de0dcc366cec350b10f43e75ee
         except sqlite3.Error as e:
             print(f"Error checking user existence: {e}")
-            conn.close()
             return False
-    return False
 
-<<<<<<< HEAD
-def register_user(user_type, student_code, password, name, email, career=None, interests=None, photo=None, verification_token=None, verification_token_expires=None):
-=======
 def register_user(user_type, student_code, password, name, nickname, email, career=None, interests=None, photo=None):
->>>>>>> 58fd8235a9c681de0dcc366cec350b10f43e75ee
     user_id = None
     try:
         conn = db_conn.create_connection()
         cursor = conn.cursor()
         cursor.execute('''
-<<<<<<< HEAD
-        INSERT INTO users (user_type, student_code, password, name, email, career, interests, photo, verification_token, verification_token_expires)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (user_type, student_code, password, name, email, career, interests, photo, verification_token, verification_token_expires)) 
-=======
         INSERT INTO users (user_type, student_code, password, name, nickname, email, career, interests, photo)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (user_type, student_code, password, name, nickname, email, career, interests, photo))
->>>>>>> 58fd8235a9c681de0dcc366cec350b10f43e75ee
         conn.commit()
         user_id = cursor.lastrowid #returns the id of the last manipulated row 
     except sqlite3.Error as e:
         print(f"Error registering user: {e}")
     finally:
         conn.close() 
-    return user_id
+    return user_id is not None
 
 def update_user_profile(user_id, student_code=None, password=None, name=None, nickname=None, email=None, career=None, interests=None):
     success = False
@@ -798,7 +781,7 @@ def leave_org(org_id, user_id):
     return success
 
 #EVENTS
-def search_events(event_id=None, query=None, event_type=None, event_status=None, organizer_type=None, organizer_id=None, start_date=None, end_date=None):
+def search_events(event_id=None, query=None, location=None, event_type=None, event_status=None, organizer_type=None, organizer_id=None, start_date=None, end_date=None):
     """
     Searches for events based on various criteria.
     
@@ -811,7 +794,8 @@ def search_events(event_id=None, query=None, event_type=None, event_status=None,
         organizer_id (int, optional): Filter by organizer ID
         start_date (str, optional): Filter events on or after this date (ISO format)
         end_date (str, optional): Filter events on or before this date (ISO format)
-    
+        location (str, optional): Filter by event location
+
     Returns:
         list: List of dictionaries containing event data
     """
@@ -834,7 +818,11 @@ def search_events(event_id=None, query=None, event_type=None, event_status=None,
             if query:
                 sql_query += " AND (name LIKE ? OR description LIKE ?)"
                 params.extend([f"%{query}%", f"%{query}%"])
-            
+
+            if location:
+                sql_query += " AND location = ?"
+                params.append(location)
+
             if event_id:
                 sql_query += " AND event_id = ?"
                 params.append(event_id)
@@ -1146,11 +1134,12 @@ def mark_event_attendance(event_id, entity_id, entity_type):
 
 
 #ITEMS
-def get_available_items(item_type=None, item_terms=None, user_id=None):
+def get_available_items(search_term=None, item_type=None, item_terms=None, user_id=None):
     """
     Retrieves available items with optional filtering.
     
     Args:
+        search_term (str, optional): Search in name and description
         item_type (str, optional): Filter by item type
         item_terms (str, optional): Filter by item terms
         user_id (int, optional): Filter by user ID
@@ -1165,7 +1154,7 @@ def get_available_items(item_type=None, item_terms=None, user_id=None):
         try:
             cursor = conn.cursor()
             
-            query = '''
+            sql_query = '''
             SELECT i.item_id, i.user_id, i.name, i.description, 
                    i.item_type, i.item_terms, i.item_status, i.creation_date,
                    u.name as user_name
@@ -1176,22 +1165,27 @@ def get_available_items(item_type=None, item_terms=None, user_id=None):
             
             params = []
             
+            if search_term:
+               sql_query += " AND (i.name LIKE ? OR i.description LIKE ?)"
+               params.append(f"%{search_term}%")
+               params.append(f"%{search_term}%")
+
             if item_type:
-                query += " AND i.item_type = ?"
+                sql_query += " AND i.item_type = ?"
                 params.append(item_type)
                 
             if item_terms:
-                query += " AND i.item_terms = ?"
+                sql_query += " AND i.item_terms = ?"
                 params.append(item_terms)
                 
             if user_id:
-                query += " AND i.user_id = ?"
+                sql_query += " AND i.user_id = ?"
                 params.append(user_id)
                 
             # Order by creation date (newest first)
-            query += " ORDER BY i.creation_date DESC"
+            sql_query += " ORDER BY i.creation_date DESC"
             
-            cursor.execute(query, params)
+            cursor.execute(sql_query, params)
             
             for row in cursor.fetchall():
                 item = {
@@ -1215,7 +1209,7 @@ def get_available_items(item_type=None, item_terms=None, user_id=None):
             
     return items
 
-def create_item(user_id, name, description, item_type, item_terms):
+def create_item(user_id, name, description, photo, item_type, item_terms):
     """
     Creates a new item for exchange.
     
@@ -1223,6 +1217,7 @@ def create_item(user_id, name, description, item_type, item_terms):
         user_id (int): ID of the user creating the item
         name (str): Name of the item
         description (str): Description of the item
+        photo (str): Filename of the item photo
         item_type (str): Type of item --ropa, libros, hogar, otros
         item_terms (str): (regalo, intercambio)
 
@@ -1236,10 +1231,10 @@ def create_item(user_id, name, description, item_type, item_terms):
         try:
             cursor = conn.cursor()
             cursor.execute('''
-            INSERT INTO items (user_id, name, description, item_type, item_terms)
-            VALUES (?, ?, ?, ?, ?)
-            ''', (user_id, name, description, item_type, item_terms))
-            
+            INSERT INTO items (user_id, name, description, photo, item_type, item_terms)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ''', (user_id, name, description, photo, item_type, item_terms))
+
             conn.commit()
             item_id = cursor.lastrowid
             
@@ -1289,7 +1284,7 @@ def get_item_details(item_id):
         if conn is not None:
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT user_id, name, description, item_type, item_terms, item_status
+                SELECT user_id, name, description, photo, item_type, item_terms, item_status
                 FROM items
                 WHERE item_id = ?
             ''', (item_id,))
@@ -1302,9 +1297,10 @@ def get_item_details(item_id):
                     'owner_id': item[0],  # Map user_id to owner_id for compatibility
                     'name': item[1],
                     'description': item[2],
-                    'item_type': item[3],
-                    'item_terms': item[4],
-                    'status': item[5]  # Map item_status to status for compatibility
+                    'photo': item[3],
+                    'item_type': item[4],
+                    'item_terms': item[5],
+                    'status': item[6]  # Map item_status to status for compatibility
                 }
             else:
                 return None
@@ -2685,154 +2681,3 @@ def get_group_conversation (org_id: int, limit: int = 50) -> dict:
         finally:
             conn.close()
     return response
-
-# New functions for email verification
-def get_user_by_verification_token(token):
-    """
-    Retrieves a user by their verification token.
-    Returns user data dictionary if found, None otherwise.
-    """
-    user_data = None
-    conn = db_conn.create_connection()
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            cursor.execute('''
-            SELECT user_id, user_type, student_code, name, email, verification_token_expires
-            FROM users
-            WHERE verification_token = ?
-            ''', (token,))
-            
-            user = cursor.fetchone()
-            if user:
-                user_data = {
-                    'user_id': user[0],
-                    'user_type': user[1],
-                    'student_code': user[2],
-                    'name': user[3],
-                    'email': user[4],
-                    'verification_token_expires': user[5]
-                }
-        except sqlite3.Error as e:
-            print(f"Error retrieving user by verification token: {e}")
-        finally:
-            conn.close()
-    return user_data
-
-def mark_user_as_verified(user_id):
-    """
-    Marks a user as verified and clears their verification token.
-    Returns bool indicating success.
-    """
-    success = False
-    conn = db_conn.create_connection()
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            cursor.execute('''
-            UPDATE users
-            SET is_verified = True, verification_token = NULL, verification_token_expires = NULL
-            WHERE user_id = ?
-            ''', (user_id,))
-            
-            conn.commit()
-            success = cursor.rowcount > 0
-        except sqlite3.Error as e:
-            print(f"Error marking user as verified: {e}")
-        finally:
-            conn.close()
-    return success
-
-def update_verification_token(email, token, token_expires):
-    """
-    Updates the verification token and expiry time for a user.
-    Returns bool indicating success.
-    """
-    success = False
-    conn = db_conn.create_connection()
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            cursor.execute('''
-            UPDATE users
-            SET verification_token = ?, verification_token_expires = ?
-            WHERE email = ?
-            ''', (token, token_expires, email))
-            
-            conn.commit()
-            success = cursor.rowcount > 0
-        except sqlite3.Error as e:
-            print(f"Error updating verification token: {e}")
-        finally:
-            conn.close()
-    return success
-
-def get_user_by_email(email):
-    """
-    Retrieves user information by email.
-    Returns dict with user data if found, None otherwise.
-    """
-    user_data = None
-    conn = db_conn.create_connection()
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            cursor.execute('''
-            SELECT user_id, user_type, student_code, name, email, is_verified
-            FROM users
-            WHERE email = ?
-            ''', (email,))
-            
-            user = cursor.fetchone()
-            if user:
-                user_data = {
-                    'user_id': user[0],
-                    'user_type': user[1],
-                    'student_code': user[2],
-                    'name': user[3],
-                    'email': user[4],
-                    'is_verified': user[5]
-                }
-        except sqlite3.Error as e:
-            print(f"Error retrieving user by email: {e}")
-        finally:
-            conn.close()
-    return user_data
-def get_user_by_student_code_verification(student_code):
-    """
-    Retrieves user information by student code.
-    Returns user data if found, None otherwise.
-    """
-    user_data = None
-    conn = db_conn.create_connection()
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            cursor.execute('''
-            SELECT user_id, user_type, student_code, name, email, password, career, interests, photo, points, creation_date, is_verified, verification_token, verification_token_expires
-            FROM users
-            WHERE student_code = ?
-            ''', (student_code,))
-            user = cursor.fetchone()
-            if user:
-                user_data = {
-                    'user_id': user[0],
-                    'user_type': user[1],
-                    'student_code': user[2],
-                    'name': user[3],
-                    'email': user[4],
-                    'password': user[5],
-                    'career': user[6],
-                    'interests': user[7],
-                    'photo': user[8],
-                    'points': user[9],
-                    'creation_date': user[10],
-                    'is_verified': user[11],
-                    'verification_token': user[11],
-                    'verification_token_expires': user[12]
-                }
-        except sqlite3.Error as e:
-            print(f"Error retrieving user by student code: {e}")
-        finally:
-            conn.close()
-    return user_data

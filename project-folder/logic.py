@@ -3,16 +3,11 @@ import db_conn # Used occasionally for direct DB access
 import sqlite3 # For error handling
 import bcrypt  # bcrypt is a hashing algorithm
 import datetime # For datetime operations
-from flask import Flask, render_template, session, request, url_for
+from flask import Flask, render_template, session, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
-from datetime import datetime, timedelta
-from flask_mail import Mail, Message
-import secrets
-import uuid
-
+from datetime import datetime
 socketio = SocketIO()
 connected_users = {}
-mail = None  # This will be set by app.py
 
 """
 Main business logic module for the Comunidad Verde application.
@@ -50,7 +45,6 @@ The points system encourages participation and community engagement.
 def register_user(name, nickname, email, student_code, password, interests=None, career=None, photo=None):
     """
     Registers a new user whether Student, professor or admin in the system.
-    Now includes email verification.
     Args:
         name (str): User's name.
         nickname (str): User's nickname.
@@ -69,180 +63,27 @@ def register_user(name, nickname, email, student_code, password, interests=None,
 
     # 1. Validate Email Domain for non admin users
     elif not isinstance(email, str) or not email.endswith("@uniandes.edu.co"):
-        print(f"status: error, message: Email must end with {'@uniandes.edu.co'}")
+        print(f"status: error, message: El correo electrónico debe terminar con {'@uniandes.edu.co'}")
         return None
     
     if db_operator.check_user_exists(email, student_code):
-        return {"status": "error", "message": " Email or student code might exist."}
+        return {"status": "error", "message": " El correo electrónico o código de estudiante ya existe."}
 
     # Hash password before sending to db_operator
     hashed_password = None
     if password:
         password_bytes = password.encode('utf-8') #encode the password so that bcrypt module can handle it.
         salt = bcrypt.gensalt()  # Generates random salt; value that get combined with the password before hashing
-        hashed_password = bcrypt.hashpw(password_bytes, salt) #hash the password
+        hashed_password = bcrypt.hashpw(password_bytes, 
+        salt) #hash the password
 
-<<<<<<< HEAD
-    # Generate a verification token and expiration date (24 hours from now)
-    verification_token = str(uuid.uuid4())
-    token_expiry = datetime.now() + timedelta(hours=24)
-    token_expiry_str = token_expiry.strftime('%Y-%m-%d %H:%M:%S')
-
-    # Register user with verification token
-    user_id = db_operator.register_user(
-        user_type, student_code, hashed_password, name, email, 
-        career, interests, photo, verification_token, token_expiry_str
-    )
-
-    if user_id:
-        # Send verification email
-        if user_type != "admin":  # Skip verification for admin users
-            send_verification_email(name, email, verification_token)
-            return {"status": "success", "message": f"User '{name}' registered successfully. Please check your email to verify your account."}
-        return {"status": "success", "message": f"Admin user '{name}' registered successfully."}
-    else:
-        return {"status": "error", "message": "Database error."}
-
-def send_verification_email(name, email, token):
-    """
-    Sends a verification email to the user.
-    """
-    if mail is None:
-        print("Error: Mail configuration is not available.")
-        return False
-
-    try:
-        # Build the verification URL manually instead of using url_for
-        # This avoids issues with SERVER_NAME configuration
-        verification_url = f"http://localhost:5000/verify/{token}"
-        
-        msg = Message(
-            subject="Verify your Comunidad Verde account",
-            recipients=[email]
-        )
-        
-        msg.html = f"""
-        <h1>Welcome to Comunidad Verde, {name}!</h1>
-        <p>Thank you for registering. Please click the link below to verify your email address:</p>
-        <p><a href="{verification_url}">Verify My Email</a></p>
-        <p>This link will expire in 24 hours.</p>
-        <p>If you did not register for Comunidad Verde, please ignore this email.</p>
-        """
-        
-        mail.send(msg)
-        return True
-    except Exception as e:
-        print(f"Error sending verification email: {e}")
-        return False
-
-def verify_email_token(token):
-    """
-    Verifies a user's email using the verification token.
-    """
-    user_data = db_operator.get_user_by_verification_token(token)
-    
-    if not user_data:
-        return {"status": "error", "message": "Invalid verification token."}
-    
-    # Check if token has expired
-    if user_data.get('verification_token_expires'):
-        expiry_date = datetime.strptime(user_data['verification_token_expires'], '%Y-%m-%d %H:%M:%S')
-        if datetime.now() > expiry_date:
-            return {"status": "error", "message": "Verification token has expired. Please request a new one."}
-    
-    # Mark user as verified
-    success = db_operator.mark_user_as_verified(user_data['user_id'])
-    
-    if success:
-        return {"status": "success", "message": "Email verified successfully!"}
-    else:
-        return {"status": "error", "message": "Failed to verify email."}
-
-def resend_verification_email(email):
-    """
-    Resends the verification email to the user.
-    """
-    user_data = db_operator.get_user_by_email(email)
-    
-    if not user_data:
-        return {"status": "error", "message": "No user found with this email address."}
-    
-    if user_data.get('is_verified'):
-        return {"status": "error", "message": "Your account is already verified."}
-    
-    # Generate new token and expiration
-    verification_token = str(uuid.uuid4())
-    token_expiry = datetime.now() + timedelta(hours=24)
-    token_expiry_str = token_expiry.strftime('%Y-%m-%d %H:%M:%S')
-    
-    # Update token in database
-    success = db_operator.update_verification_token(email, verification_token, token_expiry_str)
-    
-    if success:
-        # Send new verification email
-        send_result = send_verification_email(user_data['name'], email, verification_token)
-        if send_result:
-            return {"status": "success", "message": "Verification email resent successfully."}
-        else:
-            return {"status": "error", "message": "Failed to send verification email."}
-    else:
-        return {"status": "error", "message": "Failed to generate new verification token."}
-
-def login(code, password):
-    """
-    Authenticates normal users (students, professors or admins)
-    args:
-        code int: student, professor or admin code
-        password str: password of the user
-    Returns a dictionary containing status and entity data on success,
-    or status and error message on failure.
-    """
-    # First try to authenticate as a user
-    user = db_operator.get_user_by_student_code_verification(code)
-    if user:
-        # Check if account is verified (skip check for admin users)
-        if not user.get('is_verified'):
-            return {"status": "error", "message": "Please verify your email before logging in. Check your inbox or request a new verification email."}
-        password_bytes = password.encode('utf-8')
-        stored_password = user['password']
-        if bcrypt.checkpw(password_bytes, stored_password):
-            if user.get('user_type') == 'admin':
-                print(f"Logic: Admin user '{user.get('name')}' authenticated.")
-                return {
-                    "status": "success",
-                    "entity_type": "admin",
-                    "user_id": user.get('user_id'),
-                    "name": user.get('name'),
-                    "email": user.get('email')
-                }
-                
-            return {
-                "status": "success",
-                "entity_type": "user",
-                "entity_id": user.get('user_id'),
-                "student_code": user.get('student_code'),
-                "name": user.get('name'),
-                "email": user.get('email'),
-                "points": user.get('points'),
-                "interests": user.get('interests'),
-                "career": user.get('career'),
-                "photo": user.get('photo'),
-                "creation_date": user.get("creation_date")
-            }
-
-    print(f"Logic: Login failed for code '{code}'")
-    return {"status": "error", "message": "Invalid credentials or entity not found."}
-
-def register_organization(creator_email, creator_student_code, name, email, description, password, interests=None, photo="photo-org"):
-=======
     success = db_operator.register_user(user_type, student_code, hashed_password, name, nickname, email, career, interests, photo)
     if success:
-        return {"status": "success", "message": f"User '{name}' registered successfully."}
+        return {"status": "success", "message": f"Usuario '{name}' registrado exitosamente."}
     else:
-        return {"status": "error", "message": "Database error."}
+        return {"status": "error", "message": "Error en la base de datos."}
 
 def register_organization(creator_email, creator_student_code, name, email, description, password, interests=None, photo=None):
->>>>>>> 58fd8235a9c681de0dcc366cec350b10f43e75ee
     """
     Registers a new organization.
     Requires the student code of the creating user.
@@ -259,7 +100,7 @@ def register_organization(creator_email, creator_student_code, name, email, desc
     """
 
     if not db_operator.check_user_exists(creator_email, creator_student_code):
-        return {"status": "error", "message": "Email or student code might exist."}
+        return {"status": "error", "message": "El correo electrónico o código de estudiante ya existe."}
 
     user_type = "org"
     hashed_password = None
@@ -270,12 +111,10 @@ def register_organization(creator_email, creator_student_code, name, email, desc
         
     success = db_operator.register_org(user_type, creator_student_code, hashed_password, name, email, description, interests, photo)
     if success:
-        return {"status": "success", "message": f"Organization '{name}' registered successfully."}
+        return {"status": "success", "message": f"Organización '{name}' registrada exitosamente."}
     else:
-        return {"status": "error", "message": "Organization registration failed. Email might already exist."}
+        return {"status": "error", "message": "Error al registrar la organización. El correo electrónico ya podría existir."}
 
-<<<<<<< HEAD
-=======
 def login(code, password):
     """
     Authenticates normal users (students, professors or admins)
@@ -311,9 +150,8 @@ def login(code, password):
             }
 
     print(f"Logic: Login failed for code '{code}'")
-    return {"status": "error", "message": "Invalid credentials or entity not found."}
+    return {"status": "error", "message": "Credenciales inválidas o entidad no encontrada."}
 
->>>>>>> 58fd8235a9c681de0dcc366cec350b10f43e75ee
 def login_orgs(creator_code, password):
     """
     Authenticates organizations.
@@ -340,7 +178,7 @@ def login_orgs(creator_code, password):
                 "creation_date": org.get("creation_date")
             }
     print(f"Logic: Login failed for code '{creator_code}'")
-    return {"status": "error", "message": "Invalid credentials or entity not found."}
+    return {"status": "error", "message": "Credenciales inválidas o entidad no encontrada."}
 
 # --- Profile Functions ---
 def update_my_profile_logic(entity_id, entity_type, new_data):
@@ -359,7 +197,7 @@ def update_my_profile_logic(entity_id, entity_type, new_data):
     # Validate email format
     if 'email' in new_data and new_data['email']:
         if not isinstance(new_data['email'], str) or not new_data['email'].endswith("@uniandes.edu.co"):
-            return {"status": "error", "message": "Invalid email format. Must end with @uniandes.edu.co"}
+            return {"status": "error", "message": "Formato de correo electrónico inválido. Debe terminar con @uniandes.edu.co"}
 
     valid_fields = []
     
@@ -367,7 +205,7 @@ def update_my_profile_logic(entity_id, entity_type, new_data):
     if 'password' in new_data and new_data['password']:
         # Check if old_password is provided
         if 'old_password' not in new_data or not new_data['old_password']:
-            return {"status": "error", "message": "Old password is required to change password"}
+            return {"status": "error", "message": "Se requiere la contraseña actual para cambiar la contraseña"}
         
         # Get current user/org data to verify old password
         if entity_type == 'user' or entity_type == 'admin':
@@ -375,13 +213,13 @@ def update_my_profile_logic(entity_id, entity_type, new_data):
         elif entity_type == 'organization':
             entity_data = db_operator.get_org_by_id(entity_id)
         else:
-            return {"status": "error", "message": f"Invalid entity type: {entity_type}"}
+            return {"status": "error", "message": f"Tipo de entidad inválido: {entity_type}"}
         # Verify old password
         old_password_bytes = new_data['old_password'].encode('utf-8')
         stored_password = entity_data['password']
         
         if not bcrypt.checkpw(old_password_bytes, stored_password):
-            return {"status": "error", "message": "Current password is incorrect"}
+            return {"status": "error", "message": "La contraseña actual es incorrecta"}
         
         # Hash the new password
         password_bytes = new_data['password'].encode('utf-8')
@@ -400,7 +238,7 @@ def update_my_profile_logic(entity_id, entity_type, new_data):
         if update_payload:
             success = db_operator.update_user_profile(entity_id, **update_payload)
             if success:
-                return {"status": "success", "message": "Profile updated successfully."}
+                return {"status": "success", "message": "Perfil actualizado exitosamente."}
     
     elif entity_type == 'organization':
         # Valid fields for organization profile update
@@ -413,12 +251,12 @@ def update_my_profile_logic(entity_id, entity_type, new_data):
         if update_payload:
             success = db_operator.update_org_profile(entity_id, **update_payload)
             if success:
-                return {"status": "success", "message": "Organization profile updated successfully."}
+                return {"status": "success", "message": "Perfil de la organización actualizado exitosamente."}
     
     else:
-        return {"status": "error", "message": f"Invalid entity type: {entity_type}"}
+        return {"status": "error", "message": f"Tipo de entidad inválido: {entity_type}"}
     
-    return {"status": "error", "message": "Failed to update profile. Please check your data."}
+    return {"status": "error", "message": "Error al actualizar el perfil. Por favor, revise los datos."}
 
 def delete_my_account_logic(entity_id, entity_type, password):
     """
@@ -441,7 +279,7 @@ def delete_my_account_logic(entity_id, entity_type, password):
                 success = db_operator.delete_my_user(student_code)
         else:
              print(f"Logic Error: Could not find student code for user {entity_id} to attempt deletion.")
-             return {"status": "error", "message": "Account details not found for deletion."}
+             return {"status": "error", "message": "No se encontraron detalles de la cuenta para eliminar."}
 
     elif entity_type == 'organization':
         org_data = db_operator.get_org_by_id(entity_id)
@@ -452,15 +290,15 @@ def delete_my_account_logic(entity_id, entity_type, password):
                 creator_code = org_data['creator_student_code']
                 success = db_operator.delete_my_org(creator_code)
         else:
-             return {"status": "error", "message": "Account details not found for deletion."}
+             return {"status": "error", "message": "No se encontraron detalles de la cuenta para eliminar."}
     else:
-         return {"status": "error", "message": f"Unknown entity type: {entity_type}"}
+         return {"status": "error", "message": f"Tipo de entidad desconocido: {entity_type}"}
 
     if success:
         # Logout should be triggered in app.py after this returns success
-        return {"status": "success", "message": "Account deleted successfully."}
+        return {"status": "success", "message": "Cuenta eliminada exitosamente."}
     else:
-        return {"status": "error", "message": "Failed to delete account. Please check your password."}
+        return {"status": "error", "message": "Error al eliminar la cuenta. Por favor, revise su contraseña."}
 
 # --- Search users Functions ---
 def search_users_logic(query=None, interests=None, career=None):
@@ -478,7 +316,7 @@ def search_users_logic(query=None, interests=None, career=None):
     """
     users = db_operator.search_users(query=query, career=career, interests=interests)
     if users is None:
-         return {"status": "error", "message": "Error searching users."}
+         return {"status": "error", "message": "Error al buscar usuarios."}
     else:
         return {"status": "success", "data": users}
 
@@ -493,18 +331,18 @@ def get_entity_by_id(entity_id, entity_type):
         if entity_data is None:
             return {
                 "status": "error",
-                "message": "Failed to retrieve user details"
+                "message": "Error al recuperar detalles del usuario"
             }
     elif entity_type == 'org':
         entity_data = db_operator.get_org_by_id(entity_id)
         if entity_data is None:
             return {
                 "status": "error",
-                "message": "Failed to retrieve organization details"
+                "message": "Error al recuperar detalles de la organización"
             }
     return {
         "status": "success",
-        "message": "Entity details retrieved successfully.",
+        "message": "Detalles de la entidad recuperados exitosamente.",
         "data": entity_data
     }
 
@@ -516,7 +354,7 @@ def search_orgs_logic(query=None, interests=None, sort_by=None, user_id=None):
     """
     orgs = db_operator.search_orgs(query=query, interests=interests, sort_by=sort_by, user_id=user_id)
     if orgs is None:
-         return {"status": "error", "message": "Error searching organizations."}
+         return {"status": "error", "message": "Error al buscar organizaciones."}
     else:
         return {"status": "success", "data": orgs}
 
@@ -531,7 +369,7 @@ def get_user_orgs_logic(user_id):
         dict: A dictionary with status, message, and data if successful
     """
     if not user_id:
-        return {"status": "error", "message": "User ID is required"}
+        return {"status": "error", "message": "Se requiere el ID del usuario"}
     
     try:
         # Use the search_orgs function with the user_id filter
@@ -540,15 +378,15 @@ def get_user_orgs_logic(user_id):
         if user_orgs is not None:
             return {
                 "status": "success",
-                "message": f"Found {len(user_orgs)} organizations for user",
+                "message": f"Se encontraron {len(user_orgs)} organizaciones para el usuario",
                 "data": user_orgs
             }
         else:
-            return {"status": "error", "message": "Failed to retrieve user organizations"}
+            return {"status": "error", "message": "Error al recuperar organizaciones del usuario"}
     
     except Exception as e:
         print(f"Logic Error in get_user_orgs_logic: {e}")
-        return {"status": "error", "message": "An error occurred while retrieving user organizations"}
+        return {"status": "error", "message": "Ocurrió un error al recuperar organizaciones del usuario"}
 
 def get_org_members_logic(org_id):
     """
@@ -560,12 +398,12 @@ def get_org_members_logic(org_id):
     """
     # No session check needed here
     if not org_id:
-        return {"status": "error", "message": "Organization ID is required."}
+        return {"status": "error", "message": "Se requiere el ID de la organización."}
     
     print(f"Logic: Getting members for organization ID {org_id}")
     members = db_operator.get_org_members(org_id)
     if members is None:  # DB error
-        return {"status": "error", "message": "Failed to retrieve organization members."}
+        return {"status": "error", "message": "Error al recuperar miembros de la organización."}
     else:
         return {"status": "success", "data": members}
 
@@ -581,7 +419,7 @@ def join_org_logic(user_id, org_id):
     # Removed _get_session_details call
     # Type check ('user') should happen in app.py
     if not user_id:
-        return {"status": "error", "message": "User ID is required."}
+        return {"status": "error", "message": "Se requiere el ID del usuario."}
 
     print(f"Logic: User ID {user_id} attempting to join Org ID {org_id}")
     success = db_operator.join_org(org_id, user_id)
@@ -591,10 +429,10 @@ def join_org_logic(user_id, org_id):
         update_org_points_from_members_logic(org_id=org_id)
         
         # Consider points/achievements for joining orgs?
-        return {"status": "success", "message": "Successfully joined the organization."}
+        return {"status": "success", "message": "Unido exitosamente a la organización."}
     else:
         # Possible reasons: already member, org doesn't exist, DB error
-        return {"status": "error", "message": "Failed to join organization. You might already be a member or the organization may not exist."}
+        return {"status": "error", "message": "Error al unirse a la organización. Puede que ya seas miembro o que la organización no exista."}
 
 def leave_org_logic(user_id, org_id):
     """
@@ -608,7 +446,7 @@ def leave_org_logic(user_id, org_id):
     # Removed _get_session_details call
     # Type check ('user') should happen in app.py
     if not user_id:
-        return {"status": "error", "message": "User ID is required."}
+        return {"status": "error", "message": "Se requiere el ID del usuario."}
 
     print(f"Logic: User ID {user_id} attempting to leave Org ID {org_id}")
     success = db_operator.leave_org(org_id, user_id)
@@ -617,9 +455,10 @@ def leave_org_logic(user_id, org_id):
         # Update organization points after member leaves
         update_org_points_from_members_logic(org_id=org_id)
         
-        return {"status": "success", "message": "Successfully left the organization."}
+        return {"status": "success", "message": "Saliste exitosamente de la organización."}
     else:
-        return {"status": "error", "message": "Failed to leave organization. You might not be a member or the organization may not exist."}
+        # Possible reasons: not a member, org doesn't exist, DB error
+        return {"status": "error", "message": "Error al salir de la organización. Puede que no seas miembro o que la organización no exista."}
 
 
 # --- Event Functions ---
@@ -645,20 +484,20 @@ def create_event_logic(organizer_id, organizer_type, title, description, event_d
     # Removed _get_session_details call
     # Input validation (e.g., ensuring organizer_id/type are provided) might be needed
     if not organizer_id or not organizer_type:
-         return {"status": "error", "message": "Organizer ID and type are required."}
+         return {"status": "error", "message": "Se requiere el ID y tipo del organizador."}
 
     # Map 'organization' type to 'org' if needed by db_operator
     db_organizer_type = 'org' if organizer_type == 'organization' else organizer_type
     if db_organizer_type not in ['user', 'org']:
-         return {"status": "error", "message": f"Invalid organizer type: {organizer_type}"}
+         return {"status": "error", "message": f"Tipo de organizador inválido: {organizer_type}"}
 
     print(f"Logic: {organizer_type.capitalize()} ID {organizer_id} creating event '{title}'")
     result_id = db_operator.create_event(organizer_id, db_organizer_type, title, description, event_type, location, event_datetime)
     if result_id:
-        return {"status": "success", "message": f"Event '{title}' created successfully. You will earn points when participants attend.", "event_id": result_id}
+        return {"status": "success", "message": f"Evento '{title}' creado exitosamente. Ganarás puntos cuando los participantes asistan.", "event_id": result_id}
     else:
         # Consider more specific error messages based on db_operator return/exceptions
-        return {"status": "error", "message": "Failed to create event."}
+        return {"status": "error", "message": "Error al crear el evento."}
 
 def delete_event_logic(entity_id, entity_type, event_id):
     """
@@ -673,28 +512,29 @@ def delete_event_logic(entity_id, entity_type, event_id):
     # Removed _get_session_details call
     # Permission check (is owner?) is handled by db_operator.delete_event
     if not entity_id or not entity_type:
-        return {"status": "error", "message": "Entity ID and type are required."}
+        return {"status": "error", "message": "Se requiere el ID y tipo de la entidad."}
 
     # Map session type ('organization') to db type ('org') if necessary
     entity_type = 'org' if entity_type == 'organization' else entity_type
     if entity_type not in ['user', 'org']:
-         return {"status": "error", "message": f"Invalid entity type: {entity_type}"}
+         return {"status": "error", "message": f"Tipo de entidad inválido: {entity_type}"}
 
     success = db_operator.delete_event(event_id, entity_id, entity_type)
 
     if success:
-        return {"status": "success", "message": "Event deleted successfully."}
+        return {"status": "success", "message": "Evento eliminado exitosamente."}
     else:
         # db_operator might print specific errors (not found, not authorized)
-        return {"status": "error", "message": "Failed to delete event. It might not exist or you are not the organizer."}
+        return {"status": "error", "message": "Error al eliminar el evento. Puede que no exista o que no seas el organizador."}
 
-def search_events_logic(event_id=None, query=None, event_type=None, event_status=None, organizer_type=None, organizer_id=None, start_date=None, end_date=None):
+def search_events_logic(event_id=None, query=None, location=None, event_type=None, event_status=None, organizer_type=None, organizer_id=None, start_date=None, end_date=None):
     """
     Searches for events based on various criteria.
     
     Params:
       event_id (int, optional): Filter by event ID.
       query (str, optional): Search term for name or description.
+      location (str, optional): Filter by event location.
       event_type (str, optional): Filter by event type.
       event_status (str, optional): Filter by event status. (active, completed)
       organizer_type (str, optional): Organizer type ('user' or 'org').
@@ -709,6 +549,7 @@ def search_events_logic(event_id=None, query=None, event_type=None, event_status
     events = db_operator.search_events(
         event_id=event_id,
         query=query,
+        location=location,
         event_type=event_type,
         event_status=event_status,
         organizer_type=organizer_type,
@@ -717,7 +558,7 @@ def search_events_logic(event_id=None, query=None, event_type=None, event_status
         end_date=end_date
     )
     if events is None:
-        return {"status": "error", "message": "Database error while searching events."}
+        return {"status": "error", "message": "Error en la base de datos al buscar eventos."}
     events = sorted(events, key=lambda x: x.get('event_datetime', ""), reverse=True)
     return {"status": "success", "data": events}
 
@@ -731,12 +572,12 @@ def get_event_participants_logic(event_id):
     """
     # No session check needed here
     if not event_id:
-        return {"status": "error", "message": "Event ID is required."}
+        return {"status": "error", "message": "Se requiere el ID del evento."}
     
     print(f"Logic: Getting participants for event ID {event_id}")
     participants = db_operator.get_event_participants(event_id)
     if participants is None:  # DB error
-        return {"status": "error", "message": "Failed to retrieve event participants."}
+        return {"status": "error", "message": "Error al recuperar participantes del evento."}
     else:
         return {"status": "success", "data": participants}
 
@@ -752,17 +593,17 @@ def register_for_event_logic(user_id, event_id):
     # Removed _get_session_details call
     # Type check (ensuring it's a user) should happen in app.py before calling
     if not user_id:
-         return {"status": "error", "message": "User ID is required."}
+         return {"status": "error", "message": "Se requiere el ID del usuario."}
 
     print(f"Logic: User ID {user_id} registering for event ID {event_id}")
     # Assuming db_operator.join_event expects 'user' as user_type
     success = db_operator.join_event(event_id, user_id, 'user')
 
     if success:
-        return {"status": "success", "message": "Successfully registered for the event! You will receive points when your attendance is confirmed."}
+        return {"status": "success", "message": "Registrado exitosamente en el evento. Recibirás puntos cuando se confirme tu asistencia."}
     else:
         # Consider more specific errors (already registered, event full, event not found)
-        return {"status": "error", "message": "Failed to register for the event. Maybe already registered, or the event doesn't exist."}
+        return {"status": "error", "message": "Error al registrarse en el evento. Puede que ya estés registrado o que el evento no exista."}
 
 def leave_event_logic(entity_id, entity_type, event_id):
     """
@@ -776,21 +617,21 @@ def leave_event_logic(entity_id, entity_type, event_id):
     """
     # Removed _get_session_details call
     if not entity_id or not entity_type:
-        return {"status": "error", "message": "Entity ID and type are required."}
+        return {"status": "error", "message": "Se requiere el ID y tipo de la entidad."}
 
     # Map session type ('organization') to db type ('org') if necessary
     entity_type = 'org' if entity_type == 'organization' else entity_type
     if entity_type not in ['user', 'org']:
-         return {"status": "error", "message": f"Invalid entity type: {entity_type}"}
+         return {"status": "error", "message": f"Tipo de entidad inválido: {entity_type}"}
 
 
     print(f"Logic: {entity_type.capitalize()} ID {entity_id} attempting to leave event ID {event_id}")
     success = db_operator.leave_event(event_id, entity_id, entity_type)
 
     if success:
-        return {"status": "success", "message": "Successfully left the event."}
+        return {"status": "success", "message": "Saliste exitosamente del evento."}
     else:
-        return {"status": "error", "message": "Failed to leave event. Maybe you were not registered or the event doesn't exist."}
+        return {"status": "error", "message": "Error al salir del evento. Puede que no estuvieras registrado o que el evento no exista."}
 
 def mark_event_attendance_logic(event_id, marker_id, participant_id, participant_type):
     """
@@ -806,7 +647,7 @@ def mark_event_attendance_logic(event_id, marker_id, participant_id, participant
     # Get event details to check if marker is the organizer
     events = db_operator.search_events(event_id)
     if not events or len(events) == 0:
-        return {"status": "error", "message": "Event not found."}
+        return {"status": "error", "message": "Evento no encontrado."}
         
     event_data = events[0]
     organizer_id = event_data['organizer_id']
@@ -814,13 +655,13 @@ def mark_event_attendance_logic(event_id, marker_id, participant_id, participant
     
     # Check if marker is the organizer
     if organizer_id != marker_id:
-        return {"status": "error", "message": "Only the event organizer can mark attendance."}
+        return {"status": "error", "message": "Solo el organizador del evento puede marcar asistencia."}
 
     # Call db_operator function to mark attendance
     success = db_operator.mark_event_attendance(event_id, participant_id, participant_type)
     
     if not success:
-        return {"status": "error", "message": "Failed to mark attendance. Check if participant is registered for the event."}
+        return {"status": "error", "message": "Error al marcar asistencia. Verifica si el participante está registrado en el evento."}
     
     # POINTS AWARDING SYSTEM
     messages = []
@@ -831,7 +672,7 @@ def mark_event_attendance_logic(event_id, marker_id, participant_id, participant
         participant_points = 5  # Points for attending an event
         award_participant = award_points_logic(participant_id, participant_type, participant_points)
         if award_participant['status'] == 'success':
-            messages.append(f"Participant earned {participant_points} points for attendance.")
+            messages.append(f"El participante ganó {participant_points} puntos por asistencia.")
     
     # 2. Award points to the event organizer if applicable
     participant_count = get_confirmed_participant_count(event_id=event_id)
@@ -841,13 +682,13 @@ def mark_event_attendance_logic(event_id, marker_id, participant_id, participant
         organizer_bonus_points = 10  # Points for first confirmed attendee
         award_bonus = award_points_logic(organizer_id, organizer_type, organizer_bonus_points)
         if award_bonus['status'] == 'success':
-            messages.append(f"Organizer earned {organizer_bonus_points} points for first confirmed attendee.")
+            messages.append(f"El organizador ganó {organizer_bonus_points} puntos por el primer asistente confirmado.")
     
     # Award 2 points to organizer for each confirmed participant
     organizer_points = 2  # Points per confirmed attendee
     award_organizer = award_points_logic(organizer_id, organizer_type, organizer_points)
     if award_organizer['status'] == 'success':
-        messages.append(f"Organizer earned {organizer_points} points for confirming an attendee.")
+        messages.append(f"El organizador ganó {organizer_points} puntos por confirmar un asistente.")
     
     # 3. Check if participant belongs to an organization and if 5+ members attended
     if participant_type == 'user':
@@ -865,10 +706,10 @@ def mark_event_attendance_logic(event_id, marker_id, participant_id, participant
                     org_points = 20  # Points for having 5 confirmed members
                     award_org = award_points_logic(org_id, 'org', org_points)
                     if award_org['status'] == 'success':
-                        messages.append(f"Organization ID {org_id} earned {org_points} points for having 5 confirmed attendees.")
+                        messages.append(f"La organización ID {org_id} ganó {org_points} puntos por tener 5 asistentes confirmados.")
     
     # Generate success message
-    message = "Attendance marked successfully."
+    message = "Asistencia marcada exitosamente."
     if messages:
         message += " " + " ".join(messages)
     
@@ -952,7 +793,7 @@ def get_org_confirmed_count(event_id, org_id):
 
 
 # --- Item Functions ---
-def add_item_logic(owner_id, name, description, item_type, item_terms):
+def add_item_logic(owner_id, name, description, photo, item_type, item_terms):
     """
     Allows a specified user to add an item for exchange, gift or borrowing.
     Returns a status message, including points awarded.
@@ -962,26 +803,27 @@ def add_item_logic(owner_id, name, description, item_type, item_terms):
         owner_type (str): The type of the owner (user or organization).
         name (str): Item name.
         description (str): Item description.
+        photo (str): Item photo filename.
         item_type (str): Item type (ropa, libros, hogar, otros).
         item_terms (str): Item terms (regalo, intercambio).
     """
     # Removed _get_session_details call
     # Type check (ensuring it's a user) should happen in app.py
     if not owner_id:
-        return {"status": "error", "message": "Owner ID is required."}
+        return {"status": "error", "message": "Se requiere el ID del propietario."}
 
     valid_terms = ['regalo', 'intercambio']
     if item_terms not in valid_terms:
-        return {"status": "error", "message": f"Invalid item terms. Must be one of: {', '.join(valid_terms)}"}
+        return {"status": "error", "message": f"Términos del artículo inválidos. Debe ser uno de: {', '.join(valid_terms)}"}
     
-    item_id = db_operator.create_item(owner_id, name, description, item_type, item_terms)
+    item_id = db_operator.create_item(owner_id, name, description, photo, item_type, item_terms)
 
     if item_id:
         points_to_award = 1  # Just 1 point for listing an item
         award_result = award_points_logic(owner_id, 'user', points_to_award)
-        return {"status": "success", "message": f"Item '{name}' added successfully. {award_result.get('message', '')}"}
+        return {"status": "success", "message": f"Artículo '{name}' agregado exitosamente. {award_result.get('message', '')}"}
     else:
-        return {"status": "error", "message": "Failed to add item."}
+        return {"status": "error", "message": "Error al agregar el artículo."}
 
 def delete_my_item_logic(user_id, item_id):
     """
@@ -995,42 +837,43 @@ def delete_my_item_logic(user_id, item_id):
     # Removed _get_session_details call
     # Type check ('user') happens in app.py
     if not user_id:
-        return {"status": "error", "message": "User ID is required."}
+        return {"status": "error", "message": "Se requiere el ID del usuario."}
 
     print(f"Logic: User ID {user_id} attempting to delete item ID {item_id}")
 
     # 1. Verify ownership (important!)
     owner_id = db_operator.get_item_owner(item_id)
     if owner_id is None:
-        return {"status": "error", "message": "Item not found."}
+        return {"status": "error", "message": "Artículo no encontrado."}
     if owner_id != user_id:
-        return {"status": "error", "message": "You can only delete your own items."}
+        return {"status": "error", "message": "Solo puedes eliminar tus propios artículos."}
 
     # 2. Update status to 'removed' (or implement a real delete in db_operator if preferred)
     success = db_operator.update_item_status(item_id, 'removed')
 
     if success:
-        return {"status": "success", "message": "Item removed successfully."}
+        return {"status": "success", "message": "Artículo eliminado exitosamente."}
     else:
-        return {"status": "error", "message": "Failed to remove item."}
+        return {"status": "error", "message": "Error al eliminar el artículo."}
 
-def view_items_logic(item_type=None, item_terms=None, user_id=None):
+def view_items_logic(search_term=None, item_type=None, item_terms=None, user_id=None):
     """
     Retrieves items currently available for exchange, gift or borrowing.
     Items can be filtered by their terms.
     
     Args:
+        search_term (str, optional): Search in name and description
         item_type (str, optional): Filter by item type (ropa, libros, hogar, otros).
         item_terms (str, optional): Filter by item terms (gift, loan, exchange).
         user_id (int, optional): items from the specific owner.
         If None, all items are returned.
     
     Returns:
-        dict: Dictionary with status and data.  
-    """ 
-    items = db_operator.get_available_items(item_type=item_type, item_terms=item_terms, user_id=user_id)
+        dict: Dictionary with status and data.
+    """
+    items = db_operator.get_available_items(search_term=search_term, item_type=item_type, item_terms=item_terms, user_id=user_id)
     if items is None:
-        return {"status": "error", "message": "Failed to retrieve items."}
+        return {"status": "error", "message": "Error al recuperar artículos."}
     else:
         return {"status": "success", "data": items}
 
@@ -1045,11 +888,11 @@ def get_item_details_logic(item_id):
         dict: A dictionary with status, message, and data if successful
     """
     if not item_id:
-        return {"status": "error", "message": "Item ID is required."}
+        return {"status": "error", "message": "Se requiere el ID del artículo."}
     
     item_details = db_operator.get_item_details(item_id)
     if item_details is None:
-        return {"status": "error", "message": "Item not found."}
+        return {"status": "error", "message": "Artículo no encontrado."}
     
     return {"status": "success", "data": item_details}
 
@@ -1068,46 +911,46 @@ def request_item_logic(requester_id, item_id, message=""):
     """
     # Validate requester and item ID
     if not requester_id or not item_id:
-        return {"status": "error", "message": "Requester ID and Item ID are required."}
+        return {"status": "error", "message": "Se requiere el ID del solicitante y el ID del artículo."}
 
     # Retrieve item details and verify availability
     item_details = db_operator.get_item_details(item_id)
     if not item_details:
-        return {"status": "error", "message": "Item not found."}
+        return {"status": "error", "message": "Artículo no encontrado."}
     owner_id = item_details.get('owner_id')
     item_name = item_details.get('name')
     item_term = item_details.get('item_terms')  # expected to be 'gift', 'loan', or 'exchange'
     if owner_id == requester_id:
-        return {"status": "error", "message": "You cannot request your own items."}
+        return {"status": "error", "message": "No puedes solicitar tus propios artículos."}
     if item_details.get('status') != 'available':
-        return {"status": "error", "message": "This item is not available for request."}
+        return {"status": "error", "message": "Este artículo no está disponible para solicitud."}
     
     # Process the request based on item term
     if item_term == 'gift':
         update_success = db_operator.update_item_status(item_id, 'unavailable')
         if update_success:
-            return {"status": "success", "message": f"Gift item '{item_name}' requested. The item is now unavailable. Initiate chat with the owner."}
+            return {"status": "success", "message": f"Artículo de regalo '{item_name}' solicitado. El artículo ahora está no disponible. Inicia chat con el propietario."}
         else:
-            return {"status": "error", "message": "Failed to update item status for gift request."}
+            return {"status": "error", "message": "Error al actualizar el estado del artículo para solicitud de regalo."}
     
     elif item_term == 'loan':
         update_success = db_operator.update_item_status(item_id, 'borrowed')
         if update_success:
-            return {"status": "success", "message": f"Loan item '{item_name}' requested. The item is now marked as borrowed. Initiate chat with the owner regarding delivery and return."}
+            return {"status": "success", "message": f"Artículo de préstamo '{item_name}' solicitado. El artículo ahora está marcado como prestado. Inicia chat con el propietario sobre la entrega y devolución."}
         else:
-            return {"status": "error", "message": "Failed to update item status for loan request."}
+            return {"status": "error", "message": "Error al actualizar el estado del artículo para solicitud de préstamo."}
     
     elif item_term == 'exchange':
         if not message.strip():
-            return {"status": "error", "message": "Proposal message is required for exchange requests."}
+            return {"status": "error", "message": "Se requiere un mensaje de propuesta para solicitudes de intercambio."}
         exchange_id = db_operator.create_item_request(requester_id, owner_id, item_id, item_term, message)
         if exchange_id:
-            return {"status": "success", "message": f"Exchange proposal for item '{item_name}' submitted successfully. Wait for the owner's decision."}
+            return {"status": "success", "message": f"Propuesta de intercambio para el artículo '{item_name}' enviada exitosamente. Espera la decisión del propietario."}
         else:
-            return {"status": "error", "message": "Failed to submit exchange proposal."}
+            return {"status": "error", "message": "Error al enviar la propuesta de intercambio."}
     
     else:
-        return {"status": "error", "message": "Invalid item term."}
+        return {"status": "error", "message": "Término del artículo inválido."}
 
 # --- Map Functions ---
 def add_map_point_logic(adder_id, adder_type, permission_code, name, latitude, longitude, point_type, description):
@@ -1127,14 +970,14 @@ def add_map_point_logic(adder_id, adder_type, permission_code, name, latitude, l
     """
     if adder_type != "admin":
         if permission_code != "admin2000":
-            return {"status": "error", "message": "invalid permission code."}
+            return {"status": "error", "message": "Código de permiso inválido."}
     
     success = db_operator.add_map_point(adder_id, name, description, point_type, latitude, longitude)
 
     if success:
-        return {"status": "success", "message": f"Map point '{name}' added successfully."}
+        return {"status": "success", "message": f"Punto de mapa '{name}' agregado exitosamente."}
     else:
-        return {"status": "error", "message": "Failed to add map point. The point might already exists."}
+        return {"status": "error", "message": "Error al agregar el punto de mapa. El punto ya podría existir."}
 
 def delete_map_point_logic(deleter_id, deleter_type, point_id):
     """
@@ -1148,7 +991,7 @@ def delete_map_point_logic(deleter_id, deleter_type, point_id):
         point_id (int): ID of the map point to delete.
     """
     if not deleter_id or not deleter_type:
-        return {"status": "error", "message": "Deleter ID and type are required."}
+        return {"status": "error", "message": "Se requiere el ID y tipo del eliminador."}
     # Assuming db_operator.delete_map_point handles permission check
     # TODO: Clarify and confirm db_operator.delete_map_point signature and permission logic
     # Assumed signature: delete_map_point(user_id, user_type, point_id)
@@ -1156,9 +999,9 @@ def delete_map_point_logic(deleter_id, deleter_type, point_id):
     success = db_operator.delete_map_point(deleter_id, deleter_type, point_id)
 
     if success:
-        return {"status": "success", "message": "Map point deleted successfully."}
+        return {"status": "success", "message": "Punto de mapa eliminado exitosamente."}
     else:
-        return {"status": "error", "message": "Failed to delete map point. Check permissions or if the point exists."}
+        return {"status": "error", "message": "Error al eliminar el punto de mapa. Verifica permisos o si el punto existe."}
 
 def get_map_points_logic():
     """
@@ -1168,7 +1011,7 @@ def get_map_points_logic():
     print("Logic: Fetching all map points.")
     points = db_operator.get_map_points()
     if points is None:  # DB error
-        return {"status": "error", "message": "Failed to retrieve map points."}
+        return {"status": "error", "message": "Error al recuperar puntos de mapa."}
     else:
         return {"status": "success", "data": points}
 
@@ -1221,7 +1064,7 @@ def save_map_point(point_data):
     try:
         conn = db_conn.create_connection()
         if conn is None:
-            return {'status': 'error', 'message': 'Database connection failed'}
+            return {'status': 'error', 'message': 'Error de conexión a la base de datos'}
             
         cursor = conn.cursor()
         
@@ -1250,7 +1093,7 @@ def save_map_point(point_data):
         ))
         
         conn.commit()
-        return {'status': 'success', 'message': 'Point saved successfully'}
+        return {'status': 'success', 'message': 'Punto guardado exitosamente'}
     except Exception as e:
         return {'status': 'error', 'message': str(e)}
     finally:
@@ -1271,12 +1114,12 @@ def search_challenges_logic(entity_type):
         dict: Status message and list of dictionaries, each containing challenge data
     """
     if entity_type not in ['user', 'organization']:
-        return {"status": "error", "message": "Invalid entity type for challenges."}
+        return {"status": "error", "message": "Tipo de entidad inválido para desafíos."}
     db_type = 'org' if entity_type == 'organization' else 'user'
     print(f"Logic: Searching challenges for {entity_type}s")
     challenges = db_operator.search_challenges(user_type=db_type)
     if challenges is None: # DB Error
-        return {"status": "error", "message": f"Could not retrieve challenges for {entity_type}s."}
+        return {"status": "error", "message": f"No se pudieron recuperar desafíos para {entity_type}s."}
     else:
         return {"status": "success", "data": challenges}
 
@@ -1290,16 +1133,16 @@ def join_challenge_logic(entity_id, entity_type, challenge_id):
         challenge_id (int): ID of the challenge to join.
     """
     if not entity_id or not entity_type:
-        return {"status": "error", "message": "Entity ID and type are required."}
+        return {"status": "error", "message": "Se requiere el ID y tipo de la entidad."}
     db_type = 'org' if entity_type == 'organization' else 'user'
     if db_type not in ['user', 'org']:
-         return {"status": "error", "message": f"Invalid entity type: {entity_type}"}
+         return {"status": "error", "message": f"Tipo de entidad inválido: {entity_type}"}
 
     success = db_operator.join_challenge(entity_id, db_type, challenge_id)
     if success:
-        return {"status": "success", "message": "Successfully joined the challenge."}
+        return {"status": "success", "message": "Unido exitosamente al desafío."}
     else:
-        return {"status": "error", "message": "Failed to join challenge. Maybe already joined, challenge doesn't exist, or type mismatch."}
+        return {"status": "error", "message": "Error al unirse al desafío. Puede que ya estés unido, que el desafío no exista o que haya un error de tipo."}
 
 def get_my_active_challenges_logic(entity_id, entity_type):
     """
@@ -1308,7 +1151,7 @@ def get_my_active_challenges_logic(entity_id, entity_type):
     """
     active_challenges = db_operator.get_active_challenges(entity_id, entity_type)
     if active_challenges is None: 
-        return {"status": "error", "message": "database error."}
+        return {"status": "error", "message": "Error en la base de datos."}
 
     elif not active_challenges:
         return {"status": "success", "data": []}
@@ -1330,10 +1173,10 @@ def search_achievements_logic(entity_type):
     elif entity_type == 'organization':
         db_type = 'org'
     else:
-        return {"status": "error", "message": "Invalid entity type for achievements."}
+        return {"status": "error", "message": "Tipo de entidad inválido para logros."}
     achievements = db_operator.search_achievements(db_type)
     if achievements is None:
-        return {"status": "error", "message": f"There are no achievements for {entity_type}s."}
+        return {"status": "error", "message": f"No hay logros para {entity_type}s."}
     else:
         return {"status": "success", "data": achievements}
 
@@ -1369,7 +1212,7 @@ def update_challenge_progress_logic(entity_id, entity_type, challenge_id, progre
         points_awarded = challenge_data['points_reward']
         status = award_points_logic(entity_id, entity_type, points_awarded)
         if status['status'] == 'error':
-            return {"status": "error", "message": "Failed to award points for challenge completion."}
+            return {"status": "error", "message": "Error al otorgar puntos por completar el desafío."}
 
     else:
         challenge_status = None
@@ -1386,13 +1229,13 @@ def update_challenge_progress_logic(entity_id, entity_type, challenge_id, progre
     )
 
     if db_result and status:
-        return {"status": "success", "message": "Challenge completed", "points awarded": f"{points_awarded}."}
+        return {"status": "success", "message": "Desafío completado", "points awarded": f"{points_awarded}."}
 
     elif db_result:
-        return {"status": "success", "message": f"Challenge progress updated to {new_progress}."}
+        return {"status": "success", "message": f"Progreso del desafío actualizado a {new_progress}."}
     
     else:
-        return {"status": "error", "message": "Failed to update challenge progress."}
+        return {"status": "error", "message": "Error al actualizar el progreso del desafío."}
 
 # --- Points Functions ---
 def update_org_points_from_members_logic(org_id=None, user_id=None):
@@ -1437,10 +1280,10 @@ def update_org_points_from_members_logic(org_id=None, user_id=None):
     if updated_orgs:
         return {
             "status": "success", 
-            "message": f"Updated points for {len(updated_orgs)} organizations"
+            "message": f"Puntos actualizados para {len(updated_orgs)} organizaciones"
         }
     else:
-        return {"status": "info", "message": "No organizations were updated"}
+        return {"status": "info", "message": "No se actualizaron organizaciones"}
 
 def update_single_org_points(org_id):
     """
@@ -1543,14 +1386,14 @@ def award_points_logic(entity_id, entity_type, points_to_add):
         db_operator.update_entity_points(entity_id, entity_type, new_points)
         response = {
             "status": "success",
-            "Total points": f"New total points: {new_points}",
+            "Total points": f"Nuevos puntos totales: {new_points}",
             "achievement_unlocked": achievement_unlocked
         }
                
     else:
         response = {
             "status": "error",
-            "message": "There are no achivements in the system."
+            "message": "No hay logros en el sistema."
         }
 
     if entity_type == 'user':
@@ -1567,7 +1410,7 @@ def get_entity_achievements(entity_id, entity_type):
     if response is None:
         return {
             "status": "error",
-            "data": "Failed to retrieve achievements."
+            "data": "Error al recuperar logros."
         }
     return {
         "status": "success",
@@ -1582,7 +1425,7 @@ def search_achievements_logic(entity_type):
     """
     achievements = db_operator.search_achievements(entity_type)
     if achievements is None:
-        return {"status": "error", "message": f"There are no achievements for {entity_type}s."}
+        return {"status": "error", "message": f"No hay logros para {entity_type}s."}
     else:
         return {"status": "success", "data": achievements}
 
@@ -1599,9 +1442,9 @@ def admin_delete_org_logic(org_id_to_delete):
     """
     success = db_operator.delete_org_by_id(org_id_to_delete)
     if success:
-        return {"status": "success", "message": f"Organization ID {org_id_to_delete} deleted successfully."}
+        return {"status": "success", "message": f"Organización ID {org_id_to_delete} eliminada exitosamente."}
     else:
-        return {"status": "error", "message": f"Failed to delete organization ID {org_id_to_delete}."}
+        return {"status": "error", "message": f"Error al eliminar la organización ID {org_id_to_delete}."}
 
 def admin_create_achievement_logic(name, description, points_required, badge_icon, achievement_user_type):
     """
@@ -1617,9 +1460,9 @@ def admin_create_achievement_logic(name, description, points_required, badge_ico
     # Admin check MUST happen in app.py route before calling this
     result_id = db_operator.create_achievement(name, description, points_required, badge_icon, achievement_user_type)
     if result_id:
-        return {"status": "success", "message": f"Achievement '{name}' created successfully."}
+        return {"status": "success", "message": f"Logro '{name}' creado exitosamente."}
     else:
-        return {"status": "error", "message": "Failed to create achievement. Name might already exist."}
+        return {"status": "error", "message": "Error al crear el logro. El nombre ya podría existir."}
 
 def admin_delete_achievement_logic(achievement_id, achievement_user_type):
     """
@@ -1632,9 +1475,9 @@ def admin_delete_achievement_logic(achievement_id, achievement_user_type):
     # Admin check MUST happen in app.py route before calling this
     success = db_operator.delete_achievement(achievement_id, achievement_user_type)
     if success:
-        return {"status": "success", "message": "Achievement deleted successfully."}
+        return {"status": "success", "message": "Logro eliminado exitosamente."}
     else:
-        return {"status": "error", "message": "Failed to delete achievement."}
+        return {"status": "error", "message": "Error al eliminar el logro."}
 
 def admin_create_challenge_logic(name, description, goal_type, goal_target, points_reward, time_allowed, challenge_user_type):
     """
@@ -1652,9 +1495,9 @@ def admin_create_challenge_logic(name, description, goal_type, goal_target, poin
     # Admin check MUST happen in app.py route before calling this
     result_id = db_operator.create_challenge(name, description, goal_type, goal_target, points_reward, time_allowed, challenge_user_type)
     if result_id:
-        return {"status": "success", "message": f"Challenge '{name}' created successfully."}
+        return {"status": "success", "message": f"Desafío '{name}' creado exitosamente."}
     else:
-        return {"status": "error", "message": "Failed to create challenge. Name might already exist."}
+        return {"status": "error", "message": "Error al crear el desafío. El nombre ya podría existir."}
 
 def admin_delete_challenge_logic(challenge_id, challenge_user_type):
     """
@@ -1667,9 +1510,9 @@ def admin_delete_challenge_logic(challenge_id, challenge_user_type):
     # Admin check MUST happen in app.py route before calling this
     success = db_operator.delete_challenge(challenge_id, challenge_user_type)
     if success:
-        return {"status": "success", "message": "Challenge deleted successfully."}
+        return {"status": "success", "message": "Desafío eliminado exitosamente."}
     else:
-        return {"status": "error", "message": "Failed to delete challenge."}
+        return {"status": "error", "message": "Error al eliminar el desafío."}
 
 def admin_get_events(query=None):
     """
@@ -1684,7 +1527,7 @@ def admin_get_events(query=None):
     events = db_operator.search_events(query=query)
     
     if events is None:
-        return {"status": "error", "message": "Failed to retrieve events."}
+        return {"status": "error", "message": "Error al recuperar eventos."}
     else:
         return {"status": "success", "data": events}
 
@@ -1699,13 +1542,13 @@ def admin_delete_event(event_id):
         dict: Status and message
     """
     if not event_id:
-        return {"status": "error", "message": "Event ID is required."}
+        return {"status": "error", "message": "Se requiere el ID del evento."}
     
     success = db_operator.delete_event(event_id, None, 'admin')
     if success:
-        return {"status": "success", "message": "Event deleted successfully."}
+        return {"status": "success", "message": "Evento eliminado exitosamente."}
     else:
-        return {"status": "error", "message": "Failed to delete event. It might not exist."}
+        return {"status": "error", "message": "Error al eliminar el evento. Puede que no exista."}
 
 # --- Stats Functions ---
 def get_users_count():
@@ -1880,7 +1723,7 @@ def handle_private_message(data: dict) -> None:
     sender_type = session.get('entity_type')
     
     if not sender_id or not sender_type:
-        emit('error_message', {'message': 'Sender not authenticated.'})
+        emit('error_message', {'message': 'Remitente no autenticado.'})
         print("SocketIO: Sender not authenticated.")
         return
     
@@ -1889,14 +1732,14 @@ def handle_private_message(data: dict) -> None:
     content = data.get('content')
     
     if not recipient_id_str or not recipient_type or not content:
-        emit('error_message', {'message': 'Missing required fields.'})
+        emit('error_message', {'message': 'Faltan campos requeridos.'})
         print("SocketIO: Missing required fields.")
         return
     
     try:
         recipient_id = int(recipient_id_str)
     except (ValueError, TypeError):
-        emit('error_message', {'message': 'Invalid recipient ID.'})
+        emit('error_message', {'message': 'ID de destinatario inválido.'})
         print("SocketIO: Invalid recipient ID.")
         return
     
@@ -1904,7 +1747,7 @@ def handle_private_message(data: dict) -> None:
     save_message = save_message_logic(sender_id, sender_type, recipient_id, recipient_type, content)
     
     if not save_message or save_message.get('status') != 'success':
-        emit('error_message', {'message': 'Failed to save message.'})
+        emit('error_message', {'message': 'Error al guardar el mensaje.'})
         print("SocketIO: Failed to save message.")
         return
     
@@ -1954,7 +1797,7 @@ def handle_group_message(data : dict) -> None:
     sender_type = session.get('entity_type')
     
     if not sender_id or not sender_type:
-        emit('error_message', {'message': 'Sender not authenticated.'})
+        emit('error_message', {'message': 'Remitente no autenticado.'})
         print("SocketIO: Sender not authenticated.")
         return
     
@@ -1962,14 +1805,14 @@ def handle_group_message(data : dict) -> None:
     content = data.get('content')
     
     if not org_id_str or not content:
-        emit('error_message', {'message': 'Missing required fields.'})
+        emit('error_message', {'message': 'Faltan campos requeridos.'})
         print("SocketIO: Missing required fields.")
         return
     
     try:
         org_id = int(org_id_str)
     except (ValueError, TypeError):
-        emit('error_message', {'message': 'Invalid organization ID.'})
+        emit('error_message', {'message': 'ID de organización inválido.'})
         print("SocketIO: Invalid organization ID.")
         return
     
@@ -1981,14 +1824,14 @@ def handle_group_message(data : dict) -> None:
             break
             
     if not is_member:
-        emit('error_message', {'message': 'User is not a member of the organization.'})
+        emit('error_message', {'message': 'El usuario no es miembro de la organización.'})
         print("SocketIO: User is not a member of the organization.")
         return
     
     save_message = save_message_logic(sender_id, sender_type, org_id, 'org', content)
     
     if not save_message or save_message.get('status') != 'success':
-        emit('error_message', {'message': 'Failed to save message.'})
+        emit('error_message', {'message': 'Error al guardar el mensaje.'})
         print("SocketIO: Failed to save message.")
         return
     
