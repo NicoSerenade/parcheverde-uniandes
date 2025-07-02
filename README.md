@@ -4,7 +4,7 @@
 
 ## **Acerca del Proyecto**
 
-Parche Verde nace como una iniciativa del grupo de desarrolladores **Econsciencia** de la Universidad de los Andes, como respuesta a la falta de herramientas que permiten materializar la consciencia ecológica en acción concreta.
+Parche Verde nace como una iniciativa del grupo de desarrolladores **Econsciencia** de la Universidad de los Andes, como respuesta a la falta de herramientas que faciliten pasar de la intención ecológica a la acción concreta.
 
 ## **Características Principales**
 
