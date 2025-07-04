@@ -5,7 +5,7 @@
 
 ## **Acerca del Proyecto**
 
-Parche Verde es una plataforma web que facilita la toma de acción ecológica en la comunidad Uniandina. Nace como una iniciativa del grupo de desarrolladores **Econsciencia** de la Universidad de los Andes, como respuesta ante la falta de herramientas que permitieran convertir la conciencia ambiental de la comunidad en acciones concretas.
+Parche Verde es una plataforma web que facilita la toma de acción ecológica en la comunidad de la Universidad de los Andes, Bogotá. Nace como una respuesta ante la falta de herramientas que permitieran convertir la conciencia ambiental en acciones concretas.
 
 **Misión:** Conectar a la comunidad Uniandina para transformar la intención ecológica en impacto sostenible real.
 
